@@ -1,11 +1,8 @@
-'use client'
-
 import * as React from 'react'
 import useEmblaCarousel, {
   type UseEmblaCarouselType,
 } from 'embla-carousel-react'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
-
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -21,21 +18,10 @@ type CarouselProps = {
   plugins?: CarouselPlugin
   orientation?: 'horizontal' | 'vertical'
   setApi?: (api: CarouselApi) => void
-  /**
-   * NEW: Whether to show the pagination dots at the bottom.
-   * Default is false.
-   */
   showDots?: boolean
+  automaticIterate?: boolean
+  intervalSecond?: number
 }
-
-type CarouselContextProps = {
-  carouselRef: ReturnType<typeof useEmblaCarousel>[0]
-  api: ReturnType<typeof useEmblaCarousel>[1]
-  scrollPrev: () => void
-  scrollNext: () => void
-  canScrollPrev: boolean
-  canScrollNext: boolean
-} & CarouselProps
 
 // -- Context Setup ---------------------------------------------------
 
@@ -49,6 +35,15 @@ function useCarousel() {
   return context
 }
 
+type CarouselContextProps = {
+  carouselRef: ReturnType<typeof useEmblaCarousel>[0]
+  api: CarouselApi
+  scrollPrev: () => void
+  scrollNext: () => void
+  canScrollPrev: boolean
+  canScrollNext: boolean
+} & CarouselProps
+
 // -- Main Carousel ---------------------------------------------------
 
 function Carousel({
@@ -57,15 +52,15 @@ function Carousel({
   setApi,
   plugins,
   className,
-  showDots = false, // default to no dots
+  showDots = false,
+  automaticIterate = false,
+  intervalSecond = 3,
   children,
   ...props
 }: React.ComponentProps<'div'> & CarouselProps) {
+  // Initialize Embla
   const [carouselRef, api] = useEmblaCarousel(
-    {
-      ...opts,
-      axis: orientation === 'horizontal' ? 'x' : 'y',
-    },
+    { ...opts, axis: orientation === 'horizontal' ? 'x' : 'y' },
     plugins,
   )
 
@@ -73,23 +68,23 @@ function Carousel({
   const [canScrollPrev, setCanScrollPrev] = React.useState(false)
   const [canScrollNext, setCanScrollNext] = React.useState(false)
 
-  // NEW: State for active slide index and total slides (for dots)
+  // State for selected slide index and total slides (for dots)
   const [selectedIndex, setSelectedIndex] = React.useState(0)
   const [totalSlides, setTotalSlides] = React.useState(0)
 
-  // Called whenever Embla changes slides
+  const [isHovered, setIsHovered] = React.useState(false)
+
   const onSelect = React.useCallback((emblaApi: CarouselApi) => {
     if (!emblaApi) return
     setCanScrollPrev(emblaApi.canScrollPrev())
     setCanScrollNext(emblaApi.canScrollNext())
-    // Update selected index
     setSelectedIndex(emblaApi.selectedScrollSnap())
   }, [])
 
-  // Arrow handlers
   const scrollPrev = React.useCallback(() => {
     api?.scrollPrev()
   }, [api])
+
   const scrollNext = React.useCallback(() => {
     api?.scrollNext()
   }, [api])
@@ -108,7 +103,7 @@ function Carousel({
     [scrollPrev, scrollNext],
   )
 
-  // If parent provided a setApi prop, pass them the API once available
+  // Pass API outward if needed
   React.useEffect(() => {
     if (api && setApi) {
       setApi(api)
@@ -118,7 +113,6 @@ function Carousel({
   // Listen to Embla events
   React.useEffect(() => {
     if (!api) return
-    // On initial mount or re-init, set slide info
     onSelect(api)
     setTotalSlides(api.slideNodes().length)
 
@@ -126,27 +120,48 @@ function Carousel({
     api.on('select', onSelect)
 
     return () => {
-      api?.off('select', onSelect)
-      api?.off('reInit', onSelect)
+      api.off('select', onSelect)
+      api.off('reInit', onSelect)
     }
   }, [api, onSelect])
+
+  /* Auto-iteration */
+  React.useEffect(() => {
+    if (!api || !automaticIterate || isHovered) return
+
+    const intervalId = setInterval(() => {
+      if (api.canScrollNext()) {
+        api.scrollNext()
+      } else {
+        // Optionally jump back to the first slide
+        api.scrollTo(0)
+      }
+    }, intervalSecond * 1000)
+
+    // Clear interval on unmount or when dependencies change
+    return () => clearInterval(intervalId)
+  }, [api, automaticIterate, intervalSecond, isHovered])
 
   return (
     <CarouselContext.Provider
       value={{
         carouselRef,
-        api: api,
-        opts,
-        orientation:
-          orientation || (opts?.axis === 'y' ? 'vertical' : 'horizontal'),
+        api,
         scrollPrev,
         scrollNext,
         canScrollPrev,
         canScrollNext,
         showDots,
+        orientation,
+        opts,
+        plugins,
+        automaticIterate,
+        intervalSecond,
       }}
     >
       <div
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         onKeyDownCapture={handleKeyDown}
         className={cn('relative', className)}
         role="region"
@@ -156,7 +171,7 @@ function Carousel({
       >
         {children}
 
-        {/* Only render dots if showDots is true */}
+        {/* Optional Dots */}
         {showDots && totalSlides > 0 && (
           <div className="flex justify-center space-x-2 mt-2">
             {Array.from({ length: totalSlides }).map((_, index) => (

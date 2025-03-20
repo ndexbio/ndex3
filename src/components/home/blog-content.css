@@ -1,0 +1,15 @@
+.blog-content h3 {
+    font-size: 1.6rem;
+    margin-bottom: 0.75rem;
+  }
+
+/* underline and darker when hovered */
+.blog-content h3:hover {
+    color: #23527C!important;
+    text-decoration: underline;
+  }
+
+.blog-content p{
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}

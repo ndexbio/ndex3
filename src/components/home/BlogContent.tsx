@@ -2,6 +2,7 @@
 
 import { useBlogContent } from '@/hooks/use-content-service'
 import { Skeleton } from '@/components/ui/skeleton'
+import './blog-content.css'
 
 export function BlogContent() {
   const { data, isLoading, error } = useBlogContent()
@@ -45,12 +46,12 @@ export function BlogContent() {
 
   // Render content side by side
   return (
-    <div className="bg-white p-14 rounded-lg shadow-sm border border-gray-100 h-[760px]">
-      <div className="flex h-full gap-14">
+    <div className="min-w-[25rem] bg-white p-14 rounded-lg shadow-sm border border-gray-100">
+      <div className="flex flex-col lg:flex-row h-full gap-14">
         {data.map((html, idx) => (
           <div
             key={idx}
-            className="flex-1 overflow-auto"
+            className="flex-1 overflow-auto blog-content"
             dangerouslySetInnerHTML={{ __html: html }}
           />
         ))}

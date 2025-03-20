@@ -77,7 +77,12 @@ export function FeaturedContentCarousel() {
       <div className="flex items-center justify-center mb-1">
         <h2 className="text-lg font-semibold">Featured Content</h2>
       </div>
-      <Carousel className="w-full" showDots={true}>
+      <Carousel
+        className="w-full"
+        showDots={true}
+        automaticIterate
+        intervalSecond={5}
+      >
         <CarouselContent>
           {data.items.map((item: FeaturedContentItem, index: number) => (
             <CarouselItem key={index}>
