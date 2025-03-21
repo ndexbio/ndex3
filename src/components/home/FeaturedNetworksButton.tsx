@@ -53,9 +53,9 @@ export function FeaturedNetworksButton() {
           </DropdownMenuItem>
         )}
 
-        {data && data.length > 0 ? (
+        {data && data.items.length > 0 ? (
           <>
-            {data.map((network: FeaturedNetwork, index: number) => (
+            {data.items.map((network: FeaturedNetwork, index: number) => (
               <DropdownMenuItem
                 key={network.UUID || index}
                 onClick={() => handleNetworkClick(network)}
