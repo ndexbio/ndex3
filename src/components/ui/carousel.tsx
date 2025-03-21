@@ -60,7 +60,7 @@ function Carousel({
 }: React.ComponentProps<'div'> & CarouselProps) {
   // Initialize Embla
   const [carouselRef, api] = useEmblaCarousel(
-    { ...opts, axis: orientation === 'horizontal' ? 'x' : 'y' },
+    { loop: true, ...opts, axis: orientation === 'horizontal' ? 'x' : 'y' },
     plugins,
   )
 
@@ -173,7 +173,7 @@ function Carousel({
 
         {/* Optional Dots */}
         {showDots && totalSlides > 0 && (
-          <div className="flex justify-center space-x-2 mt-2">
+          <div className="flex justify-center space-x-2 my-1">
             {Array.from({ length: totalSlides }).map((_, index) => (
               <button
                 key={index}

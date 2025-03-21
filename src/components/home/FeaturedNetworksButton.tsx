@@ -29,7 +29,7 @@ export function FeaturedNetworksButton() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className="w-full bg-ndex hover:bg-ndex-hover text-white rounded-3xl">
+        <Button className="w-full bg-ndex hover:bg-[#2c70ac] text-white rounded-3xl">
           Featured Networks{' '}
           {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
           {!isLoading && <ChevronDown className="ml-2" />}

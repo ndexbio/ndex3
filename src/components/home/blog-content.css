@@ -1,15 +1,16 @@
 .blog-content h3 {
     font-size: 1.6rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
   }
 
 /* underline and darker when hovered */
 .blog-content h3:hover {
-    color: #23527C!important;
+    color: #2c70ac!important;
     text-decoration: underline;
   }
 
 .blog-content p{
-    font-size: 1rem;
+    font-size: 0.9rem;
     margin-bottom: 1rem;
 }

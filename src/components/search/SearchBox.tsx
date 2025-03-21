@@ -1,12 +1,10 @@
 'use client'
 
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSearchStore } from '@/stores/search-store'
-import { FeaturedNetworksButton } from './FeaturedNetworksButton'
-import { SearchExamplesButton } from './SearchExamplesButton'
+import { Search } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 
 export function SearchBox() {
   const { setQuery } = useSearchStore()
@@ -16,29 +14,27 @@ export function SearchBox() {
 
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // If there's a query in the URL, sync it with our state on mount
   useEffect(() => {
     const urlQuery = searchParams.get('q')
     if (urlQuery) {
-      // Decode the URL query and set it to the input
       setCurrentQuery(decodeURIComponent(urlQuery))
     }
   }, [searchParams])
 
+  // Handle Enter key or submit button
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-
     const nextQuery = currentQuery.trim()
-    // Early return if query is empty - this prevents any submission logic
     if (!nextQuery) {
       console.log('Empty search prevented')
-
       return
     }
-
     setQuery(nextQuery)
     router.push(`/search?q=${encodeURIComponent(nextQuery)}`)
   }
 
+  // Prevent blank "Enter"
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !currentQuery.trim()) {
       e.preventDefault()
@@ -46,52 +42,57 @@ export function SearchBox() {
     }
   }
 
+  // Clear search if the input is cleared via the built-in browser 'x' in type=search
   useEffect(() => {
     const input = inputRef.current
     if (!input) return
 
     const handleSearch = () => {
-      // This will only fire when the search is cleared via the "x" button
       if (input.value === '') {
         console.log('Search cleared via x button')
         setCurrentQuery('')
-        // Optional: Also clear the store and URL
         setQuery('')
         router.push('/search')
       }
     }
-
     input.addEventListener('search', handleSearch)
     return () => input.removeEventListener('search', handleSearch)
   }, [setQuery, router])
 
-  useEffect(() => {}, [currentQuery])
-
   return (
-    <form onSubmit={handleSubmit} className="flex items-center space-x-2">
-      <Input
-        ref={inputRef}
-        type="search"
-        placeholder="Enter search term..."
-        value={currentQuery}
-        onChange={(e) => setCurrentQuery(e.target.value)}
-        onKeyDown={handleKeyDown}
-        className="border-slate-500"
-      />
-      <div className="flex items-center gap-2">
-        <Button
-          className="border-slate-600"
+    <form onSubmit={handleSubmit} className="w-full max-w-7xl">
+      {/* Rounded container for the search input + icon */}
+      <div className="flex items-center rounded-lg border border-gray-300 pl-1 pr-3 py-0.5">
+        {/* The text input */}
+        <Input
+          ref={inputRef}
+          type="search"
+          placeholder="Search for networks, users, and groups"
+          value={currentQuery}
+          onChange={(e) => setCurrentQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="
+            flex-1
+            border-none
+            bg-transparent
+            placeholder-gray-500
+            outline-none 
+            focus:outline-none 
+            focus:ring-0 
+            focus:border-transparent
+          "
+        />
+        {/* Vertical divider */}
+        <div className="mx-2 h-5 w-px bg-gray-300" />
+        {/* Search icon */}
+        <button
           type="submit"
-          variant="outline"
+          aria-label="Search"
+          className="text-gray-400 hover:text-gray-600 disabled:hover:text-gray-400 disabled:opacity-50"
           disabled={!currentQuery.trim()}
         >
-          Search
-        </Button>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button variant="link">Latest</Button>
-        <FeaturedNetworksButton />
-        <SearchExamplesButton />
+          <Search className="h-5 w-5" />
+        </button>
       </div>
     </form>
   )

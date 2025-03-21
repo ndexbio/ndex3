@@ -13,7 +13,7 @@ export function SearchExamplesButton() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className="w-full bg-ndex hover:bg-ndex-hover text-white rounded-3xl">
+        <Button className="w-full bg-ndex hover:bg-[#2c70ac] text-white rounded-3xl">
           Search Examples <ChevronDown className="" />
         </Button>
       </DropdownMenuTrigger>

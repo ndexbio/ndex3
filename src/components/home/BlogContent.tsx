@@ -46,8 +46,8 @@ export function BlogContent() {
 
   // Render content side by side
   return (
-    <div className="min-w-[25rem] bg-white p-14 rounded-lg shadow-sm border border-gray-100">
-      <div className="flex flex-col lg:flex-row h-full gap-14">
+    <div className="min-w-[25rem] bg-white px-8 py-2 rounded-lg shadow-sm border border-gray-100">
+      <div className="flex flex-col lg:flex-row h-full gap-10">
         {data.map((html, idx) => (
           <div
             key={idx}

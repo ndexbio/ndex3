@@ -75,7 +75,7 @@ export function FeaturedContentCarousel() {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-center mb-1">
-        <h2 className="text-lg font-semibold">Featured Content</h2>
+        <h2 className="text-lg font-semibold pt-1">Featured Content</h2>
       </div>
       <Carousel
         className="w-full"
@@ -86,8 +86,8 @@ export function FeaturedContentCarousel() {
         <CarouselContent>
           {data.items.map((item: FeaturedContentItem, index: number) => (
             <CarouselItem key={index}>
-              <div className="flex items-start space-x-4 py-4 px-8">
-                <div className="flex-shrink-0 overflow-hidden h-[120px] flex items-center justify-center">
+              <div className="flex items-start space-x-4 py-2 px-8">
+                <div className="flex-shrink-0 overflow-hidden h-[80px] flex items-center justify-center">
                   <img
                     src={item.imageURL}
                     alt={item.title}
