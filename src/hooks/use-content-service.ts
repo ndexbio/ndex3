@@ -1,12 +1,16 @@
 import useSWR from 'swr'
 import { fetchFeaturedContent, fetchFeaturedNetworks, fetchBlogContent } from '@/lib/api/content-service'
+import { useConfig } from '@/lib/contexts/ConfigContext'
 
 /**
  * Custom hook for fetching featured content using SWR
  * @returns Object containing featured content and loading state
  */
 export const useFeaturedContent = () => {
-  const { data, error, isLoading } = useSWR('/featured-content', fetchFeaturedContent)
+  const config = useConfig()
+  const { data, error, isLoading } = useSWR('/featured-content', () => 
+    fetchFeaturedContent(config)
+  )
 
   return {
     data,
@@ -20,7 +24,10 @@ export const useFeaturedContent = () => {
  * @returns Object containing featured networks and loading state
  */
 export const useFeaturedNetworks = () => {
-  const { data, error, isLoading } = useSWR('/featured-networks', fetchFeaturedNetworks)
+  const config = useConfig()
+  const { data, error, isLoading } = useSWR('/featured-networks', () => 
+    fetchFeaturedNetworks(config)
+  )
 
   return {
     data: data || null, // Extract the "items" array from response
@@ -34,7 +41,10 @@ export const useFeaturedNetworks = () => {
  * @returns Object containing blog content and loading state
  */
 export const useBlogContent = () => {
-  const { data, error, isLoading } = useSWR('/blog-content', fetchBlogContent)
+  const config = useConfig()
+  const { data, error, isLoading } = useSWR('/blog-content', () => 
+    fetchBlogContent(config)
+  )
 
   return {
     data: data || [],

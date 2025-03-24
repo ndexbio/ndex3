@@ -1,12 +1,5 @@
 import { FeaturedContentResponse, FeaturedNetworkResponse } from '@/types/api/ui/content';
-
-const FEATURED_CONTENT_ENDPOINT = 'https://home.ndexbio.org/landing_page_content/v2_4_2/featured_content.json'
-const FEATURED_NETWORK_ENDPOINT = 'https://home.ndexbio.org/landing_page_content/v2_4_2/featured_networks.json'
-const BLOG_ENDPOINT = [
-  'https://home.ndexbio.org/landing_page_content/v2_4_2/doc4rudi.html',
-  'https://home.ndexbio.org/landing_page_content/v2_4_2/doc7rudi.html',
-  'https://home.ndexbio.org/landing_page_content/v2_4_2/doc5rudi.html',
-]
+import { AppConfig } from '@/types/entities/AppConfig';
 
 /**
  * SWR fetcher function
@@ -23,28 +16,31 @@ const fetcher = async (url: string) => {
 
 /**
  * Fetches featured content data
+ * @param config Application configuration containing endpoints
  * @returns FeaturedContentResponse
  */
-export const fetchFeaturedContent = async (): Promise<FeaturedContentResponse> => {
-  return fetcher(FEATURED_CONTENT_ENDPOINT)
+export const fetchFeaturedContent = async (config: AppConfig): Promise<FeaturedContentResponse> => {
+  return fetcher(config.uiContent.featuredContent)
 }
 
 /**
  * Fetches the featured networks from NDEx
+ * @param config Application configuration containing endpoints
  * @returns FeaturedNetworkResponse
  */
-export const fetchFeaturedNetworks = async (): Promise<FeaturedNetworkResponse> => {
-  return fetcher(FEATURED_NETWORK_ENDPOINT)
+export const fetchFeaturedNetworks = async (config: AppConfig): Promise<FeaturedNetworkResponse> => {
+  return fetcher(config.uiContent.featuredNetwork)
 }
 
 /**
  * Fetches blog content from multiple sources
+ * @param config Application configuration containing endpoints
  * @returns Promise containing an array of HTML content
  */
-export const fetchBlogContent = async (): Promise<string[]> => {
+export const fetchBlogContent = async (config: AppConfig): Promise<string[]> => {
   try {
     const responses = await Promise.all(
-      BLOG_ENDPOINT.map(async (url) => {
+      config.uiContent.blog.map(async (url) => {
         const response = await fetch(url)
 
         if (!response.ok) {
