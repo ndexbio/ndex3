@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeWrapper } from '@/components/theme-wrapper'
 import { ConfigProvider } from '@/lib/contexts/ConfigContext'
+import { KeycloakProvider } from '@/lib/contexts/KeycloakContext'
 import { NavBar } from '@/components/NavBar'
 import { MainPanel } from '@/components/MainPanel'
 import { Footer } from '@/components/Footer'
@@ -50,11 +51,13 @@ export default function RootLayout({
       </head>
       <body className={`antialiased min-h-screen`}>
         <ConfigProvider>
-          <ThemeWrapper>
-            <NavBar />
-            <MainPanel>{children}</MainPanel>
-            <Footer />
-          </ThemeWrapper>
+          <KeycloakProvider>
+            <ThemeWrapper>
+              <NavBar />
+              <MainPanel>{children}</MainPanel>
+              <Footer />
+            </ThemeWrapper>
+          </KeycloakProvider>
         </ConfigProvider>
       </body>
     </html>
