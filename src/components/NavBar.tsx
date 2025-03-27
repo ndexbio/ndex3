@@ -73,14 +73,18 @@ export function NavBar() {
             </Link>
           </nav>
         </div>
-          {isAuthenticated ? (
-            <UserAvatar />
-          ) : (
-            <Button size="sm" onClick={login}>
-              <User className="h-4 w-4 mr-2" />
-              Login
-            </Button>
-          )}
+        {isAuthenticated ? (
+          <UserAvatar />
+        ) : (
+          <Button
+            size="sm"
+            className="bg-ndex hover:bg-[#2c70ac] mr-3"
+            onClick={login}
+          >
+            <User className="h-4 w-4 mr-2" />
+            Login
+          </Button>
+        )}
       </div>
     </header>
   )

@@ -23,8 +23,9 @@ export function UserAvatar() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Avatar className="h-8 w-8 cursor-pointer">
-          <AvatarFallback className="bg-primary text-primary-foreground">
+        <Avatar className="h-8 w-8 cursor-pointer mr-3">
+          {/* how to make the inside text color white */}
+          <AvatarFallback className="bg-ndex hover:bg-[#2c70ac] text-white">
             {tokenParsed?.name[0] ?? ''}
           </AvatarFallback>
         </Avatar>
