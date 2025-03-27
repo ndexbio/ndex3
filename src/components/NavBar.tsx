@@ -1,53 +1,77 @@
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ModeToggle } from '@/components/mode-toggle'
-import { SearchBox } from './search/SearchBox'
+import { SearchBox } from '@/components/search/SearchBox'
 
 export function NavBar() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
-      <div className="w-full h-14 flex items-center">
-        <div className="px-2">
+    <header className="sticky top-0 z-50 w-full border-b bg-background shadow-sm">
+      <div className="w-full h-14 flex items-center justify-between">
+        {/* Left Section: Logo + Nav Links */}
+        <div className="flex items-center px-3 gap-4">
           <Link
             href="/"
-            className="scroll-m-20 text-4xl font-extrabold tracking-tight flex items-center justify-start gap-2 text-ndex"
+            className="scroll-m-20 text-5xl font-light tracking-tight flex items-center
+                       justify-start gap-2 text-ndex"
           >
             <Image
               src="/ndex-logo.svg"
               alt="NDEx Logo"
-              width={70}
-              height={50}
+              width={80}
+              height={24}
             />
-            <span className="hidden sm:inline">NDEx</span>
+            NDEx
           </Link>
-        </div>
-        <div className="flex-1 max-w-3xl px-4">
-          <SearchBox />
-        </div>
-        <div className="ml-auto flex items-center gap-2 md:gap-4 pr-4">
-          <nav className="hidden md:flex items-center gap-4">
+          <div className="flex-1 px-4">
+            <SearchBox />
+          </div>
+
+          {/* Nav Links */}
+          <nav className="hidden md:flex items-center gap-4 ml-6">
             <Link
-              href="/about"
-              className="text-sm font-medium hover:text-primary transition-colors"
+              href="https://home.ndexbio.org/about-ndex/"
+              className="text-m font-medium px-2.5 py-1.5 rounded hover:bg-gray-100"
             >
               About
             </Link>
             <Link
-              href="/docs"
-              className="text-sm font-medium hover:text-primary transition-colors"
+              href="https://home.ndexbio.org/quick-start/"
+              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-gray-100"
             >
               Docs
             </Link>
             <Link
-              href="/contact"
-              className="text-sm font-medium hover:text-primary transition-colors"
+              href="https://home.ndexbio.org/report-a-bug/"
+              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-gray-100"
             >
-              Contact
+              Report Bug
+            </Link>
+            <Link
+              href="https://home.ndexbio.org/contact-us/"
+              className="text-m font-medium px-2.5 py-1.5 rounded hover:bg-gray-100"
+            >
+              Contact Us
+            </Link>
+            <Link
+              href="https://home.ndexbio.org/about-ndex/#cite_NDEx"
+              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-gray-100"
+            >
+              Cite Us
+            </Link>
+            <Link
+              href="https://home.ndexbio.org/faq/"
+              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-gray-100"
+            >
+              FAQ
             </Link>
           </nav>
-          <ModeToggle />
-          <Button size="sm">Login</Button>
+        </div>
+
+        {/* Right Section: Login Button */}
+        <div className="mr-8">
+          <Button className="bg-ndex hover:bg-[#2c70ac]" size="sm">
+            Login
+          </Button>
         </div>
       </div>
     </header>

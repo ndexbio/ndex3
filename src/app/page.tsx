@@ -1,7 +1,13 @@
 'use client'
 
-import { InfoCard } from '../components/top-page/InfoCard'
+import Home from '@/components/home/Home'
 
-export default function Home() {
-  return <InfoCard />
+/**
+ * 
+ * @returns The Home component
+ * @description This is the main page of the application and customized by the configuration file.
+ * 
+*/
+export default function HomePage() {
+  return <Home />
 }

@@ -2,11 +2,12 @@
 
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { SearchIcon } from 'lucide-react'
+
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSearchStore } from '@/stores/search-store'
-import { FeaturedNetworksButton } from './FeaturedNetworksButton'
-import { SearchExamplesButton } from './SearchExamplesButton'
+import { FeaturedNetworksButton } from '@/components/search/FeaturedNetworksButton'
 
 export function SearchBox() {
   const { setQuery } = useSearchStore()
@@ -69,15 +70,17 @@ export function SearchBox() {
 
   return (
     <form onSubmit={handleSubmit} className="flex items-center space-x-2">
-      <Input
-        ref={inputRef}
-        type="search"
-        placeholder="Enter search term..."
-        value={currentQuery}
-        onChange={(e) => setCurrentQuery(e.target.value)}
-        onKeyDown={handleKeyDown}
-        className="border-slate-500"
-      />
+      <div className="relative border-1 border-slate-500 rounded-sm overflow-hidden">
+        <Input
+          ref={inputRef}
+          type="search"
+          placeholder="Search for networks..."
+          value={currentQuery}
+          onChange={(e) => setCurrentQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="w-80 md:w-96 lg:w-[20rem] [&::-webkit-search-cancel-button]:appearance-auto [&::-webkit-search-cancel-button]:h-5 [&::-webkit-search-cancel-button]:w-5 [&::-webkit-search-cancel-button]:cursor-pointer"
+        />
+      </div>
       <div className="flex items-center gap-2">
         <Button
           className="border-slate-600"
@@ -85,13 +88,11 @@ export function SearchBox() {
           variant="outline"
           disabled={!currentQuery.trim()}
         >
-          Search
+          <SearchIcon />
         </Button>
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="link">Latest</Button>
         <FeaturedNetworksButton />
-        <SearchExamplesButton />
       </div>
     </form>
   )
