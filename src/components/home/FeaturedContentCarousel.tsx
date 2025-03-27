@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useFeaturedContent } from '@/hooks/use-content-service'
 import {
   Carousel,
@@ -10,52 +11,12 @@ import {
 } from '@/components/ui/carousel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FeaturedContentItem } from '@/types/api/ui/content'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-export function FeaturedContentCarousel() {
-  const { data, isLoading, error } = useFeaturedContent()
-
-  // Handle loading state
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-center mb-1">
-          <h2 className="text-lg font-semibold">Featured Content</h2>
-        </div>
-        <Carousel className="w-full">
-          <CarouselContent>
-            {[1, 2, 3].map((_, index) => (
-              <CarouselItem key={index}>
-                <div className="flex items-start space-x-4 py-4 px-8">
-                  <div className="w-1/3">
-                    <Skeleton className="w-[120px] h-[120px] rounded-md" />
-                  </div>
-                  <div className="w-2/3 space-y-2">
-                    <Skeleton className="h-4 w-[200px]" />
-                    <Skeleton className="h-3 w-[250px]" />
-                    <Skeleton className="h-3 w-[180px]" />
-                  </div>
-                </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
-      </div>
-    )
-  }
-
-  // Handle error state
-  if (error) {
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-center mb-1">
-          <h2 className="text-lg font-semibold">Featured Content</h2>
-        </div>
-        <div className="flex items-center justify-center p-8 text-red-500">
-          <p>Error loading featured content. Please try again later.</p>
-        </div>
-      </div>
-    )
-  }
+// Separate the content rendering from loading state management
+function FeaturedContentDisplay() {
+  // This hook now should throw promises for Suspense to catch
+  const { data } = useFeaturedContent()
 
   // No data case
   if (!data || !data.items || data.items.length === 0) {
@@ -112,5 +73,45 @@ export function FeaturedContentCarousel() {
         <CarouselNext className="right-2" />
       </Carousel>
     </div>
+  )
+}
+
+// Loading fallback component
+function LoadingSkeleton() {
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Featured Content</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Carousel>
+          <CarouselContent>
+            {[1, 2, 3].map((_, index) => (
+              <CarouselItem key={index}>
+                <div className="flex items-start space-x-4 py-4 px-8">
+                  <div className="w-1/3">
+                    <Skeleton className="w-[120px] h-[120px] rounded-md" />
+                  </div>
+                  <div className="w-2/3 space-y-2">
+                    <Skeleton className="h-4 w-[200px]" />
+                    <Skeleton className="h-3 w-[250px]" />
+                    <Skeleton className="h-3 w-[180px]" />
+                  </div>
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Main component with Suspense and ErrorBoundary
+export function FeaturedContentCarousel() {
+  return (
+    <Suspense fallback={<LoadingSkeleton />}>
+      <FeaturedContentDisplay />
+    </Suspense>
   )
 }

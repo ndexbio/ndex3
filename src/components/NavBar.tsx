@@ -1,25 +1,30 @@
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import Image from 'next/image'
+import { SearchBox } from '@/components/search/SearchBox'
 
 export function NavBar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background shadow-sm">
       <div className="w-full h-14 flex items-center justify-between">
         {/* Left Section: Logo + Nav Links */}
-        <div className="flex items-center px-8 gap-4">
+        <div className="flex items-center px-3 gap-4">
           <Link
             href="/"
-            className="scroll-m-20 text-4xl font-extrabold tracking-tight flex items-center
+            className="scroll-m-20 text-5xl font-light tracking-tight flex items-center
                        justify-start gap-2 text-ndex"
           >
             <Image
-              src="/new_landing_page_logo.png"
+              src="/ndex-logo.svg"
               alt="NDEx Logo"
-              width={200}
-              height={100}
+              width={80}
+              height={24}
             />
+            NDEx
           </Link>
+          <div className="flex-1 px-4">
+            <SearchBox />
+          </div>
 
           {/* Nav Links */}
           <nav className="hidden md:flex items-center gap-4 ml-6">

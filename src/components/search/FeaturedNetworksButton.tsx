@@ -22,7 +22,7 @@ export function FeaturedNetworksButton() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button className="bg-ndex">
-          Featured Networks <ChevronDown className="ml-2" />
+          Featured <ChevronDown className="ml-2" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56">

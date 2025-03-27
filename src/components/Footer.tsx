@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { FaYoutube } from 'react-icons/fa'
+import Image from 'next/image'
 
 export function Footer() {
   return (
@@ -37,9 +37,12 @@ export function Footer() {
               href="https://www.youtube.com/@ndexproject"
               aria-label="YouTube"
             >
-              <div className="p-2 bg-white rounded-full shadow hover:shadow-md">
-                <FaYoutube className="text-red-500 w-5 h-5" />
-              </div>
+              <Image
+                src="/youtube_mono.svg"
+                alt="YouTube"
+                width={24}
+                height={24}
+              />
             </Link>
           </div>
         </div>
