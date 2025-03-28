@@ -1,9 +1,16 @@
+'use client'
+
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import Image from 'next/image'
 import { SearchBox } from '@/components/search/SearchBox'
+import { useAuth } from '@/lib/contexts/KeycloakContext'
+import { User, Loader2 } from 'lucide-react'
+import { UserAvatar } from './user/UserAvatar'
 
 export function NavBar() {
+  const { isAuthenticated, login } = useAuth()
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background shadow-sm">
       <div className="w-full h-14 flex items-center justify-between">
@@ -66,13 +73,18 @@ export function NavBar() {
             </Link>
           </nav>
         </div>
-
-        {/* Right Section: Login Button */}
-        <div className="mr-8">
-          <Button className="bg-ndex hover:bg-[#2c70ac]" size="sm">
+        {isAuthenticated ? (
+          <UserAvatar />
+        ) : (
+          <Button
+            size="sm"
+            className="bg-ndex hover:bg-[#2c70ac] mr-3"
+            onClick={login}
+          >
+            <User className="h-4 w-4 mr-2" />
             Login
           </Button>
-        </div>
+        )}
       </div>
     </header>
   )

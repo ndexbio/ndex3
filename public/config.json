@@ -1,6 +1,11 @@
 {
   "ndexBaseUrl": "www.ndexbio.org",
-
+  "keycloakConfig": {
+    "url": "https://dev1.ndexbio.org/auth2",
+    "clientId": "cytoscapendex",
+    "realm": "ndex"
+  },
+  "urlBaseName": "/",
   "uiContent":{
     "featuredContent":"https://home.ndexbio.org/landing_page_content/v2_4_2/featured_content.json",
     "featuredNetwork":"https://home.ndexbio.org/landing_page_content/v2_4_2/featured_networks.json",

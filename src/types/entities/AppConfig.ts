@@ -10,7 +10,14 @@ interface UIContent {
   logo: Logo[]
 }
 
+interface KeyCloakConfig {
+  realm: string
+  clientId: string
+  url: string
+}
 export interface AppConfig {
   ndexBaseUrl: string
   uiContent: UIContent
+  keycloakConfig: KeyCloakConfig
+  urlBaseName: string
 }
