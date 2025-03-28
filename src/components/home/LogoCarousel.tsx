@@ -7,20 +7,21 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
+import Image from 'next/image'
 
 export function LogoCarousel() {
   const config = useConfig()
   const logos = config.uiContent.logo
 
   return (
-    <div className="w-full py-2 px-4">
+    <div className="w-full p-2">
       <Swiper
         modules={[Autoplay, Navigation]}
-        slidesPerView={8} // how many logos visible at once
-        spaceBetween={40} // space in pixels between slides
+        slidesPerView={6} // how many logos visible at once
+        spaceBetween={20} // space in pixels between slides
         loop={true} // loop back to the start
         autoplay={{
-          delay: 3000, // delay between auto slides (ms)
+          delay: 4000, // delay between auto slides (ms)
           disableOnInteraction: false,
         }}
         navigation={false} // show "next" and "prev" arrows
@@ -30,10 +31,12 @@ export function LogoCarousel() {
       >
         {logos.map((logo, index) => (
           <SwiperSlide key={index} className="flex items-center justify-center">
-            <img
-              src={logo.src}
+            <Image
+              src={logo.src.trim()} // trim to remove any leading/trailing whitespace
               alt={logo.alt}
-              className="h-15 w-auto object-contain"
+              width={100}
+              height={150} // Adjust height as needed
+              className="h-14 w-14 items-center w-auto object-contain"
             />
           </SwiperSlide>
         ))}

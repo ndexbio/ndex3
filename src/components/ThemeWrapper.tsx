@@ -1,7 +1,6 @@
-"use client"
+'use client'
 
-import * as React from "react"
-import { ThemeProvider } from "./theme-provider"
+import { ThemeProvider } from './theme-provider'
 
 export function ThemeWrapper({ children }: { children: React.ReactNode }) {
   return (

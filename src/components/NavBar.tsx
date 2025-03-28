@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { SearchBox } from '@/components/search/SearchBox'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
-import { User, Loader2 } from 'lucide-react'
+import { User } from 'lucide-react'
 import { UserAvatar } from './user/UserAvatar'
 
 export function NavBar() {

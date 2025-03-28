@@ -9,9 +9,11 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel'
-import { Skeleton } from '@/components/ui/skeleton'
+// import { Skeleton } from '@/components/ui/skeleton'
 import { FeaturedContentItem } from '@/types/api/ui/content'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import Image from 'next/image'
+import { ExternalLinkIcon } from 'lucide-react'
 
 // Separate the content rendering from loading state management
 function FeaturedContentDisplay() {
@@ -34,45 +36,54 @@ function FeaturedContentDisplay() {
 
   // Render content
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-center mb-1">
-        <h2 className="text-lg font-semibold pt-1">Featured Content</h2>
-      </div>
-      <Carousel
-        className="w-full"
-        showDots={true}
-        automaticIterate
-        intervalSecond={5}
-      >
-        <CarouselContent>
-          {data.items.map((item: FeaturedContentItem, index: number) => (
-            <CarouselItem key={index}>
-              <div className="flex items-start space-x-4 py-2 px-8">
-                <div className="flex-shrink-0 overflow-hidden h-[80px] flex items-center justify-center">
-                  <img
-                    src={item.imageURL}
-                    alt={item.title}
-                    className="h-full w-auto max-w-none object-cover"
-                  />
-                </div>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Featured Content</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Carousel showDots={true} automaticIterate intervalSecond={5}>
+          <CarouselContent>
+            {data.items.map((item: FeaturedContentItem, index: number) => (
+              <CarouselItem key={index}>
+                <div className="flex items-center align-middle py-1 px-4">
+                  <div className="overflow-hidden h-[120px]">
+                    <Image
+                      src={item.imageURL}
+                      alt={item.title}
+                      width={180} // Set a fixed width for the image
+                      height={180} // Set a fixed height for the image
+                      className="h-full w-auto px-10 max-w-none object-cover"
+                    />
+                  </div>
 
-                <div className="flex-1 min-w-0">
-                  <a
-                    href={item.URL ?? ''}
-                    className="block text-sm text-blue-600 hover:underline"
-                  >
-                    <div dangerouslySetInnerHTML={{ __html: item.title }} />
-                    <div>{item.text}</div>
-                  </a>
+                  <div className="w-2xl">
+                    <h3
+                      className="font-medium tracking-tight"
+                      dangerouslySetInnerHTML={{ __html: item.title }}
+                    />
+                    <p className="py-2">{item.text}</p>
+                  </div>
+                  <div className="px-8">
+                    <a
+                      href={item.URL ?? ''}
+                      className="block text-sm text-blue-600 hover:underline"
+                    >
+                      <ExternalLinkIcon
+                        className="items-center align-middle text-gray-500 hover:text-gray-800"
+                        size={32}
+                        aria-label="External link"
+                      />
+                    </a>
+                  </div>
                 </div>
-              </div>
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <CarouselPrevious className="left-2" />
-        <CarouselNext className="right-2" />
-      </Carousel>
-    </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious className="left-2" />
+          <CarouselNext className="right-2" />
+        </Carousel>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -81,28 +92,9 @@ function LoadingSkeleton() {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Featured Content</CardTitle>
+        <CardTitle>Loading Featured Content...</CardTitle>
       </CardHeader>
-      <CardContent>
-        <Carousel>
-          <CarouselContent>
-            {[1, 2, 3].map((_, index) => (
-              <CarouselItem key={index}>
-                <div className="flex items-start space-x-4 py-4 px-8">
-                  <div className="w-1/3">
-                    <Skeleton className="w-[120px] h-[120px] rounded-md" />
-                  </div>
-                  <div className="w-2/3 space-y-2">
-                    <Skeleton className="h-4 w-[200px]" />
-                    <Skeleton className="h-3 w-[250px]" />
-                    <Skeleton className="h-3 w-[180px]" />
-                  </div>
-                </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
-      </CardContent>
+      <CardContent></CardContent>
     </Card>
   )
 }
