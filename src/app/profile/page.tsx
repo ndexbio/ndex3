@@ -9,16 +9,22 @@ import { LogOut } from 'lucide-react'
 import { useEffect } from 'react'
 
 export default function ProfilePage() {
-  const { isAuthenticated, token, tokenParsed, logout } = useAuth()
+  const { isAuthenticated, token, tokenParsed, logout, isInitializing } =
+    useAuth()
   const router = useRouter()
 
   useEffect(() => {
+    // Don't redirect while Keycloak is still initializing
+    if (isInitializing) {
+      return
+    }
+
     if (!isAuthenticated || !token) {
       router.push('/')
     }
-  }, [isAuthenticated, token, router])
+  }, [isAuthenticated, token, router, isInitializing])
 
-  if (!isAuthenticated || !token) {
+  if (isInitializing || !isAuthenticated || !token) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="h-16 w-16 animate-spin rounded-full border-4 border-gray-300 border-t-primary"></div>

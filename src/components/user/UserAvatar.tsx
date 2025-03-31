@@ -31,12 +31,14 @@ export function UserAvatar() {
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          Hi, {tokenParsed?.name ?? 'welcome'}!
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/profile" className="cursor-pointer flex items-center">
+          <Link href="/myAccount" className="cursor-pointer flex items-center">
             <User className="mr-2 h-4 w-4" />
-            <span>Profile</span>
+            <span>My Account</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
