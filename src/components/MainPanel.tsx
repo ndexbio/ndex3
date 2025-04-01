@@ -5,5 +5,10 @@ interface MainPanelProps {
 }
 
 export function MainPanel({ children }: MainPanelProps) {
-  return <main className="w-full">{children}</main>
+  return (
+    <SidebarProvider defaultOpen={false}>
+      <AppSidebar />
+      <main className="flex-grow w-full p-2">{children}</main>
+    </SidebarProvider>
+  )
 }

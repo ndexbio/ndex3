@@ -49,7 +49,7 @@ export default function RootLayout({
       <head>
         <DynamicFavicon />
       </head>
-      <body className={`antialiased min-h-screen`}>
+      <body className={`antialiased min-h-screen bg-gray-100`}>
         <ConfigProvider>
           <KeycloakProvider>
             <ThemeWrapper>

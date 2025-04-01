@@ -68,7 +68,7 @@ export default function SideBar({
     <nav
       className={`${
         collapsed ? 'w-16' : 'w-60'
-      } h-screen bg-white border-r border-gray-200 p-4 flex flex-col transition-all duration-300 relative`}
+      } h-full bg-white border border-gray-200 p-4 flex flex-col transition-all duration-300 relative rounded-md`}
     >
       <div className="absolute -right-3 top-15 z-10">
         <button
@@ -126,7 +126,10 @@ export default function SideBar({
           </div>
         )}
       </div>
-
+      {/* 
+      Active tab: text-sky-700
+      Inactive tab: text-gray-700       
+      */}
       {/* Navigation Items */}
       <ul className="space-y-1">
         <li>
@@ -144,7 +147,7 @@ export default function SideBar({
           <div
             className={`flex items-center ${
               collapsed ? 'justify-center' : 'gap-3'
-            } p-2 rounded-md bg-blue-50 text-blue-600`}
+            } p-2 rounded-md bg-blue-50 text-sky-700`}
           >
             <Folder className="h-5 w-5" />
             {!collapsed && (
@@ -187,7 +190,7 @@ export default function SideBar({
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
             <div
-              className="bg-blue-500 h-2 rounded-full"
+              className="bg-sky-700 h-2 rounded-full"
               style={{ width: `${storagePercentage}%` }}
             />
           </div>
@@ -199,8 +202,8 @@ export default function SideBar({
 
       {collapsed && (
         <div className="mt-auto flex justify-center">
-          <div className="rounded-full bg-blue-500 p-2">
-            <span className="text-xs text-white font-bold">
+          <div className="rounded-xl bg-sky-100 p-1 pb-2">
+            <span className="text-xs text-black">
               {storagePercentage.toFixed(0)}%
             </span>
           </div>

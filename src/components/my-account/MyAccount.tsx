@@ -14,13 +14,18 @@ import {
   MoreVertical,
   Filter,
   Search,
+  Trash2,
+  Download,
+  FolderUp,
+  Share2,
+  Settings,
 } from 'lucide-react'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { useRouter } from 'next/navigation'
 import { useUserNetwork } from '@/hooks/use-user-network'
 import { useConfig } from '@/lib/contexts/ConfigContext'
-import NetworksList from './NetworksList'
 import { NetworkSummary } from '@/types/api/ndex/NetworkSummary'
+import DetailsPanel from './DetailsPanel'
 
 // Define interfaces for items
 interface FolderItem {
@@ -70,6 +75,10 @@ export default function MyAccount() {
   )
   // Add state to track which dropdown is open
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null)
+  // Add state for system properties dropdown
+  const [systemPropertiesOpen, setSystemPropertiesOpen] = useState(false)
+  // Add state to track if selection toolbar is visible
+  const [showSelectionToolbar, setShowSelectionToolbar] = useState(true)
 
   // Reference to detect clicks outside the dropdown
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -113,13 +122,6 @@ export default function MyAccount() {
     }
   }, [isAuthenticated, token, router, isInitializing])
 
-  // Close details when no items are selected
-  useEffect(() => {
-    if (selectedItems.length === 0 && detailsOpen) {
-      setDetailsOpen(false)
-    }
-  }, [selectedItems, detailsOpen])
-
   // Handle network click
   const handleNetworkClick = (networkId: string, event: React.MouseEvent) => {
     // Prevent triggering the item select handler
@@ -129,12 +131,46 @@ export default function MyAccount() {
     router.push(`/network/${networkId}`)
   }
 
+  // Add double-click handler to open network in a new tab with the NDEx viewer URL
+  const handleNetworkDoubleClick = (
+    networkId: string,
+    event: React.MouseEvent,
+  ) => {
+    // Prevent default behavior and propagation
+    event.preventDefault()
+    event.stopPropagation()
+
+    // Open the network in a new tab using the NDEx viewer URL
+    window.open(
+      `https://${config.ndexBaseUrl}/viewer/networks/${networkId}`,
+      '_blank',
+    )
+  }
+
   // Handle selection with modifiers
   const handleItemSelect = (
     event: React.MouseEvent,
     id: number,
     index: number,
   ) => {
+    // Prevent default browser behavior (like text selection)
+    event.preventDefault()
+
+    // If clicking an already selected item and the toolbar is hidden, show it
+    if (
+      selectedItems.includes(id) &&
+      !showSelectionToolbar &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey
+    ) {
+      setShowSelectionToolbar(true)
+      return
+    }
+
+    // Always show the toolbar when selecting items
+    setShowSelectionToolbar(true)
+
     // Command/Control key for non-contiguous selection
     if (event.metaKey || event.ctrlKey) {
       if (selectedItems.includes(id)) {
@@ -167,7 +203,6 @@ export default function MyAccount() {
 
   // Handle dropdown toggle
   const handleDropdownToggle = (event: React.MouseEvent, networkId: number) => {
-    event.stopPropagation()
     setOpenDropdownId(openDropdownId === networkId ? null : networkId)
   }
 
@@ -220,6 +255,12 @@ export default function MyAccount() {
     }
   }, [openDropdownId])
 
+  // Handle close button in the selection toolbar (just hide the toolbar)
+  const handleCloseToolbar = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    setShowSelectionToolbar(false)
+  }
+
   // Display a user-friendly error message
   const renderErrorMessage = (errorMsg: string) => {
     // Check for specific error types
@@ -254,7 +295,7 @@ export default function MyAccount() {
       case 'folder':
         return <Folder className="h-5 w-5 text-gray-600" />
       case 'network':
-        return <File className="h-5 w-5 text-blue-600" />
+        return <File className="h-5 w-5 text-sky-700" />
       case 'doc':
         return <File className="h-5 w-5 text-blue-600" />
       case 'spreadsheet':
@@ -265,6 +306,43 @@ export default function MyAccount() {
         return <File className="h-5 w-5 text-gray-600" />
     }
   }
+
+  // Add function to handle clicks outside of items to deselect them
+  const handleOutsideClick = (event: React.MouseEvent) => {
+    // Check if the click target is a part of any item
+    const isClickOutside =
+      (event.target as Element)?.closest('[data-item]') === null
+
+    // Only deselect if click is outside of items and not on dropdown or other UI controls
+    if (
+      isClickOutside &&
+      !(event.target as Element)?.closest('[data-dropdown-button]') &&
+      !(event.target as Element)?.closest('[data-action-button]') &&
+      !(event.target as Element)?.closest('[data-properties-dropdown]')
+    ) {
+      setSelectedItems([])
+      setShowSelectionToolbar(true)
+      // Also close the system properties dropdown
+      setSystemPropertiesOpen(false)
+    }
+  }
+
+  // Effect to close system properties dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        systemPropertiesOpen &&
+        !(event.target as Element)?.closest('[data-properties-dropdown]')
+      ) {
+        setSystemPropertiesOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [systemPropertiesOpen])
 
   if (isInitializing || !isAuthenticated || !token) {
     return (
@@ -291,7 +369,7 @@ export default function MyAccount() {
   }
 
   return (
-    <div className="flex h-screen bg-white">
+    <div className="flex h-screen gap-x-4 p-2">
       {/* Sidebar */}
       <SideBar
         storageUsed={2}
@@ -300,9 +378,9 @@ export default function MyAccount() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-white border border-gray-200 rounded-md">
         {/* Header */}
-        <header className="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+        <header className="px-6 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold">My Drive</h1>
             <ChevronDown className="h-4 w-4 text-gray-500" />
@@ -313,7 +391,7 @@ export default function MyAccount() {
               <button
                 className={`flex items-center justify-center p-2 w-10 transition-colors ${
                   viewMode === 'list'
-                    ? 'bg-blue-100 text-blue-600'
+                    ? 'bg-sky-50 text-sky-700'
                     : 'bg-white text-gray-500 hover:bg-gray-50'
                 }`}
                 onClick={() => setViewMode('list')}
@@ -324,7 +402,7 @@ export default function MyAccount() {
               <button
                 className={`flex items-center justify-center p-2 w-10 transition-colors ${
                   viewMode === 'grid'
-                    ? 'bg-blue-100 text-blue-600'
+                    ? 'bg-sky-50 text-sky-700'
                     : 'bg-white text-gray-500 hover:bg-gray-50'
                 }`}
                 onClick={() => setViewMode('grid')}
@@ -334,7 +412,9 @@ export default function MyAccount() {
               </button>
             </div>
             <button
-              className="p-2 rounded-full hover:bg-gray-100"
+              className={`p-3 rounded-full ${
+                detailsOpen ? 'bg-sky-50 text-sky-700' : 'hover:bg-gray-100'
+              }`}
               onClick={() => setDetailsOpen(!detailsOpen)}
             >
               <Info className="h-5 w-5" />
@@ -342,90 +422,173 @@ export default function MyAccount() {
           </div>
         </header>
 
-        {/* Filters */}
-        <div className="px-6 py-2 border-b border-gray-200 flex flex-wrap gap-2">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 text-sm">
-            <span>Type</span>
-            <ChevronDown className="h-4 w-4 text-gray-500" />
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 text-sm">
-            <span>People</span>
-            <ChevronDown className="h-4 w-4 text-gray-500" />
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 text-sm">
-            <span>Modified</span>
-            <ChevronDown className="h-4 w-4 text-gray-500" />
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 text-sm">
-            <span>Source</span>
-            <ChevronDown className="h-4 w-4 text-gray-500" />
-          </div>
-          <div className="flex-1 ml-auto flex items-center justify-end">
-            <div className="relative">
-              <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search in My Drive"
-                className="pl-9 pr-4 py-1.5 rounded-md border border-gray-300 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+        {/* Selection Toolbar or Filters */}
+        <div className="mt-1 mb-3 mx-4">
+          {selectedItems.length > 0 && showSelectionToolbar ? (
+            <div className="px-6 py-2 flex items-center justify-between bg-gray-100 rounded-lg">
+              <div className="flex items-center gap-2">
+                <button
+                  className="p-1.5 rounded-full hover:bg-gray-200"
+                  onClick={handleCloseToolbar}
+                  title="Hide toolbar"
+                >
+                  <X className="h-5 w-5 text-gray-600" />
+                </button>
+                <span className="text-sm font-medium text-gray-700">
+                  {selectedItems.length}{' '}
+                  {selectedItems.length === 1 ? 'item' : 'items'} selected
+                </span>
+              </div>
+              <div className="flex items-center gap-4">
+                <button
+                  className="p-1.5 rounded-full hover:bg-gray-200"
+                  title="Delete"
+                  data-action-button
+                >
+                  <Trash2 className="h-5 w-5 text-gray-600" />
+                </button>
+                <button
+                  className="p-1.5 rounded-full hover:bg-gray-200"
+                  title="Download"
+                  data-action-button
+                >
+                  <Download className="h-5 w-5 text-gray-600" />
+                </button>
+                <button
+                  className="p-1.5 rounded-full hover:bg-gray-200"
+                  title="Move"
+                  data-action-button
+                >
+                  <FolderUp className="h-5 w-5 text-gray-600" />
+                </button>
+                <button
+                  className="p-1.5 rounded-full hover:bg-gray-200"
+                  title="Share"
+                  data-action-button
+                >
+                  <Share2 className="h-5 w-5 text-gray-600" />
+                </button>
+                <div className="relative">
+                  <button
+                    className="p-1.5 rounded-full hover:bg-gray-200"
+                    title="Set system properties"
+                    data-action-button
+                    onClick={() =>
+                      setSystemPropertiesOpen(!systemPropertiesOpen)
+                    }
+                    data-properties-dropdown
+                  >
+                    <Settings className="h-5 w-5 text-gray-600" />
+                  </button>
+
+                  {/* System properties dropdown */}
+                  {systemPropertiesOpen && (
+                    <div
+                      className="absolute right-0 z-50 mt-1 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-300 ring-opacity-5 focus:outline-none"
+                      data-properties-dropdown
+                    >
+                      <div className="py-1">
+                        <button
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          data-properties-dropdown
+                        >
+                          Set Read Only
+                        </button>
+                        <button
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          data-properties-dropdown
+                        >
+                          Change Visibility
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="px-6 py-2 flex flex-wrap gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 text-sm">
+                <span>Type</span>
+                <ChevronDown className="h-4 w-4 text-gray-500" />
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 text-sm">
+                <span>People</span>
+                <ChevronDown className="h-4 w-4 text-gray-500" />
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 text-sm">
+                <span>Modified</span>
+                <ChevronDown className="h-4 w-4 text-gray-500" />
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 text-sm">
+                <span>Source</span>
+                <ChevronDown className="h-4 w-4 text-gray-500" />
+              </div>
+              <div className="flex-1 ml-auto flex items-center justify-end">
+                <div className="relative">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search in My Drive"
+                    className="pl-9 pr-4 py-1.5 rounded-md border border-gray-300 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Main Content Section */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Main Content Section - add onclick handler to deselect items when clicking outside */}
+        <div
+          className="flex-1 overflow-y-auto p-6"
+          onClick={handleOutsideClick}
+        >
           {/* Folders Section */}
           <div className="mb-8">
             <h2 className="text-sm font-medium text-gray-500 mb-2">Folders</h2>
 
-            {/* Grid/List View Toggle */}
+            {/* Grid/List View Toggle - Container decides layout */}
             <div
               className={
-                viewMode === 'grid' ? 'grid grid-cols-4 gap-4' : 'space-y-1'
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4'
+                  : 'space-y-1'
               }
             >
               {FOLDERS_DATA.map((folder, index) => (
                 <div
                   key={folder.id}
+                  data-item
                   className={`
-                    rounded-md border border-gray-200 hover:bg-gray-50 cursor-pointer overflow-hidden
-                    ${selectedItems.includes(folder.id) ? 'bg-blue-100' : ''}
+                    rounded-md border border-gray-200 cursor-pointer select-none
+                    p-2 flex items-center justify-between /* Always use list-like padding & flex */
                     ${
-                      viewMode === 'grid'
-                        ? 'p-3'
-                        : 'p-2 flex items-center justify-between'
+                      selectedItems.includes(folder.id)
+                        ? 'bg-blue-100'
+                        : 'hover:bg-gray-50'
                     }
                   `}
                   onClick={(e) => handleItemSelect(e, folder.id, index)}
                 >
-                  {viewMode === 'grid' ? (
-                    <div>
-                      <div className="flex items-center justify-center h-24 w-full bg-gray-100 rounded mb-2">
-                        <Folder className="h-12 w-12 text-gray-500" />
-                      </div>
-                      <p className="text-sm font-medium truncate">
-                        {folder.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Modified {folder.modified}
-                      </p>
+                  {/* Consistent item layout for both views */}
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    {/* Wrap icon to prevent shrinking */}
+                    <div className="flex-shrink-0">
+                      {getItemIcon(folder.type)}
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <Folder className="h-5 w-5 text-gray-500" />
-                        <span className="text-sm">{folder.name}</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-xs text-gray-500">
-                          Modified {folder.modified}
-                        </span>
-                        <button className="p-1 rounded-full hover:bg-gray-200">
-                          <MoreVertical className="h-4 w-4 text-gray-500" />
-                        </button>
-                      </div>
-                    </>
-                  )}
+                    <span className="text-sm truncate">{folder.name}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {/* Show Modified date only in list view for folders */}
+                    {viewMode === 'list' && (
+                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                        Modified {folder.modified}
+                      </span>
+                    )}
+                    <button className="p-1 rounded-full hover:bg-gray-200">
+                      <MoreVertical className="h-4 w-4 text-gray-500" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -435,150 +598,68 @@ export default function MyAccount() {
           <div>
             <h2 className="text-sm font-medium text-gray-500 mb-2">Networks</h2>
 
-            {/* Grid/List View Toggle */}
+            {/* Grid/List View Toggle - Container decides layout */}
             <div
               className={
-                viewMode === 'grid' ? 'grid grid-cols-4 gap-4' : 'space-y-1'
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4'
+                  : 'space-y-1'
               }
             >
               {NETWORK_DATA.map((network, index) => (
                 <div
                   key={network.id}
+                  data-item
                   className={`
-                    rounded-md border border-gray-200 hover:bg-gray-50 cursor-pointer overflow-hidden
+                    rounded-md border border-gray-200 cursor-pointer select-none
+                    p-2 flex items-center justify-between /* Always use list-like padding & flex */
                     ${
                       selectedItems.includes(network.id)
-                        ? 'ring-2 ring-blue-500 bg-blue-50'
-                        : ''
-                    }
-                    ${
-                      viewMode === 'grid'
-                        ? 'p-3'
-                        : 'p-2 flex items-center justify-between'
+                        ? 'bg-sky-100'
+                        : 'hover:bg-gray-50'
                     }
                   `}
                   onClick={(e) =>
                     handleItemSelect(e, network.id, index + FOLDERS_DATA.length)
                   }
+                  onDoubleClick={(e) =>
+                    handleNetworkDoubleClick(network.originalData.externalId, e)
+                  }
                 >
-                  {viewMode === 'grid' ? (
-                    <div className="relative">
-                      <div className="flex items-center justify-center h-24 w-full bg-gray-100 rounded mb-2">
-                        {getItemIcon(network.type)}
-                      </div>
-                      <div className="flex justify-between items-start mb-1">
-                        <p
-                          className="text-sm font-medium truncate text-blue-600 hover:underline mr-2"
-                          onClick={(e) =>
-                            handleNetworkClick(
-                              network.originalData.externalId,
-                              e,
-                            )
-                          }
-                        >
-                          {network.name}
-                        </p>
-                        <div className="relative">
-                          <button
-                            className="p-1 rounded-full hover:bg-gray-200"
-                            onClick={(e) => handleDropdownToggle(e, network.id)}
-                            data-dropdown-button
-                          >
-                            <MoreVertical className="h-4 w-4 text-gray-500" />
-                          </button>
-
-                          {/* Dropdown Menu */}
-                          {openDropdownId === network.id && (
-                            <div className="absolute right-0 z-50 mt-1 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                              <div className="py-1">
-                                <button
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  onClick={(e) =>
-                                    handleDropdownOption(
-                                      e,
-                                      'cytoscape',
-                                      network,
-                                    )
-                                  }
-                                >
-                                  Open in Cytoscape Web
-                                </button>
-                                <button
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  onClick={(e) =>
-                                    handleDropdownOption(e, 'edit', network)
-                                  }
-                                >
-                                  Edit network property
-                                </button>
-                                <button
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  onClick={(e) =>
-                                    handleDropdownOption(e, 'doi', network)
-                                  }
-                                >
-                                  Request DOI
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        Modified {network.modified}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Nodes:{' '}
-                        {network.originalData.nodeCount?.toLocaleString() ||
-                          'N/A'}{' '}
-                        | Edges:{' '}
-                        {network.originalData.edgeCount?.toLocaleString() ||
-                          'N/A'}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        <span
-                          className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                            network.originalData.visibility === 'PUBLIC'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}
-                        >
-                          {network.originalData.visibility}
-                        </span>
-                      </p>
+                  {/* Consistent item layout for both views, with list-specific details */}
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    {/* Wrap icon to prevent shrinking */}
+                    <div className="flex-shrink-0">
+                      {getItemIcon(network.type)}
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-3">
-                        {getItemIcon(network.type)}
-                        <div>
-                          <span
-                            className="text-sm font-medium text-blue-600 hover:underline cursor-pointer"
-                            onClick={(e) =>
-                              handleNetworkClick(
-                                network.originalData.externalId,
-                                e,
-                              )
-                            }
-                          >
-                            {network.name}
-                          </span>
-                          <div className="text-xs text-gray-500">
-                            Nodes:{' '}
-                            {network.originalData.nodeCount?.toLocaleString() ||
-                              'N/A'}{' '}
-                            | Edges:{' '}
-                            {network.originalData.edgeCount?.toLocaleString() ||
-                              'N/A'}
-                          </div>
+                    <div>
+                      {' '}
+                      {/* Wrapper for name and list-view details */}
+                      <span className="text-sm text-black truncate">
+                        {network.name}
+                      </span>
+                      {/* Show Node/Edge counts only in list view */}
+                      {viewMode === 'list' && (
+                        <div className="text-xs text-gray-500">
+                          Nodes:{' '}
+                          {network.originalData.nodeCount?.toLocaleString() ||
+                            'N/A'}{' '}
+                          | Edges:{' '}
+                          {network.originalData.edgeCount?.toLocaleString() ||
+                            'N/A'}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-xs text-gray-500">
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {/* Show Modified date and Visibility only in list view */}
+                    {viewMode === 'list' && (
+                      <>
+                        <span className="text-xs text-gray-500 whitespace-nowrap">
                           Modified {network.modified}
                         </span>
                         <span
-                          className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                          className={`px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
                             network.originalData.visibility === 'PUBLIC'
                               ? 'bg-green-100 text-green-800'
                               : 'bg-yellow-100 text-yellow-800'
@@ -586,54 +667,50 @@ export default function MyAccount() {
                         >
                           {network.originalData.visibility}
                         </span>
-                        <div className="relative">
-                          <button
-                            className="p-1 rounded-full hover:bg-gray-200"
-                            onClick={(e) => handleDropdownToggle(e, network.id)}
-                            data-dropdown-button
-                          >
-                            <MoreVertical className="h-4 w-4 text-gray-500" />
-                          </button>
-
-                          {/* Dropdown Menu */}
-                          {openDropdownId === network.id && (
-                            <div className="absolute right-0 z-50 mt-1 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                              <div className="py-1">
-                                <button
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  onClick={(e) =>
-                                    handleDropdownOption(
-                                      e,
-                                      'cytoscape',
-                                      network,
-                                    )
-                                  }
-                                >
-                                  Open in Cytoscape Web
-                                </button>
-                                <button
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  onClick={(e) =>
-                                    handleDropdownOption(e, 'edit', network)
-                                  }
-                                >
-                                  Edit network property
-                                </button>
-                                <button
-                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  onClick={(e) =>
-                                    handleDropdownOption(e, 'doi', network)
-                                  }
-                                >
-                                  Request DOI
-                                </button>
-                              </div>
-                            </div>
-                          )}
+                      </>
+                    )}
+                    <div className="relative">
+                      <button
+                        className="p-1 rounded-full hover:bg-gray-200"
+                        onClick={(e) => handleDropdownToggle(e, network.id)}
+                        data-dropdown-button
+                      >
+                        <MoreVertical className="h-4 w-4 text-gray-500" />
+                      </button>
+                      {/* Dropdown Menu */}
+                      {openDropdownId === network.id && (
+                        <div className="absolute right-0 z-50 mt-1 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-300 ring-opacity-5 focus:outline-none overflow-hidden">
+                          {/* Dropdown content... */}
+                          <div className="py-1">
+                            <button
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              onClick={(e) =>
+                                handleDropdownOption(e, 'cytoscape', network)
+                              }
+                            >
+                              Open in Cytoscape Web
+                            </button>
+                            <button
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              onClick={(e) =>
+                                handleDropdownOption(e, 'edit', network)
+                              }
+                            >
+                              Edit network property
+                            </button>
+                            <button
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              onClick={(e) =>
+                                handleDropdownOption(e, 'doi', network)
+                              }
+                            >
+                              Request DOI
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </>
-                  )}
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -641,149 +718,13 @@ export default function MyAccount() {
         </div>
       </div>
 
-      {/* Details Panel */}
-      {detailsOpen && (
-        <div className="w-80 h-screen border-l border-gray-200 bg-white flex flex-col">
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="font-medium">Details</h3>
-            <button
-              className="p-1 rounded-full hover:bg-gray-100"
-              onClick={() => setDetailsOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {selectedItems.length === 1 && (
-            <div className="p-4">
-              <div className="flex items-center justify-center h-40 w-full bg-gray-100 rounded mb-4">
-                {getItemIcon(
-                  ALL_ITEMS.find((item) => item.id === selectedItems[0])
-                    ?.type || 'file',
-                )}
-              </div>
-
-              <h4 className="text-lg font-medium mb-1">
-                {ALL_ITEMS.find((item) => item.id === selectedItems[0])?.name}
-              </h4>
-
-              <p className="text-sm text-gray-500 mb-6">
-                Type:{' '}
-                {ALL_ITEMS.find((item) => item.id === selectedItems[0])?.type}
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <h5 className="text-xs font-medium text-gray-500 mb-1">
-                    Details
-                  </h5>
-                  <div className="text-sm space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Modified</span>
-                      <span>
-                        {
-                          ALL_ITEMS.find((item) => item.id === selectedItems[0])
-                            ?.modified
-                        }
-                      </span>
-                    </div>
-
-                    {/* Show network-specific details if the selected item is a network */}
-                    {(() => {
-                      const selectedItem = ALL_ITEMS.find(
-                        (item) => item.id === selectedItems[0],
-                      )
-                      if (selectedItem?.type === 'network') {
-                        const networkItem = selectedItem as NetworkItem
-                        return (
-                          <>
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">Owner</span>
-                              <span>{networkItem.originalData.owner}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">Nodes</span>
-                              <span>
-                                {networkItem.originalData.nodeCount?.toLocaleString() ||
-                                  'N/A'}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">Edges</span>
-                              <span>
-                                {networkItem.originalData.edgeCount?.toLocaleString() ||
-                                  'N/A'}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">Visibility</span>
-                              <span>{networkItem.originalData.visibility}</span>
-                            </div>
-                          </>
-                        )
-                      } else {
-                        return (
-                          <>
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">Created</span>
-                              <span>2023-01-01</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">Size</span>
-                              <span>4.5 MB</span>
-                            </div>
-                          </>
-                        )
-                      }
-                    })()}
-                  </div>
-                </div>
-
-                <div>
-                  <h5 className="text-xs font-medium text-gray-500 mb-1">
-                    Description
-                  </h5>
-                  <p className="text-sm text-gray-700">
-                    {(() => {
-                      const selectedItem = ALL_ITEMS.find(
-                        (item) => item.id === selectedItems[0],
-                      )
-                      if (selectedItem?.type === 'network') {
-                        const networkItem = selectedItem as NetworkItem
-                        return (
-                          networkItem.originalData.description ||
-                          'No description available.'
-                        )
-                      }
-                      return 'Select an item to view or add a description.'
-                    })()}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {selectedItems.length > 1 && (
-            <div className="p-4">
-              <p className="text-lg font-medium mb-4">
-                {selectedItems.length} items selected
-              </p>
-              <ul className="space-y-2 text-sm">
-                {selectedItems.map((id) => (
-                  <li key={id} className="flex items-center gap-2">
-                    {getItemIcon(
-                      ALL_ITEMS.find((item) => item.id === id)?.type || 'file',
-                    )}
-                    <span>
-                      {ALL_ITEMS.find((item) => item.id === id)?.name}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Details Panel is now a SIBLING to the main content div */}
+      <DetailsPanel
+        isOpen={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        selectedItems={selectedItems}
+        allItems={ALL_ITEMS}
+      />
     </div>
   )
 }
