@@ -2,31 +2,13 @@
 
 import React from 'react'
 import { File, Folder, X } from 'lucide-react'
-import { NetworkSummary } from '@/types/api/ndex/NetworkSummary'
-
-// Reuse the interfaces from the parent component
-interface FolderItem {
-  id: number
-  name: string
-  type: 'folder'
-  modified: string
-}
-
-interface NetworkItem {
-  id: number
-  name: string
-  type: 'network'
-  modified: string
-  originalData: NetworkSummary
-}
-
-type Item = FolderItem | NetworkItem
+import { FolderItemBase } from '@/hooks/use-folder-contents'
 
 interface DetailsPanelProps {
   isOpen: boolean
   onClose: () => void
-  selectedItems: number[]
-  allItems: Item[]
+  selectedItems: string[]
+  allItems: FolderItemBase[]
 }
 
 export default function DetailsPanel({
@@ -35,19 +17,13 @@ export default function DetailsPanel({
   selectedItems,
   allItems,
 }: DetailsPanelProps) {
-  // Helper to determine file icon (copied from MyAccount component)
+  // Helper to determine file icon
   const getItemIcon = (type: string) => {
     switch (type) {
       case 'folder':
         return <Folder className="h-5 w-5 text-gray-600" />
       case 'network':
         return <File className="h-5 w-5 text-sky-700" />
-      case 'doc':
-        return <File className="h-5 w-5 text-blue-600" />
-      case 'spreadsheet':
-        return <File className="h-5 w-5 text-green-600" />
-      case 'code':
-        return <File className="h-5 w-5 text-yellow-600" />
       default:
         return <File className="h-5 w-5 text-gray-600" />
     }
@@ -105,17 +81,20 @@ export default function DetailsPanel({
         <div className="p-4">
           <div className="flex items-center justify-center h-40 w-full bg-gray-100 rounded mb-4">
             {getItemIcon(
-              allItems.find((item) => item.id === selectedItems[0])?.type ||
+              allItems.find((item) => item.uuid === selectedItems[0])?.type ||
                 'file',
             )}
           </div>
 
           <h4 className="text-lg font-medium mb-1">
-            {allItems.find((item) => item.id === selectedItems[0])?.name}
+            {allItems.find((item) => item.uuid === selectedItems[0])?.name ||
+              'Untitled'}
           </h4>
 
           <p className="text-sm text-gray-500 mb-6">
-            Type: {allItems.find((item) => item.id === selectedItems[0])?.type}
+            Type:{' '}
+            {allItems.find((item) => item.uuid === selectedItems[0])?.type ||
+              'Unknown'}
           </p>
 
           <div className="space-y-4">
@@ -125,45 +104,23 @@ export default function DetailsPanel({
               </h5>
               <div className="text-sm space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Modified</span>
-                  <span>
-                    {
-                      allItems.find((item) => item.id === selectedItems[0])
-                        ?.modified
-                    }
+                  <span className="text-gray-500">UUID</span>
+                  <span className="text-xs truncate max-w-[150px]">
+                    {selectedItems[0]}
                   </span>
                 </div>
 
-                {/* Show network-specific details if the selected item is a network */}
+                {/* Additional details will vary based on fetch from APIs */}
                 {(() => {
                   const selectedItem = allItems.find(
-                    (item) => item.id === selectedItems[0],
+                    (item) => item.uuid === selectedItems[0],
                   )
                   if (selectedItem?.type === 'network') {
-                    const networkItem = selectedItem as NetworkItem
                     return (
                       <>
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Owner</span>
-                          <span>{networkItem.originalData.owner}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Nodes</span>
-                          <span>
-                            {networkItem.originalData.nodeCount?.toLocaleString() ||
-                              'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Edges</span>
-                          <span>
-                            {networkItem.originalData.edgeCount?.toLocaleString() ||
-                              'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Visibility</span>
-                          <span>{networkItem.originalData.visibility}</span>
+                          <span className="text-gray-500">Type</span>
+                          <span>Network</span>
                         </div>
                       </>
                     )
@@ -171,12 +128,8 @@ export default function DetailsPanel({
                     return (
                       <>
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Created</span>
-                          <span>2023-01-01</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Size</span>
-                          <span>4.5 MB</span>
+                          <span className="text-gray-500">Type</span>
+                          <span>Folder</span>
                         </div>
                       </>
                     )
@@ -189,21 +142,7 @@ export default function DetailsPanel({
               <h5 className="text-xs font-medium text-gray-500 mb-1">
                 Description
               </h5>
-              <p className="text-sm text-gray-700">
-                {(() => {
-                  const selectedItem = allItems.find(
-                    (item) => item.id === selectedItems[0],
-                  )
-                  if (selectedItem?.type === 'network') {
-                    const networkItem = selectedItem as NetworkItem
-                    return (
-                      networkItem.originalData.description ||
-                      'No description available.'
-                    )
-                  }
-                  return 'Select an item to view or add a description.'
-                })()}
-              </p>
+              <p className="text-sm text-gray-700">No description available.</p>
             </div>
           </div>
         </div>
@@ -215,15 +154,16 @@ export default function DetailsPanel({
           <p className="text-lg font-medium mb-4">
             {selectedItems.length} items selected
           </p>
-          <ul className="space-y-2 text-sm">
-            {selectedItems.map((id) => (
-              <li key={id} className="flex items-center gap-2">
-                {getItemIcon(
-                  allItems.find((item) => item.id === id)?.type || 'file',
-                )}
-                <span>{allItems.find((item) => item.id === id)?.name}</span>
-              </li>
-            ))}
+          <ul className="space-y-2 text-sm max-h-[400px] overflow-y-auto">
+            {selectedItems.map((uuid) => {
+              const item = allItems.find((item) => item.uuid === uuid)
+              return (
+                <li key={uuid} className="flex items-center gap-2">
+                  {getItemIcon(item?.type || 'file')}
+                  <span className="truncate">{item?.name || 'Untitled'}</span>
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}

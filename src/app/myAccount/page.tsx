@@ -1,4 +1,4 @@
-import MyAccount from '@/components/my-account/MyAccount'
+import MyAccount from '@/components/myAccount/MyAccount'
 
 /**
  * My Account Page

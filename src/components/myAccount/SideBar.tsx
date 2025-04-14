@@ -2,6 +2,10 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import NewFolderDialog from './NewFolderDialog'
+import { useConfig } from '@/lib/contexts/ConfigContext'
+import { useAuth } from '@/lib/contexts/KeycloakContext'
+import { getNdexClient } from '@/lib/api/ndex-client-manager'
 
 import {
   Folder,
@@ -20,16 +24,21 @@ interface SideBarProps {
   storageUsed: number
   collapsed: boolean
   setCollapsed: (collapsed: boolean) => void
+  currentFolderId?: string | null
 }
 
 export default function SideBar({
   storageUsed,
   collapsed,
   setCollapsed,
+  currentFolderId = null,
 }: SideBarProps) {
   const [showNewOptions, setShowNewOptions] = useState(false)
+  const [showFolderDialog, setShowFolderDialog] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const config = useConfig()
+  const { token } = useAuth()
 
   const toggleNewOptions = () => {
     setShowNewOptions(!showNewOptions)
@@ -60,6 +69,19 @@ export default function SideBar({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showNewOptions])
+
+  // Handle folder creation
+  const handleCreateFolder = async (name: string) => {
+    try {
+      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+      await ndexClient.createFolder(name, currentFolderId)
+      // Reload the page to refresh the folder list
+      window.location.reload()
+    } catch (error) {
+      console.error('Error creating folder:', error)
+      throw error
+    }
+  }
 
   const storageTotal = 5
   const storagePercentage = (storageUsed / storageTotal) * 100
@@ -115,7 +137,7 @@ export default function SideBar({
               <button
                 className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
                 onClick={() => {
-                  // Handle new folder action
+                  setShowFolderDialog(true)
                   setShowNewOptions(false)
                 }}
               >
@@ -209,6 +231,13 @@ export default function SideBar({
           </div>
         </div>
       )}
+
+      {/* New Folder Dialog */}
+      <NewFolderDialog
+        isOpen={showFolderDialog}
+        onClose={() => setShowFolderDialog(false)}
+        onCreateFolder={handleCreateFolder}
+      />
     </nav>
   )
 }
