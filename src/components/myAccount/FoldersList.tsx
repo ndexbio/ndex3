@@ -76,7 +76,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
 
   // Filter out network items - this component only shows folders
   const folderItems = folders.filter(
-    (item) => item.type === 'folder',
+    (item) => item.type === 'FOLDER',
   ) as FolderItem[]
 
   if (folderItems.length === 0) {

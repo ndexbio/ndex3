@@ -1,14 +1,7 @@
 import MyAccount from '@/components/myAccount/MyAccount'
-
-type Props = {
-  params: {
-    uuid: string
-  }
-}
-
 /**
  * Folder View Page
  */
-export default function FolderPage({ params }: Props) {
+export default function FolderPage({ params }: { params: { uuid: string } }) {
   return <MyAccount uuid={params.uuid} />
 }

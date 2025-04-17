@@ -8,7 +8,7 @@ import { getNdexClient } from '@/lib/api/ndex-client-manager'
 export interface FolderItemBase {
   uuid: string
   name: string
-  type: 'folder' | 'network'
+  type: 'FOLDER' | 'NETWORK'
 }
 
 export interface FolderContents {

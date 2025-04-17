@@ -25,6 +25,7 @@ interface SideBarProps {
   collapsed: boolean
   setCollapsed: (collapsed: boolean) => void
   currentFolderId?: string | null
+  activeView?: 'myAccount' | 'trash' | 'shared'
 }
 
 export default function SideBar({
@@ -32,6 +33,7 @@ export default function SideBar({
   collapsed,
   setCollapsed,
   currentFolderId = null,
+  activeView = 'myAccount',
 }: SideBarProps) {
   const [showNewOptions, setShowNewOptions] = useState(false)
   const [showFolderDialog, setShowFolderDialog] = useState(false)
@@ -153,23 +155,17 @@ export default function SideBar({
       Inactive tab: text-gray-700       
       */}
       {/* Navigation Items */}
-      <ul className="space-y-1">
+      <ul className="space-y-2 mt-5">
         <li>
           <Link
-            href="/"
+            href="/myAccount"
             className={`flex items-center ${
               collapsed ? 'justify-center' : 'gap-3'
-            } p-2 rounded-md hover:bg-gray-100 text-gray-700`}
-          >
-            <Home className="h-5 w-5" />
-            {!collapsed && <span>Home</span>}
-          </Link>
-        </li>
-        <li>
-          <div
-            className={`flex items-center ${
-              collapsed ? 'justify-center' : 'gap-3'
-            } p-2 rounded-md bg-blue-50 text-sky-700`}
+            } p-2 rounded-md ${
+              activeView === 'myAccount'
+                ? 'bg-blue-50 text-sky-700'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
           >
             <Folder className="h-5 w-5" />
             {!collapsed && (
@@ -177,7 +173,7 @@ export default function SideBar({
                 <span>My Networks</span>
               </>
             )}
-          </div>
+          </Link>
         </li>
 
         <li>
@@ -185,7 +181,11 @@ export default function SideBar({
             href="/shared-with-me"
             className={`flex items-center ${
               collapsed ? 'justify-center' : 'gap-3'
-            } p-2 rounded-md hover:bg-gray-100 text-gray-700`}
+            } p-2 rounded-md ${
+              activeView === 'shared'
+                ? 'bg-blue-50 text-sky-700'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
           >
             <Users className="h-5 w-5" />
             {!collapsed && <span>Shared with me</span>}
@@ -196,7 +196,11 @@ export default function SideBar({
             href="/trash"
             className={`flex items-center ${
               collapsed ? 'justify-center' : 'gap-3'
-            } p-2 rounded-md hover:bg-gray-100 text-gray-700`}
+            } p-2 rounded-md ${
+              activeView === 'trash'
+                ? 'bg-blue-50 text-sky-700'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
           >
             <Trash className="h-5 w-5" />
             {!collapsed && <span>Trash</span>}

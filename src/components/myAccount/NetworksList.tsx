@@ -72,7 +72,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
 
   // Filter to only show network items
   const networkItems = items.filter(
-    (item) => item.type === 'network',
+    (item) => item.type === 'NETWORK',
   ) as NetworkItem[]
 
   // Handle shift+click for range selection
