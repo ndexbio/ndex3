@@ -36,7 +36,7 @@ export function UserAvatar() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/myAccount" className="cursor-pointer flex items-center">
+          <Link href="/my-account" className="cursor-pointer flex items-center">
             <User className="mr-2 h-4 w-4" />
             <span>My Account</span>
           </Link>

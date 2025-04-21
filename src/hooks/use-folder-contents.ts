@@ -8,7 +8,11 @@ import { getNdexClient } from '@/lib/api/ndex-client-manager'
 export interface FolderItemBase {
   uuid: string
   name: string
-  type: 'FOLDER' | 'NETWORK'
+  type: 'FOLDER' | 'NETWORK' | 'SHORTCUT'
+  modificationTime: string | Date
+  attributes: {
+    [key: string]: string | number | boolean
+  }
 }
 
 export interface FolderContents {
@@ -23,10 +27,12 @@ export interface FolderContents {
  * @param folderId UUID of the folder to fetch contents from. If null, fetches home folder contents.
  * @returns Object containing folder contents, loading state, and error
  */
-export const useFolderContents = (folderId: string | null = null): FolderContents => {
+export const useFolderContents = (
+  folderId: string | null = null,
+): FolderContents => {
   const config = useConfig()
   const { token, isAuthenticated } = useAuth()
-  
+
   // Create a cache key for revalidation
   const cacheKey = isAuthenticated ? ['folderContents', folderId, token] : null
 
@@ -35,19 +41,19 @@ export const useFolderContents = (folderId: string | null = null): FolderContent
     if (!isAuthenticated) {
       return []
     }
-    
+
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      let items;
-      
+      let items
+
       if (folderId === null) {
         // Get home folder contents
-        items = await ndexClient._httpGetV3ProtectedObj('files/folders/home/list')
+        items = await ndexClient.getFolderList('home', undefined, 'compact')
       } else {
         // Get specific folder contents
-        items = await ndexClient.getFolderList(folderId)
+        items = await ndexClient.getFolderList(folderId, undefined, 'compact')
       }
-      
+
       return items || []
     } catch (error) {
       console.error('Error fetching folder contents:', error)
@@ -62,7 +68,7 @@ export const useFolderContents = (folderId: string | null = null): FolderContent
     {
       revalidateOnFocus: false,
       dedupingInterval: 60000, // 1 minute
-    }
+    },
   )
 
   return {
@@ -83,10 +89,10 @@ export const useFolderContents = (folderId: string | null = null): FolderContent
 export const fetchFolderContents = async (
   ndexBaseUrl: string,
   token: string,
-  folderId: string | null = null
+  folderId: string | null = null,
 ): Promise<FolderItemBase[]> => {
   const ndexClient = getNdexClient(ndexBaseUrl, token)
-  
+
   if (folderId === null) {
     // Get home folder contents
     return ndexClient._httpGetV3ProtectedObj('files/folders/home/list')
@@ -94,4 +100,4 @@ export const fetchFolderContents = async (
     // Get specific folder contents
     return ndexClient.getFolderList(folderId)
   }
-} 
+}

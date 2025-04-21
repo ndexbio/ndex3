@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import MyAccount from '@/components/myAccount/MyAccount'
+import MyAccount from '@/components/my-account/MyAccount'
 
 /**
  * Trash Page

@@ -34,7 +34,7 @@ export default function DetailsPanel({
   }
 
   return (
-    <div className="w-80 h-full border border-gray-200 bg-white flex flex-col rounded-md">
+    <div className="w-80 h-full border border-gray-200 bg-white flex flex-col rounded-md shrink-0">
       <div className="p-4 border-b border-gray-200 flex items-center justify-between shrink-0">
         <h3 className="font-medium">Details</h3>
         <button
@@ -115,7 +115,7 @@ export default function DetailsPanel({
                   const selectedItem = allItems.find(
                     (item) => item.uuid === selectedItems[0],
                   )
-                  if (selectedItem?.type === 'network') {
+                  if (selectedItem?.type === 'NETWORK') {
                     return (
                       <>
                         <div className="flex justify-between">

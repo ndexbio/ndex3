@@ -82,21 +82,21 @@ const NewFolderDialog: React.FC<NewFolderDialogProps> = ({
             value={folderName}
             onChange={(e) => setFolderName(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full p-3 border border-blue-500 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full p-3 border border-sky-700 rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
             disabled={isSubmitting}
           />
 
           <div className="flex justify-end gap-4 mt-5">
             <button
               onClick={onClose}
-              className="px-4 py-1.5 text-blue-600 hover:bg-gray-50 text-sm"
+              className="px-4 py-1.5 text-sky-700 hover:bg-gray-50 text-sm"
               disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               onClick={handleCreateFolder}
-              className="px-4 py-1.5 text-blue-600 hover:bg-gray-50 text-sm"
+              className="px-4 py-1.5 text-sky-700 hover:bg-gray-50 text-sm"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Creating...' : 'Create'}

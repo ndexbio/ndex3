@@ -22,6 +22,8 @@ type AuthContextType = {
   login: () => void
   logout: () => void
   isInitializing: boolean
+  diskUsed: number
+  diskQuota: number
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -45,6 +47,8 @@ export const KeycloakProvider = ({
   const [tokenParsed, setTokenParsed] = useState<
     KeycloakTokenParsed | undefined
   >(undefined)
+  const [diskUsed, setDiskUsed] = useState(0)
+  const [diskQuota, setDiskQuota] = useState(0)
   const [isInitializing, setIsInitializing] = useState(true)
 
   // State for email verification
@@ -59,7 +63,9 @@ export const KeycloakProvider = ({
   const checkUserVerification = async (ndexBaseUrl: string, token: string) => {
     try {
       const ndexClient = getNdexClient(ndexBaseUrl)
-      await ndexClient.signInFromIdToken(token)
+      const userInfo = await ndexClient.signInFromIdToken(token)
+      setDiskUsed(userInfo.diskUsed)
+      setDiskQuota(userInfo.diskQuota)
       // If it succeeds, user is verified
       setEmailUnverified(false)
     } catch (e: any) {
@@ -158,6 +164,8 @@ export const KeycloakProvider = ({
         login: () => keycloakRef.current?.login(),
         logout: () => keycloakRef.current?.logout(),
         isInitializing,
+        diskUsed,
+        diskQuota,
       }}
     >
       {/* Normal app children */}
