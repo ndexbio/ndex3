@@ -10,6 +10,7 @@ export interface SharedContents {
   isLoading: boolean
   error: Error | null
   isEmpty: boolean
+  refresh: () => Promise<void>
 }
 
 /**
@@ -41,7 +42,7 @@ export const useSharedItems = (): SharedContents => {
   }
 
   // Use SWR to fetch and cache the data
-  const { data, error, isLoading } = useSWR<FolderItemBase[]>(
+  const { data, error, isLoading, mutate } = useSWR<FolderItemBase[]>(
     cacheKey,
     fetcher,
     {
@@ -50,10 +51,18 @@ export const useSharedItems = (): SharedContents => {
     },
   )
 
+  // Function to manually refresh the data
+  const refresh = async () => {
+    if (cacheKey) {
+      await mutate()
+    }
+  }
+
   return {
     items: data || [],
     isLoading,
     error,
     isEmpty: !data || data.length === 0,
+    refresh,
   }
 } 

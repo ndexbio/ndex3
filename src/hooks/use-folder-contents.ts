@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import useSWR from 'swr'
+import useSWR, { mutate as globalMutate } from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
@@ -20,6 +20,7 @@ export interface FolderContents {
   isLoading: boolean
   error: Error | null
   isEmpty: boolean
+  refresh: () => Promise<void>
 }
 
 /**
@@ -62,7 +63,7 @@ export const useFolderContents = (
   }
 
   // Use SWR to fetch and cache the data
-  const { data, error, isLoading } = useSWR<FolderItemBase[]>(
+  const { data, error, isLoading, mutate } = useSWR<FolderItemBase[]>(
     cacheKey,
     fetcher,
     {
@@ -71,11 +72,19 @@ export const useFolderContents = (
     },
   )
 
+  // Function to manually refresh the data
+  const refresh = async () => {
+    if (cacheKey) {
+      await mutate()
+    }
+  }
+
   return {
     items: data || [],
     isLoading,
     error,
     isEmpty: !data || data.length === 0,
+    refresh,
   }
 }
 

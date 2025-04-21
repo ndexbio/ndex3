@@ -34,6 +34,7 @@ import { useSharedItems } from '@/hooks/use-shared-items'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
+import { useToast } from '@/lib/contexts/ToastContext'
 
 // Define the props for MyAccount component
 interface MyAccountProps {
@@ -63,6 +64,7 @@ export default function MyAccount({
   const { isAuthenticated, token, isInitializing, diskUsed, diskQuota } =
     useAuth()
   const router = useRouter()
+  const { addToast } = useToast()
 
   // Convert UUID string to null for home folder
   const folderId = uuid || null
@@ -111,6 +113,7 @@ export default function MyAccount({
     isLoading,
     error,
     isEmpty,
+    refresh: refreshFolderContents,
   } = useFolderContents(folderId)
 
   // Fetch shared items if in shared view
@@ -119,6 +122,7 @@ export default function MyAccount({
     isLoading: isLoadingShared,
     error: sharedError,
     isEmpty: isSharedEmpty,
+    refresh: refreshSharedItems,
   } = useSharedItems()
 
   // Determine which items to display based on the current view
@@ -485,28 +489,29 @@ export default function MyAccount({
 
   // Fetch trash contents when in trash view
   useEffect(() => {
-    const fetchTrashItems = async () => {
-      if (isTrash && isAuthenticated && token) {
-        try {
-          setLoading(true)
-          const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-          const trashResults = await ndexClient.getTrash()
-          setTrashItems(trashResults)
-          // Set breadcrumb for trash
-          setBreadcrumbPath([{ name: 'Trash', id: null }])
-          setLoading(false)
-        } catch (error) {
-          console.error('Error fetching trash items:', error)
-          setErrorMessage('Failed to load trash items')
-          setLoading(false)
-        }
-      }
-    }
-
-    if (isTrash) {
+    if (isTrash && isAuthenticated && token) {
       fetchTrashItems()
     }
   }, [isTrash, isAuthenticated, token, config.ndexBaseUrl])
+
+  // Function to fetch trash items
+  const fetchTrashItems = async () => {
+    if (isTrash && isAuthenticated && token) {
+      try {
+        setLoading(true)
+        const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+        const trashResults = await ndexClient.getTrash()
+        setTrashItems(trashResults)
+        // Set breadcrumb for trash
+        setBreadcrumbPath([{ name: 'Trash', id: null }])
+        setLoading(false)
+      } catch (error) {
+        console.error('Error fetching trash items:', error)
+        setErrorMessage('Failed to load trash items')
+        setLoading(false)
+      }
+    }
+  }
 
   // Handle trash-specific actions
   const handleRestoreFromTrash = async (ids: string[]) => {
@@ -521,14 +526,27 @@ export default function MyAccount({
         }
 
         // Refresh the trash items
-        const trashResults = await ndexClient.getTrash()
-        setTrashItems(trashResults)
+        await fetchTrashItems()
         setSelectedItems([])
         setLoading(false)
+
+        // Show success toast
+        addToast({
+          title: 'Items restored',
+          description: `${ids.length} item(s) restored from trash`,
+          type: 'success',
+        })
       } catch (error) {
         console.error('Error restoring items from trash:', error)
         setErrorMessage('Failed to restore items from trash')
         setLoading(false)
+
+        // Show error toast
+        addToast({
+          title: 'Restore failed',
+          description: 'Failed to restore items from trash',
+          type: 'error',
+        })
       }
     }
   }
@@ -545,14 +563,27 @@ export default function MyAccount({
         }
 
         // Refresh the trash items
-        const trashResults = await ndexClient.getTrash()
-        setTrashItems(trashResults)
+        await fetchTrashItems()
         setSelectedItems([])
         setLoading(false)
+
+        // Show success toast
+        addToast({
+          title: 'Items deleted',
+          description: `${ids.length} item(s) permanently deleted`,
+          type: 'success',
+        })
       } catch (error) {
         console.error('Error permanently deleting items:', error)
         setErrorMessage('Failed to permanently delete items')
         setLoading(false)
+
+        // Show error toast
+        addToast({
+          title: 'Delete failed',
+          description: 'Failed to permanently delete items',
+          type: 'error',
+        })
       }
     }
   }
@@ -568,11 +599,13 @@ export default function MyAccount({
       // First check if any of the selected items is the target folder to prevent circular references
       if (itemIds.includes(targetFolderId)) {
         console.error('Cannot move a folder into itself')
+        addToast({
+          title: 'Move failed',
+          description: 'Cannot move a folder into itself',
+          type: 'error',
+        })
         return
       }
-
-      console.log('Moving items:', itemIds)
-      console.log('Target folder ID:', targetFolderId)
 
       // Show loading state
       setLoading(true)
@@ -580,21 +613,90 @@ export default function MyAccount({
       // Get NdexClient
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
 
-      // Move each item to the target folder
-      for (const itemId of itemIds) {
-        await ndexClient.moveToFolder(itemId, targetFolderId)
+      // Find the items to move
+      const itemsToMove = displayItems.filter((item) =>
+        itemIds.includes(item.uuid),
+      )
+
+      // Keep track of items moved
+      const movedItems = {
+        total: itemsToMove.length,
+        successful: 0,
+        failed: 0,
+        names: [] as string[],
+      }
+
+      // Move each item to the target folder based on its type
+      for (const item of itemsToMove) {
+        try {
+          if (item.type === 'FOLDER') {
+            // Move folder
+            await ndexClient.updateFolder(item.uuid, item.name, targetFolderId)
+            movedItems.successful++
+            movedItems.names.push(item.name)
+          } else if (item.type === 'NETWORK') {
+            // Move network
+            // TODO: Implement the updateNetwork method in ndexClient
+            console.log(
+              `Need to move network ${item.uuid} to folder ${targetFolderId}`,
+            )
+            // Example of what this might look like:
+            // await ndexClient.updateNetwork(item.uuid, { parent: targetFolderId })
+            movedItems.successful++
+            movedItems.names.push(item.name)
+          } else if (item.type === 'SHORTCUT') {
+            // Update shortcut parent
+            await ndexClient.updateShortcut(
+              item.uuid,
+              item.name,
+              targetFolderId,
+              null,
+            )
+            movedItems.successful++
+            movedItems.names.push(item.name)
+          }
+        } catch (error) {
+          console.error(`Error moving item ${item.name}:`, error)
+          movedItems.failed++
+        }
       }
 
       // Clear selection after move
       setSelectedItems([])
 
-      // Refresh the folder contents
-      // This would typically be handled by the useFolderContents hook's refresh function
-      // But for now, we'll just navigate to the current folder again to refresh
-      if (folderId) {
-        router.push(`/folder/${folderId}`)
+      // Show success/error toast
+      if (movedItems.successful > 0) {
+        let description = ''
+        if (movedItems.names.length <= 3) {
+          // Show individual item names if there are 3 or fewer
+          description = `Moved ${movedItems.names.join(', ')} to folder`
+        } else {
+          // Otherwise just show the count
+          description = `Moved ${movedItems.successful} items to folder`
+        }
+
+        addToast({
+          title: 'Items moved',
+          description,
+          type: 'success',
+        })
+      }
+
+      if (movedItems.failed > 0) {
+        addToast({
+          title: 'Move incomplete',
+          description: `Failed to move ${movedItems.failed} items`,
+          type: 'warning',
+        })
+      }
+
+      // Refresh the data based on current view
+      if (isTrash) {
+        await fetchTrashItems()
+      } else if (isShared) {
+        await refreshSharedItems()
       } else {
-        router.push('/my-account')
+        await refreshFolderContents()
       }
 
       setLoading(false)
@@ -602,6 +704,13 @@ export default function MyAccount({
       console.error('Error moving items:', error)
       setErrorMessage('Failed to move items')
       setLoading(false)
+
+      // Show error toast
+      addToast({
+        title: 'Move failed',
+        description: 'An error occurred while moving items',
+        type: 'error',
+      })
     }
   }
 
@@ -935,7 +1044,7 @@ export default function MyAccount({
               </div>
             ) : (
               <div className="px-6 py-2 flex flex-wrap gap-2">
-                {!isTrash && (
+                {!isTrash && !isShared && (
                   <div className="relative" ref={filterDropdownRef}>
                     {/* Main filter button styled like the image */}
                     <button

@@ -6,6 +6,7 @@ import { KeycloakProvider } from '@/lib/contexts/KeycloakContext'
 import { NavBar } from '@/components/NavBar'
 import { MainPanel } from '@/components/MainPanel'
 import { Footer } from '@/components/Footer'
+import { ToastContextProvider } from '@/lib/contexts/ToastContext'
 
 export const metadata: Metadata = {
   title: 'NDEx 3',
@@ -34,7 +35,7 @@ function DynamicFavicon() {
  * - Metadata (for SEO)
  * - Global styles
  * - Footer (not included yet)
- *
+ * - ToastContextProvider (for showing notifications)
  *
  * @param children
  * @returns
@@ -52,13 +53,15 @@ export default function RootLayout({
       <body className={`antialiased min-h-screen bg-gray-100`}>
         <ConfigProvider>
           <KeycloakProvider>
-            <ThemeWrapper>
-              <div className="flex flex-col gap-4 h-screen">
-                <NavBar />
-                <MainPanel>{children}</MainPanel>
-                <Footer />
-              </div>
-            </ThemeWrapper>
+            <ToastContextProvider>
+              <ThemeWrapper>
+                <div className="flex flex-col min-h-screen">
+                  <NavBar />
+                  <MainPanel>{children}</MainPanel>
+                  <Footer />
+                </div>
+              </ThemeWrapper>
+            </ToastContextProvider>
           </KeycloakProvider>
         </ConfigProvider>
       </body>

@@ -3,6 +3,7 @@
 import React from 'react'
 import { File, Folder, X } from 'lucide-react'
 import { FolderItemBase } from '@/hooks/use-folder-contents'
+import { formatDate } from './NetworksList'
 
 interface DetailsPanelProps {
   isOpen: boolean
@@ -91,17 +92,11 @@ export default function DetailsPanel({
               'Untitled'}
           </h4>
 
-          <p className="text-sm text-gray-500 mb-6">
-            Type:{' '}
-            {allItems.find((item) => item.uuid === selectedItems[0])?.type ||
-              'Unknown'}
-          </p>
-
           <div className="space-y-4">
             <div>
-              <h5 className="text-xs font-medium text-gray-500 mb-1">
+              <h4 className="text-base font-medium text-gray-500 mb-1">
                 Details
-              </h5>
+              </h4>
               <div className="text-sm space-y-2">
                 <div className="flex justify-between">
                   <span className="text-gray-500">UUID</span>
@@ -122,27 +117,43 @@ export default function DetailsPanel({
                           <span className="text-gray-500">Type</span>
                           <span>Network</span>
                         </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Edge Count</span>
+                          <span>{selectedItem.attributes?.edges ?? 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Visibility</span>
+                          <span>
+                            {selectedItem.attributes?.visibility ?? 'N/A'}
+                          </span>
+                        </div>
+                        <h4 className="text-base font-medium text-gray-500 mb-1 mt-2">
+                          Description
+                        </h4>
+                        <p className="text-sm text-gray-700">
+                          {selectedItem.attributes?.description ??
+                            'No description available.'}
+                        </p>
                       </>
                     )
-                  } else {
+                  } else if (selectedItem?.type === 'FOLDER') {
                     return (
                       <>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Type</span>
                           <span>Folder</span>
                         </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Last Modified</span>
+                          <span>
+                            {formatDate(selectedItem.modificationTime) ?? 'N/A'}
+                          </span>
+                        </div>
                       </>
                     )
                   }
                 })()}
               </div>
-            </div>
-
-            <div>
-              <h5 className="text-xs font-medium text-gray-500 mb-1">
-                Description
-              </h5>
-              <p className="text-sm text-gray-700">No description available.</p>
             </div>
           </div>
         </div>

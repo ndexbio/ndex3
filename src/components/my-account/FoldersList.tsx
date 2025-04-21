@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useCallback } from 'react'
 import { Folder, MoreVertical, Clock, User, ArrowRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useDrag, useDrop } from 'react-dnd'
@@ -20,6 +20,193 @@ interface FoldersListProps {
 // Extended folder item with additional properties we might have
 interface FolderItem extends FolderItemBase {}
 
+// Format date in a readable way
+const formatDate = (dateStr?: string | Date) => {
+  if (!dateStr) return 'N/A'
+  const date =
+    typeof dateStr === 'string'
+      ? dateStr
+      : new Date(dateStr).toLocaleDateString()
+  return date
+}
+
+// Format count with commas for readability
+const formatCount = (count?: number) => {
+  if (count === undefined || count === null) return 'N/A'
+  return count.toLocaleString()
+}
+
+// Single folder grid item component
+const GridFolderItem = ({
+  folder,
+  index,
+  selectedItems,
+  onSelect,
+  onDoubleClick,
+  onDrop,
+}: {
+  folder: FolderItem
+  index: number
+  selectedItems: string[]
+  onSelect: (event: React.MouseEvent, id: string, index: number) => void
+  onDoubleClick: (event: React.MouseEvent, id: string) => void
+  onDrop: (itemIds: string[], targetFolderId: string) => void
+}) => {
+  // Drop target for any DRIVE_ITEM
+  const [{ isOver }, drop] = useDrop({
+    accept: ItemTypes.DRIVE_ITEM,
+    drop: (dragged) => onDrop((dragged as any).ids, folder.uuid),
+    collect: (m) => ({ isOver: m.isOver() }),
+  })
+
+  // Draggable source
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemTypes.DRIVE_ITEM,
+    item: () => ({
+      ids: selectedItems.includes(folder.uuid) ? selectedItems : [folder.uuid],
+      type: 'FOLDER',
+    }),
+    collect: (m) => ({ isDragging: m.isDragging() }),
+  })
+
+  // Create a ref combining both drag and drop
+  const ref = useCallback(
+    (node: HTMLDivElement | null) => {
+      drag(node)
+      drop(node)
+    },
+    [drag, drop],
+  )
+
+  return (
+    <div
+      key={folder.uuid}
+      data-item
+      ref={ref}
+      className={`
+        rounded-md border border-gray-200 cursor-pointer select-none
+        p-2 flex items-center justify-between
+        ${isOver ? 'bg-blue-50 border-blue-300' : ''}
+        ${isDragging ? 'opacity-50' : 'opacity-100'}
+        ${
+          selectedItems.includes(folder.uuid)
+            ? 'bg-blue-100'
+            : 'hover:bg-gray-50'
+        }
+      `}
+      onClick={(e) => onSelect(e, folder.uuid, index)}
+      onDoubleClick={(e) => onDoubleClick(e, folder.uuid)}
+    >
+      <div className="flex items-center gap-3 overflow-hidden">
+        <div className="flex-shrink-0">
+          <Folder className="h-5 w-5 text-gray-600" />
+        </div>
+        <span className="text-sm truncate">{folder.name}</span>
+      </div>
+      <div className="flex items-center gap-4">
+        <button className="p-1 rounded-full hover:bg-gray-200">
+          <MoreVertical className="h-4 w-4 text-gray-500" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Single folder list item component
+const ListFolderItem = ({
+  folder,
+  index,
+  selectedItems,
+  onSelect,
+  onDoubleClick,
+  onDrop,
+}: {
+  folder: FolderItem
+  index: number
+  selectedItems: string[]
+  onSelect: (event: React.MouseEvent, id: string, index: number) => void
+  onDoubleClick: (event: React.MouseEvent, id: string) => void
+  onDrop: (itemIds: string[], targetFolderId: string) => void
+}) => {
+  // For list view, we'll make the name cell both draggable and a drop target
+  const [{ isOver }, drop] = useDrop({
+    accept: ItemTypes.DRIVE_ITEM,
+    drop: (dragged) => onDrop((dragged as any).ids, folder.uuid),
+    collect: (m) => ({ isOver: m.isOver() }),
+  })
+
+  // Draggable source for the folder
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemTypes.DRIVE_ITEM,
+    item: () => ({
+      ids: selectedItems.includes(folder.uuid) ? selectedItems : [folder.uuid],
+      type: 'FOLDER',
+    }),
+    collect: (m) => ({ isDragging: m.isDragging() }),
+  })
+
+  // Create a ref combining both drag and drop
+  const ref = useCallback(
+    (node: HTMLTableRowElement | null) => {
+      drag(node)
+      drop(node)
+    },
+    [drag, drop],
+  )
+
+  return (
+    <tr
+      key={folder.uuid}
+      data-item
+      className={`cursor-pointer 
+        ${isDragging ? 'opacity-50' : 'opacity-100'} 
+        ${
+          selectedItems.includes(folder.uuid)
+            ? 'bg-blue-100'
+            : 'hover:bg-gray-50'
+        }
+      `}
+      onClick={(e) => onSelect(e, folder.uuid, index)}
+      onDoubleClick={(e) => onDoubleClick(e, folder.uuid)}
+      ref={ref}
+    >
+      <td
+        className={`px-6 py-4 whitespace-nowrap ${isOver ? 'bg-blue-50' : ''}`}
+      >
+        <div className="flex items-center max-w-full">
+          <div className="flex-shrink-0 mr-3">
+            <Folder className="h-5 w-5 text-gray-600" />
+          </div>
+          <div className="overflow-hidden">
+            <div className="text-sm font-medium text-gray-900 truncate max-w-[250px]">
+              {folder.name}
+            </div>
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="flex items-center text-sm text-gray-500">
+          <User className="h-4 w-4 mr-1 text-gray-400" />
+          <span className="truncate">{folder.attributes?.owner || 'Me'}</span>
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="flex items-center text-sm text-gray-500">
+          <Clock className="h-4 w-4 mr-1 text-gray-400" />
+          <span className="truncate">
+            {formatDate(folder.modificationTime)}
+          </span>
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-center">
+        <button className="p-1 rounded-full hover:bg-gray-200 inline-flex">
+          <MoreVertical className="h-4 w-4 text-gray-500" />
+        </button>
+      </td>
+    </tr>
+  )
+}
+
 const FoldersList: React.FC<FoldersListProps> = ({
   folders,
   viewMode,
@@ -29,27 +216,6 @@ const FoldersList: React.FC<FoldersListProps> = ({
   onDrop,
 }) => {
   const router = useRouter()
-
-  // Helper to determine folder icon
-  const getFolderIcon = () => {
-    return <Folder className="h-5 w-5 text-gray-600" />
-  }
-
-  // Format date in a readable way
-  const formatDate = (dateStr?: string | Date) => {
-    if (!dateStr) return 'N/A'
-    const date =
-      typeof dateStr === 'string'
-        ? dateStr
-        : new Date(dateStr).toLocaleDateString()
-    return date
-  }
-
-  // Format count with commas for readability
-  const formatCount = (count?: number) => {
-    if (count === undefined || count === null) return 'N/A'
-    return count.toLocaleString()
-  }
 
   // Handle double click on folder to navigate into it
   const handleFolderDoubleClick = (
@@ -77,11 +243,25 @@ const FoldersList: React.FC<FoldersListProps> = ({
     (item) => item.type === 'FOLDER',
   ) as FolderItem[]
 
+  // Create a drop container for when there are no folders
+  const [{ isOver }, drop] = useDrop({
+    accept: ItemTypes.DRIVE_ITEM,
+    // We don't do anything on drop here since there are no folders
+    collect: (m) => ({ isOver: m.isOver() }),
+  })
+
   if (folderItems.length === 0) {
     return (
       <div className="mb-8">
         <h2 className="text-sm font-medium text-gray-500 mb-2">Folders</h2>
-        <p className="text-sm text-gray-500">No folders found</p>
+        <div
+          ref={drop as any}
+          className={`text-sm text-gray-500 h-32 flex items-center justify-center border-dashed border-2 rounded ${
+            isOver ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
+          }`}
+        >
+          No folders found
+        </div>
       </div>
     )
   }
@@ -93,62 +273,17 @@ const FoldersList: React.FC<FoldersListProps> = ({
       {viewMode === 'grid' ? (
         // Grid View
         <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-          {folderItems.map((folder, index) => {
-            // 1) drop target for any DRIVE_ITEM
-            const [{ isOver }, drop] = useDrop({
-              accept: ItemTypes.DRIVE_ITEM,
-              drop: (dragged) => onDrop((dragged as any).ids, folder.uuid),
-              collect: (m) => ({ isOver: m.isOver() }),
-            })
-            // 2) draggable source
-            const [{ isDragging }, drag] = useDrag({
-              type: ItemTypes.DRIVE_ITEM,
-              item: () => ({
-                ids: selectedItems.includes(folder.uuid)
-                  ? selectedItems
-                  : [folder.uuid],
-                type: 'FOLDER',
-              }),
-              collect: (m) => ({ isDragging: m.isDragging() }),
-            })
-
-            // Create a ref function that combines drag and drop
-            const refFn = (el: HTMLDivElement | null) => {
-              drop(el)
-              drag(el)
-            }
-
-            return (
-              <div
-                key={folder.uuid}
-                data-item
-                ref={refFn}
-                className={`
-                rounded-md border border-gray-200 cursor-pointer select-none
-                p-2 flex items-center justify-between
-                ${isOver ? 'bg-blue-50 border-blue-300' : ''}
-                ${isDragging ? 'opacity-50' : 'opacity-100'}
-                ${
-                  selectedItems.includes(folder.uuid)
-                    ? 'bg-blue-100'
-                    : 'hover:bg-gray-50'
-                }
-              `}
-                onClick={(e) => handleItemClick(e, folder.uuid, index)}
-                onDoubleClick={(e) => handleFolderDoubleClick(e, folder.uuid)}
-              >
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="flex-shrink-0">{getFolderIcon()}</div>
-                  <span className="text-sm truncate">{folder.name}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button className="p-1 rounded-full hover:bg-gray-200">
-                    <MoreVertical className="h-4 w-4 text-gray-500" />
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+          {folderItems.map((folder, index) => (
+            <GridFolderItem
+              key={folder.uuid}
+              folder={folder}
+              index={index}
+              selectedItems={selectedItems}
+              onSelect={handleItemClick}
+              onDoubleClick={handleFolderDoubleClick}
+              onDrop={onDrop}
+            />
+          ))}
         </div>
       ) : (
         // List View - Enhanced with table layout
@@ -183,89 +318,17 @@ const FoldersList: React.FC<FoldersListProps> = ({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {folderItems.map((folder, index) => {
-                // For list view, we'll make the name cell both draggable and a drop target
-                const [{ isOver }, drop] = useDrop({
-                  accept: ItemTypes.DRIVE_ITEM,
-                  drop: (dragged) => onDrop((dragged as any).ids, folder.uuid),
-                  collect: (m) => ({ isOver: m.isOver() }),
-                })
-
-                // Draggable source for the folder
-                const [{ isDragging }, drag] = useDrag({
-                  type: ItemTypes.DRIVE_ITEM,
-                  item: () => ({
-                    ids: selectedItems.includes(folder.uuid)
-                      ? selectedItems
-                      : [folder.uuid],
-                    type: 'FOLDER',
-                  }),
-                  collect: (m) => ({ isDragging: m.isDragging() }),
-                })
-
-                // Create a ref function that combines drag and drop for the first cell
-                const refFn = (el: HTMLTableDataCellElement | null) => {
-                  drop(el)
-                  drag(el)
-                }
-
-                return (
-                  <tr
-                    key={folder.uuid}
-                    data-item
-                    className={`cursor-pointer 
-                    ${isDragging ? 'opacity-50' : 'opacity-100'} 
-                    ${
-                      selectedItems.includes(folder.uuid)
-                        ? 'bg-blue-100'
-                        : 'hover:bg-gray-50'
-                    }`}
-                    onClick={(e) => handleItemClick(e, folder.uuid, index)}
-                    onDoubleClick={(e) =>
-                      handleFolderDoubleClick(e, folder.uuid)
-                    }
-                  >
-                    <td
-                      className={`px-6 py-4 whitespace-nowrap ${
-                        isOver ? 'bg-blue-50' : ''
-                      }`}
-                      ref={refFn}
-                    >
-                      <div className="flex items-center max-w-full">
-                        <div className="flex-shrink-0 mr-3">
-                          {getFolderIcon()}
-                        </div>
-                        <div className="overflow-hidden">
-                          <div className="text-sm font-medium text-gray-900 truncate max-w-[250px]">
-                            {folder.name}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-500">
-                        <User className="h-4 w-4 mr-1 text-gray-400" />
-                        <span className="truncate">
-                          {folder.attributes?.owner || 'Me'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Clock className="h-4 w-4 mr-1 text-gray-400" />
-                        {formatDate(folder.modificationTime)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                      <div className="flex items-center gap-2 justify-center">
-                        <button className="p-1 rounded-full hover:bg-gray-200">
-                          <MoreVertical className="h-4 w-4 text-gray-500" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
+              {folderItems.map((folder, index) => (
+                <ListFolderItem
+                  key={folder.uuid}
+                  folder={folder}
+                  index={index}
+                  selectedItems={selectedItems}
+                  onSelect={handleItemClick}
+                  onDoubleClick={handleFolderDoubleClick}
+                  onDrop={onDrop}
+                />
+              ))}
             </tbody>
           </table>
         </div>
