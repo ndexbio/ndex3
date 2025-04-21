@@ -254,12 +254,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
     return (
       <div className="mb-8">
         <h2 className="text-sm font-medium text-gray-500 mb-2">Folders</h2>
-        <div
-          ref={drop as any}
-          className={`text-sm text-gray-500 h-32 flex items-center justify-center border-dashed border-2 rounded ${
-            isOver ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
-          }`}
-        >
+        <div ref={drop as any} className="text-sm text-gray-500">
           No folders found
         </div>
       </div>

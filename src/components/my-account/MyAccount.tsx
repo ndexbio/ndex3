@@ -22,7 +22,6 @@ import {
   Settings,
   SlidersHorizontal,
   Check,
-  Calendar,
   RefreshCw,
 } from 'lucide-react'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -54,6 +53,60 @@ interface DetailsPanelProps {
 // Define filter type
 type FilterOptionType = 'edgeCount' | 'nodeCount' | 'modificationTime'
 type FilterStateType = 'choose' | null
+
+// Helper function to convert string date to timestamp
+const dateStringToTimestamp = (dateString: string): number | null => {
+  if (!dateString) return null
+  const date = new Date(dateString)
+  return isNaN(date.getTime()) ? null : date.getTime()
+}
+
+// Helper function to format date string (MM/DD/YYYY) to input format (YYYY-MM-DD)
+const formatDateForInput = (dateString: string): string => {
+  if (!dateString) return ''
+
+  // Check if dateString is already in YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return dateString
+  }
+
+  // Parse MM/DD/YYYY
+  const parts = dateString.split('/')
+  if (parts.length === 3) {
+    const month = parts[0].padStart(2, '0')
+    const day = parts[1].padStart(2, '0')
+    const year = parts[2]
+    return `${year}-${month}-${day}`
+  }
+
+  // If the date is in another format, try to parse with Date object
+  try {
+    const date = new Date(dateString)
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0]
+    }
+  } catch (e) {
+    console.error('Error parsing date', e)
+  }
+
+  return ''
+}
+
+// Helper function to format date from input format (YYYY-MM-DD) to display format (MM/DD/YYYY)
+const formatDateFromInput = (dateString: string): string => {
+  if (!dateString) return ''
+
+  // Input is already in YYYY-MM-DD format
+  const parts = dateString.split('-')
+  if (parts.length === 3) {
+    const year = parts[0]
+    const month = parts[1]
+    const day = parts[2]
+    return `${month}/${day}/${year}`
+  }
+
+  return dateString
+}
 
 export default function MyAccount({
   uuid,
@@ -107,6 +160,117 @@ export default function MyAccount({
   // Reference to detect clicks outside the dropdown
   const dropdownRef = useRef<HTMLDivElement>(null)
 
+  // Function to apply filters to the items
+  const applyFilters = (items: FolderItemBase[]): FolderItemBase[] => {
+    // If no filters are selected, return all items
+    if (selectedFilters.size === 0) {
+      return items
+    }
+
+    return items.filter((item) => {
+      // Check each filter
+      for (const filterType of selectedFilters) {
+        // Edge Count Filter - only apply to networks, not folders
+        if (filterType === 'edgeCount' && item.type !== 'FOLDER') {
+          const min = filterValues.edgeCount.min
+            ? parseInt(filterValues.edgeCount.min)
+            : null
+          const max = filterValues.edgeCount.max
+            ? parseInt(filterValues.edgeCount.max)
+            : null
+
+          // Get edge count - since this property might not exist on all items, safely access it
+          const edgeCount = (item as any).attributes?.edges || 0
+
+          // Check if item's edge count is outside the filter range
+          if (min !== null && edgeCount < min) {
+            return false
+          }
+          if (max !== null && edgeCount > max) {
+            return false
+          }
+        }
+
+        // Node Count Filter
+        if (filterType === 'nodeCount' && item.type !== 'FOLDER') {
+          const min = filterValues.nodeCount.min
+            ? parseInt(filterValues.nodeCount.min)
+            : null
+          const max = filterValues.nodeCount.max
+            ? parseInt(filterValues.nodeCount.max)
+            : null
+
+          // Get node count - since this property might not exist on all items, safely access it
+          const nodeCount = (item as any).nodeCount || 0
+
+          // Check if item's node count is outside the filter range
+          if (min !== null && nodeCount < min) {
+            return false
+          }
+          if (max !== null && nodeCount > max) {
+            return false
+          }
+        }
+
+        // Modification Time Filter
+        if (filterType === 'modificationTime') {
+          // For start date, set time to beginning of day (00:00:00)
+          let startTimestamp: number | null = null
+          if (filterValues.modificationTime.start) {
+            const startDate = new Date(filterValues.modificationTime.start)
+            // Check if date is valid
+            if (!isNaN(startDate.getTime())) {
+              startDate.setHours(0, 0, 0, 0)
+              startTimestamp = startDate.getTime()
+            }
+          }
+
+          // For end date, set time to end of day (23:59:59)
+          let endTimestamp: number | null = null
+          if (filterValues.modificationTime.end) {
+            const endDate = new Date(filterValues.modificationTime.end)
+            // Check if date is valid
+            if (!isNaN(endDate.getTime())) {
+              endDate.setHours(23, 59, 59, 999)
+              endTimestamp = endDate.getTime()
+            }
+          }
+
+          // Get item's modification time - use creationTime if modificationTime is not available
+          // Use type assertion to safely access properties that might not be in the FolderItemBase type
+          const modTime = (item as any).modificationTime
+          const createTime = (item as any).creationTime
+
+          // Try to parse the item's timestamp
+          let itemTimestamp: number | null = null
+
+          if (modTime || createTime) {
+            const itemDate = new Date(modTime || createTime)
+            if (!isNaN(itemDate.getTime())) {
+              itemTimestamp = itemDate.getTime()
+            }
+          }
+
+          // If we can't determine the item's timestamp, skip this filter for this item
+          if (itemTimestamp === null) {
+            continue
+          }
+
+          // Check if item's modification time is outside the filter range
+          if (startTimestamp !== null && itemTimestamp < startTimestamp) {
+            return false
+          }
+          if (endTimestamp !== null && itemTimestamp > endTimestamp) {
+            return false
+          }
+        }
+      }
+
+      // If the item passed all active filters, include it
+      return true
+    })
+  }
+
   // Fetch folder contents using the hook
   const {
     items: folderContents,
@@ -130,6 +294,9 @@ export default function MyAccount({
   const currentLoading = isShared ? isLoadingShared : isLoading
   const currentError = isShared ? sharedError : error
   const currentIsEmpty = isShared ? isSharedEmpty : isEmpty
+
+  // Apply filters to get filtered items
+  const filteredItems = applyFilters(displayItems)
 
   // Fetch current folder info if we're in a subfolder
   useEffect(() => {
@@ -761,20 +928,36 @@ export default function MyAccount({
           className="px-6 py-5 flex-1 overflow-y-auto"
           onClick={handleOutsideClick}
         >
-          {displayItems.length === 0 ? (
+          {filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full opacity-70">
-              <Users className="h-16 w-16 text-gray-400 mb-4" />
-              <p className="text-lg text-gray-500 font-medium">
-                No items shared with you
-              </p>
-              <p className="text-sm text-gray-400">
-                Items shared with you by other users will appear here
-              </p>
+              {displayItems.length === 0 ? (
+                // No items at all
+                <>
+                  <Users className="h-16 w-16 text-gray-400 mb-4" />
+                  <p className="text-lg text-gray-500 font-medium">
+                    No items shared with you
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Items shared with you by other users will appear here
+                  </p>
+                </>
+              ) : (
+                // No items match the current filters
+                <>
+                  <Search className="h-16 w-16 text-gray-400 mb-4" />
+                  <p className="text-lg text-gray-500 font-medium">
+                    No items match the current filters
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Try adjusting your filter criteria
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <>
               <FoldersList
-                folders={displayItems.filter((item) => item.type === 'FOLDER')}
+                folders={filteredItems.filter((item) => item.type === 'FOLDER')}
                 viewMode={viewMode}
                 selectedItems={selectedItems}
                 onSelect={handleItemSelect}
@@ -782,7 +965,7 @@ export default function MyAccount({
                 onDrop={() => {}} // No-op for shared items
               />
               <NetworksList
-                items={displayItems.filter((item) => item.type === 'NETWORK')}
+                items={filteredItems.filter((item) => item.type === 'NETWORK')}
                 viewMode={viewMode}
                 selectedItems={selectedItems}
                 onSelect={handleItemSelect}
@@ -799,20 +982,42 @@ export default function MyAccount({
           className="px-6 py-5 flex-1 overflow-y-auto"
           onClick={handleOutsideClick}
         >
-          {displayItems.length === 0 ? (
+          {filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full opacity-70">
-              <Folder className="h-16 w-16 text-gray-400 mb-4" />
-              <p className="text-lg text-gray-500 font-medium">
-                This folder is empty
-              </p>
-              <p className="text-sm text-gray-400">
-                Upload files or create a folder to get started
-              </p>
+              {displayItems.length === 0 ? (
+                // Folder is completely empty
+                <>
+                  <Folder className="h-16 w-16 text-gray-400 mb-4" />
+                  <p className="text-lg text-gray-500 font-medium">
+                    This folder is empty
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Upload files or create a folder to get started
+                  </p>
+                </>
+              ) : (
+                // No items match the current filters
+                <>
+                  <Search className="h-16 w-16 text-gray-400 mb-4" />
+                  <p className="text-lg text-gray-500 font-medium">
+                    No items match the current filters
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Try adjusting your filter criteria
+                  </p>
+                  <button
+                    className="mt-4 px-4 py-2 bg-sky-700 text-white rounded-md hover:bg-sky-600 text-sm font-medium"
+                    onClick={() => setSelectedFilters(new Set())}
+                  >
+                    Clear all filters
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <>
               <FoldersList
-                folders={displayItems.filter((item) => item.type === 'FOLDER')}
+                folders={filteredItems.filter((item) => item.type === 'FOLDER')}
                 viewMode={viewMode}
                 selectedItems={selectedItems}
                 onSelect={handleItemSelect}
@@ -820,7 +1025,7 @@ export default function MyAccount({
                 onDrop={handleMoveItems}
               />
               <NetworksList
-                items={displayItems.filter((item) => item.type === 'NETWORK')}
+                items={filteredItems.filter((item) => item.type === 'NETWORK')}
                 viewMode={viewMode}
                 selectedItems={selectedItems}
                 onSelect={handleItemSelect}
@@ -1199,28 +1404,34 @@ export default function MyAccount({
                               </label>
                             </div>
                             {selectedFilters.has('modificationTime') && (
-                              <div className="flex flex-col gap-3 pl-7 mt-3">
+                              <div className="flex flex-col gap-3">
                                 <div className="flex items-center">
                                   <label className="text-sm text-gray-600 w-16">
                                     From:
                                   </label>
                                   <div className="relative flex-1">
                                     <input
-                                      type="text"
-                                      placeholder="MM/DD/YYYY"
-                                      className="w-full pl-3 pr-9 py-1.5 border border-gray-300 rounded text-sm"
+                                      type="date"
+                                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
                                       value={
                                         filterValues.modificationTime.start
+                                          ? formatDateForInput(
+                                              filterValues.modificationTime
+                                                .start,
+                                            )
+                                          : ''
                                       }
-                                      onChange={(e) =>
+                                      onChange={(e) => {
+                                        const formattedDate = e.target.value
+                                          ? formatDateFromInput(e.target.value)
+                                          : ''
                                         handleFilterValueChange(
                                           'modificationTime',
                                           'start',
-                                          e.target.value,
+                                          formattedDate,
                                         )
-                                      }
+                                      }}
                                     />
-                                    <Calendar className="h-4 w-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                   </div>
                                 </div>
                                 <div className="flex items-center">
@@ -1229,19 +1440,26 @@ export default function MyAccount({
                                   </label>
                                   <div className="relative flex-1">
                                     <input
-                                      type="text"
-                                      placeholder="MM/DD/YYYY"
-                                      className="w-full pl-3 pr-9 py-1.5 border border-gray-300 rounded text-sm"
-                                      value={filterValues.modificationTime.end}
-                                      onChange={(e) =>
+                                      type="date"
+                                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
+                                      value={
+                                        filterValues.modificationTime.end
+                                          ? formatDateForInput(
+                                              filterValues.modificationTime.end,
+                                            )
+                                          : ''
+                                      }
+                                      onChange={(e) => {
+                                        const formattedDate = e.target.value
+                                          ? formatDateFromInput(e.target.value)
+                                          : ''
                                         handleFilterValueChange(
                                           'modificationTime',
                                           'end',
-                                          e.target.value,
+                                          formattedDate,
                                         )
-                                      }
+                                      }}
                                     />
-                                    <Calendar className="h-4 w-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                   </div>
                                 </div>
                               </div>
@@ -1253,167 +1471,222 @@ export default function MyAccount({
                   </div>
                 )}
 
-                {/* Display active filters as tags - only show in non-trash view */}
-                {!isTrash &&
-                  Array.from(selectedFilters).map((filterType) => (
-                    <div key={filterType} className="relative">
-                      <div
-                        className="flex items-center gap-2 px-4 py-2 rounded-md bg-sky-50 border border-gray-300 text-sm cursor-pointer"
-                        onClick={(e) => openFilterDropdown(e, filterType)}
-                        data-filter-dropdown
-                      >
-                        <span className="font-medium">
-                          {filterLabels[filterType]}
-                        </span>
-                        <ChevronDown className="h-4 w-4 text-gray-500 ml-1" />
-                        <button
-                          className="text-gray-500 hover:text-gray-700 ml-1"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleFilter(filterType)
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-
-                      {/* Filter value editing dropdown */}
-                      {activeFilterDropdown === filterType && (
+                {/* Display all filter options regardless of selection status */}
+                {!isTrash && !isShared && (
+                  <div className="flex flex-wrap gap-2">
+                    {(
+                      [
+                        'edgeCount',
+                        'nodeCount',
+                        'modificationTime',
+                      ] as FilterOptionType[]
+                    ).map((filterType) => (
+                      <div key={filterType} className="relative">
                         <div
-                          className="absolute top-full left-0 mt-1 w-72 rounded-md bg-white border border-gray-200 shadow-sm z-10 p-4"
+                          className={`flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 text-sm cursor-pointer ${
+                            selectedFilters.has(filterType)
+                              ? 'bg-sky-50'
+                              : 'bg-transparent'
+                          }`}
+                          onClick={(e) => openFilterDropdown(e, filterType)}
                           data-filter-dropdown
                         >
-                          <h3 className="text-base font-medium text-gray-900 mb-3">
-                            {filterLabels[filterType]} Settings
-                          </h3>
-
-                          {filterType === 'edgeCount' && (
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                placeholder="Min"
-                                className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                min="0"
-                                value={filterValues.edgeCount.min}
-                                onChange={(e) =>
-                                  handleFilterValueChange(
-                                    'edgeCount',
-                                    'min',
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                              <span>-</span>
-                              <input
-                                type="number"
-                                placeholder="Max"
-                                className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                min="0"
-                                value={filterValues.edgeCount.max}
-                                onChange={(e) =>
-                                  handleFilterValueChange(
-                                    'edgeCount',
-                                    'max',
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                          )}
-
-                          {filterType === 'nodeCount' && (
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                placeholder="Min"
-                                className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                min="0"
-                                value={filterValues.nodeCount.min}
-                                onChange={(e) =>
-                                  handleFilterValueChange(
-                                    'nodeCount',
-                                    'min',
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                              <span>-</span>
-                              <input
-                                type="number"
-                                placeholder="Max"
-                                className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                min="0"
-                                value={filterValues.nodeCount.max}
-                                onChange={(e) =>
-                                  handleFilterValueChange(
-                                    'nodeCount',
-                                    'max',
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                            </div>
-                          )}
-
-                          {filterType === 'modificationTime' && (
-                            <div className="flex flex-col gap-3">
-                              <div className="flex items-center">
-                                <label className="text-sm text-gray-600 w-16">
-                                  From:
-                                </label>
-                                <div className="relative flex-1">
-                                  <input
-                                    type="text"
-                                    placeholder="MM/DD/YYYY"
-                                    className="w-full pl-3 pr-9 py-1.5 border border-gray-300 rounded text-sm"
-                                    value={filterValues.modificationTime.start}
-                                    onChange={(e) =>
-                                      handleFilterValueChange(
-                                        'modificationTime',
-                                        'start',
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                  <Calendar className="h-4 w-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                                </div>
-                              </div>
-                              <div className="flex items-center">
-                                <label className="text-sm text-gray-600 w-16">
-                                  To:
-                                </label>
-                                <div className="relative flex-1">
-                                  <input
-                                    type="text"
-                                    placeholder="MM/DD/YYYY"
-                                    className="w-full pl-3 pr-9 py-1.5 border border-gray-300 rounded text-sm"
-                                    value={filterValues.modificationTime.end}
-                                    onChange={(e) =>
-                                      handleFilterValueChange(
-                                        'modificationTime',
-                                        'end',
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                  <Calendar className="h-4 w-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex justify-end mt-4">
+                          <span className="font-medium">
+                            {filterLabels[filterType]}
+                          </span>
+                          <ChevronDown className="h-4 w-4 text-gray-500 ml-1" />
+                          {selectedFilters.has(filterType) && (
                             <button
-                              className="px-3 py-1.5 bg-sky-700 text-white text-sm rounded hover:bg-sky-600"
-                              onClick={() => setActiveFilterDropdown(null)}
+                              className="text-gray-500 hover:text-gray-700 ml-1"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleFilter(filterType)
+                              }}
                             >
-                              Apply
+                              <X className="h-4 w-4" />
                             </button>
-                          </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        {/* Filter value editing dropdown */}
+                        {activeFilterDropdown === filterType && (
+                          <div
+                            className="absolute top-full left-0 mt-1 w-72 rounded-md bg-white border border-gray-200 shadow-sm z-10 p-4"
+                            data-filter-dropdown
+                          >
+                            <h3 className="text-base font-medium text-gray-900 mb-3">
+                              {filterLabels[filterType]} Settings
+                            </h3>
+
+                            {filterType === 'edgeCount' && (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  placeholder="Min"
+                                  className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                  min="0"
+                                  value={filterValues.edgeCount.min}
+                                  onChange={(e) =>
+                                    handleFilterValueChange(
+                                      'edgeCount',
+                                      'min',
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                                <span>-</span>
+                                <input
+                                  type="number"
+                                  placeholder="Max"
+                                  className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                  min="0"
+                                  value={filterValues.edgeCount.max}
+                                  onChange={(e) =>
+                                    handleFilterValueChange(
+                                      'edgeCount',
+                                      'max',
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            )}
+
+                            {filterType === 'nodeCount' && (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  placeholder="Min"
+                                  className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                  min="0"
+                                  value={filterValues.nodeCount.min}
+                                  onChange={(e) =>
+                                    handleFilterValueChange(
+                                      'nodeCount',
+                                      'min',
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                                <span>-</span>
+                                <input
+                                  type="number"
+                                  placeholder="Max"
+                                  className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                  min="0"
+                                  value={filterValues.nodeCount.max}
+                                  onChange={(e) =>
+                                    handleFilterValueChange(
+                                      'nodeCount',
+                                      'max',
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            )}
+
+                            {filterType === 'modificationTime' && (
+                              <div className="flex flex-col gap-3">
+                                <div className="flex items-center">
+                                  <label className="text-sm text-gray-600 w-16">
+                                    From:
+                                  </label>
+                                  <div className="relative flex-1">
+                                    <input
+                                      type="date"
+                                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
+                                      value={
+                                        filterValues.modificationTime.start
+                                          ? formatDateForInput(
+                                              filterValues.modificationTime
+                                                .start,
+                                            )
+                                          : ''
+                                      }
+                                      onChange={(e) => {
+                                        const formattedDate = e.target.value
+                                          ? formatDateFromInput(e.target.value)
+                                          : ''
+                                        handleFilterValueChange(
+                                          'modificationTime',
+                                          'start',
+                                          formattedDate,
+                                        )
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex items-center">
+                                  <label className="text-sm text-gray-600 w-16">
+                                    To:
+                                  </label>
+                                  <div className="relative flex-1">
+                                    <input
+                                      type="date"
+                                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
+                                      value={
+                                        filterValues.modificationTime.end
+                                          ? formatDateForInput(
+                                              filterValues.modificationTime.end,
+                                            )
+                                          : ''
+                                      }
+                                      onChange={(e) => {
+                                        const formattedDate = e.target.value
+                                          ? formatDateFromInput(e.target.value)
+                                          : ''
+                                        handleFilterValueChange(
+                                          'modificationTime',
+                                          'end',
+                                          formattedDate,
+                                        )
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex justify-end mt-4">
+                              <button
+                                className="px-3 py-1.5 bg-sky-700 text-white text-sm rounded hover:bg-sky-600"
+                                onClick={() => {
+                                  // If not already selected, add to selected filters
+                                  if (!selectedFilters.has(filterType)) {
+                                    toggleFilter(filterType)
+                                  }
+                                  setActiveFilterDropdown(null)
+                                }}
+                              >
+                                Apply
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Clear all filters button - only shown when filters are active */}
+                    {selectedFilters.size > 0 && (
+                      <button
+                        className="flex items-center gap-1 px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        onClick={() => {
+                          setSelectedFilters(new Set())
+                          // Reset filter values
+                          setFilterValues({
+                            edgeCount: { min: '', max: '' },
+                            nodeCount: { min: '', max: '' },
+                            modificationTime: { start: '', end: '' },
+                          })
+                        }}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        <span>Clear Filters</span>
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Show trash info message when in trash view */}
                 {isTrash && (

@@ -175,7 +175,7 @@ const ListNetworkItem = ({
         <div className="flex items-center text-sm text-gray-500">
           <Database className="h-4 w-4 mr-1 text-gray-400" />
           <span className="truncate">
-            {formatCount(network.attributes?.edgeCount as number)}
+            {formatCount(network.attributes?.edges as number)}
           </span>
         </div>
       </td>
