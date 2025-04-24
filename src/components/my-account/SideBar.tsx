@@ -20,12 +20,13 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
+import { MyAccountTabType } from '@/types/api/ui/myAccount'
 
 interface SideBarProps {
   collapsed: boolean
   setCollapsed: (collapsed: boolean) => void
   currentFolderId?: string | null
-  activeView?: 'myAccount' | 'trash' | 'shared'
+  activeView?: MyAccountTabType
 }
 
 // Utility function to format storage information
@@ -117,7 +118,7 @@ export default function SideBar({
   collapsed,
   setCollapsed,
   currentFolderId = null,
-  activeView = 'myAccount',
+  activeView = MyAccountTabType.MYNETWORKS,
 }: SideBarProps) {
   const [showNewOptions, setShowNewOptions] = useState(false)
   const [showFolderDialog, setShowFolderDialog] = useState(false)
@@ -294,7 +295,7 @@ export default function SideBar({
             className={`flex items-center ${
               collapsed ? 'justify-center' : 'gap-3'
             } p-2 rounded-md ${
-              activeView === 'myAccount'
+              activeView === MyAccountTabType.MYNETWORKS
                 ? 'bg-blue-50 text-sky-700'
                 : 'hover:bg-gray-100 text-gray-700'
             }`}
@@ -314,7 +315,7 @@ export default function SideBar({
             className={`flex items-center ${
               collapsed ? 'justify-center' : 'gap-3'
             } p-2 rounded-md ${
-              activeView === 'shared'
+              activeView === MyAccountTabType.SHARED
                 ? 'bg-blue-50 text-sky-700'
                 : 'hover:bg-gray-100 text-gray-700'
             }`}
@@ -329,7 +330,7 @@ export default function SideBar({
             className={`flex items-center ${
               collapsed ? 'justify-center' : 'gap-3'
             } p-2 rounded-md ${
-              activeView === 'trash'
+              activeView === MyAccountTabType.TRASH
                 ? 'bg-blue-50 text-sky-700'
                 : 'hover:bg-gray-100 text-gray-700'
             }`}
