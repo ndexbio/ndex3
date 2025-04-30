@@ -7,6 +7,7 @@ import ImportNetworkDialog from './ImportNetworkDialog'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
+import { useFolder } from '@/hooks/use-folder'
 
 import {
   Folder,
@@ -127,6 +128,7 @@ export default function SideBar({
   const buttonRef = useRef<HTMLButtonElement>(null)
   const config = useConfig()
   const { token, diskUsed, diskQuota } = useAuth()
+  const { createFolder } = useFolder()
 
   // Format storage information
   const storageInfo = formatStorageInfo(diskUsed, diskQuota)
@@ -164,10 +166,8 @@ export default function SideBar({
   // Handle folder creation
   const handleCreateFolder = async (name: string) => {
     try {
-      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      await ndexClient.createFolder(name, currentFolderId)
-      // Reload the page to refresh the folder list
-      window.location.reload()
+      await createFolder(name, currentFolderId)
+      // No need to reload the page as the hook handles cache invalidation
     } catch (error) {
       console.error('Error creating folder:', error)
       throw error

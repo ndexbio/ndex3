@@ -19,10 +19,6 @@ import {
   Download,
   FolderInput,
   UserPlus,
-  History,
-  SlidersHorizontal,
-  Check,
-  RefreshCw,
   FileEdit,
   Copy,
   FileSymlink,
@@ -33,85 +29,26 @@ import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { useRouter } from 'next/navigation'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import DetailsPanel from './DetailsPanel'
-import { useFolderContents, FolderItemBase } from '@/hooks/use-folder-contents'
+import { useFolder, useFolderContents } from '@/hooks/use-folder'
+import { FileItemBase } from '@/types/api/ndex/File'
 import { useSharedItems } from '@/hooks/use-shared-items'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { useToast } from '@/lib/contexts/ToastContext'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { MyAccountTabType } from '@/types/api/ui/myAccount'
-
+  MyAccountTabType,
+  FilterOptionType,
+  FilterStateType,
+  ItemDropdownType,
+} from '@/types/api/ui/myAccount'
+import { FileType } from '@/types/api/ndex'
+import SelectionToolbarAndFilters from './SelectionToolbarAndFilters'
+import { useShortcut } from '@/hooks/use-shortcut'
 // Define the props for MyAccount component
 interface MyAccountProps {
   tabState?: MyAccountTabType
   uuid?: string // The folder UUID, if null we're in the home folder
-}
-
-// Define filter type
-type FilterOptionType = 'edgeCount' | 'nodeCount' | 'modificationTime'
-type FilterStateType = 'choose' | null
-
-// Define dropdown type for item actions
-type ItemDropdownType = 'folder' | 'network'
-
-// Helper function to convert string date to timestamp
-const dateStringToTimestamp = (dateString: string): number | null => {
-  if (!dateString) return null
-  const date = new Date(dateString)
-  return isNaN(date.getTime()) ? null : date.getTime()
-}
-
-// Helper function to format date string (MM/DD/YYYY) to input format (YYYY-MM-DD)
-const formatDateForInput = (dateString: string): string => {
-  if (!dateString) return ''
-
-  // Check if dateString is already in YYYY-MM-DD format
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    return dateString
-  }
-
-  // Parse MM/DD/YYYY
-  const parts = dateString.split('/')
-  if (parts.length === 3) {
-    const month = parts[0].padStart(2, '0')
-    const day = parts[1].padStart(2, '0')
-    const year = parts[2]
-    return `${year}-${month}-${day}`
-  }
-
-  // If the date is in another format, try to parse with Date object
-  try {
-    const date = new Date(dateString)
-    if (!isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0]
-    }
-  } catch (e) {
-    console.error('Error parsing date', e)
-  }
-
-  return ''
-}
-
-// Helper function to format date from input format (YYYY-MM-DD) to display format (MM/DD/YYYY)
-const formatDateFromInput = (dateString: string): string => {
-  if (!dateString) return ''
-
-  // Input is already in YYYY-MM-DD format
-  const parts = dateString.split('-')
-  if (parts.length === 3) {
-    const year = parts[0]
-    const month = parts[1]
-    const day = parts[2]
-    return `${month}/${day}/${year}`
-  }
-
-  return dateString
 }
 
 export default function MyAccount({
@@ -119,10 +56,15 @@ export default function MyAccount({
   tabState = MyAccountTabType.MYNETWORKS,
 }: MyAccountProps) {
   const config = useConfig()
-  const { isAuthenticated, token, isInitializing, diskUsed, diskQuota } =
-    useAuth()
+  const { isAuthenticated, token, isInitializing } = useAuth()
   const router = useRouter()
   const { addToast } = useToast()
+
+  // Add the useShortcut hook
+  const { createShortcut, deleteShortcut } = useShortcut()
+
+  // Add the useFolder hook
+  const { deleteFolder, updateFolder } = useFolder()
 
   // Convert UUID string to null for home folder
   const folderId = uuid || null
@@ -160,17 +102,20 @@ export default function MyAccount({
     nodeCount: { min: '', max: '' },
     modificationTime: { start: '', end: '' },
   })
-  const [trashItems, setTrashItems] = useState<FolderItemBase[]>([])
+  const [trashItems, setTrashItems] = useState<FileItemBase[]>([])
   const [dropdownType, setDropdownType] = useState<ItemDropdownType | null>(
     null,
   )
+  const [lastSelectedType, setLastSelectedType] = useState<
+    'FOLDER' | 'NETWORK' | null
+  >(null)
 
   // Reference to detect clicks outside the dropdown
   const dropdownRef = useRef<HTMLDivElement>(null)
   const actionDropdownRef = useRef<HTMLDivElement>(null)
 
   // Function to apply filters to the items
-  const applyFilters = (items: FolderItemBase[]): FolderItemBase[] => {
+  const applyFilters = (items: FileItemBase[]): FileItemBase[] => {
     // If no filters are selected, return all items
     if (selectedFilters.size === 0) {
       return items
@@ -246,7 +191,7 @@ export default function MyAccount({
           }
 
           // Get item's modification time - use creationTime if modificationTime is not available
-          // Use type assertion to safely access properties that might not be in the FolderItemBase type
+          // Use type assertion to safely access properties that might not be in the FileItemBase type
           const modTime = (item as any).modificationTime
           const createTime = (item as any).creationTime
 
@@ -465,6 +410,8 @@ export default function MyAccount({
     event: React.MouseEvent,
     id: string,
     index: number,
+    type: 'FOLDER' | 'NETWORK',
+    sortedItems: FileItemBase[] = [],
   ) => {
     // Prevent default browser behavior (like text selection)
     event.preventDefault()
@@ -492,25 +439,59 @@ export default function MyAccount({
         setSelectedItems([...selectedItems, id])
       }
       setLastSelectedIndex(index)
+      setLastSelectedType(type)
     }
     // Shift key for range selection
-    else if (event.shiftKey && lastSelectedIndex !== null) {
-      // Create an array of all item IDs that can be selected
-      const allItemIds = folderContents.map((item) => item.uuid)
+    else if (
+      event.shiftKey &&
+      lastSelectedIndex !== null &&
+      lastSelectedType === type
+    ) {
+      // Use the sorted items passed from the component if available,
+      // otherwise fall back to filtered items
+      const typeItems =
+        sortedItems.length > 0
+          ? sortedItems
+          : filteredItems.filter((item) => item.type === type)
 
-      // Find the position of the current item and the last selected item
-      const currentPosition = allItemIds.indexOf(id)
-      const lastPosition = allItemIds.indexOf(
-        folderContents[lastSelectedIndex].uuid,
-      )
+      // Create an array of all item IDs of this type
+      const typeItemIds = typeItems.map((item) => item.uuid)
 
-      if (currentPosition !== -1 && lastPosition !== -1) {
-        // Determine the range boundaries
-        const start = Math.min(currentPosition, lastPosition)
-        const end = Math.max(currentPosition, lastPosition)
+      // Find the current item's position in the type-specific list
+      const currentTypeIndex =
+        sortedItems.length > 0
+          ? index // Use the index directly from the sorted array
+          : typeItems.findIndex((item) => item.uuid === id)
 
-        // Get all items in the range
-        const itemsInRange = allItemIds.slice(start, end + 1)
+      // For the last selected item, we need to find its position in the sorted array
+      const lastSelectedItem =
+        sortedItems.length > 0 && lastSelectedIndex < sortedItems.length
+          ? sortedItems[lastSelectedIndex]
+          : filteredItems.find(
+              (item) => item.type === type && selectedItems.includes(item.uuid),
+            )
+
+      // If we can't find the last selected item, just select this item
+      if (!lastSelectedItem) {
+        setSelectedItems([id])
+        setLastSelectedIndex(index)
+        setLastSelectedType(type)
+        return
+      }
+
+      // Find the index of the last selected item in the sorted list
+      const lastSelectedTypeIndex =
+        sortedItems.length > 0
+          ? lastSelectedIndex // Use the index directly if we're working with sorted items
+          : typeItems.findIndex((item) => item.uuid === lastSelectedItem.uuid)
+
+      if (currentTypeIndex !== -1 && lastSelectedTypeIndex !== -1) {
+        // Determine the range boundaries within the sorted list
+        const start = Math.min(currentTypeIndex, lastSelectedTypeIndex)
+        const end = Math.max(currentTypeIndex, lastSelectedTypeIndex)
+
+        // Get all items in the range from the sorted list
+        const itemsInRange = typeItemIds.slice(start, end + 1)
 
         // Combine existing selection with new range
         setSelectedItems([...new Set([...selectedItems, ...itemsInRange])])
@@ -523,9 +504,7 @@ export default function MyAccount({
     else {
       setSelectedItems([id])
       setLastSelectedIndex(index)
-
-      // Don't automatically open details panel on single click
-      // Details can still be opened using the Info button in the header
+      setLastSelectedType(type)
     }
   }
 
@@ -616,13 +595,6 @@ export default function MyAccount({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [systemPropertiesOpen])
-
-  // Filter labels
-  const filterLabels: Record<FilterOptionType, string> = {
-    edgeCount: 'Edge Count',
-    nodeCount: 'Node Count',
-    modificationTime: 'Modification Time',
-  }
 
   // Handle filter selection toggle
   const toggleFilter = (type: FilterOptionType) => {
@@ -763,6 +735,7 @@ export default function MyAccount({
     }
   }
 
+  // Delete items
   const handlePermanentDelete = async (ids: string[]) => {
     if (
       tabState === MyAccountTabType.TRASH &&
@@ -810,13 +783,12 @@ export default function MyAccount({
       await handlePermanentDelete(itemIds)
     } else {
       const items = displayItems.filter((item) => itemIds.includes(item.uuid))
-      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
       setLoading(true)
       for (const item of items) {
         if (item.type === 'FOLDER') {
-          await ndexClient.deleteFolder(item.uuid)
+          await deleteFolder(item.uuid)
         } else if (item.type === 'SHORTCUT') {
-          await ndexClient.deleteShortcut(item.uuid)
+          await deleteShortcut(item.uuid)
         }
       }
 
@@ -828,7 +800,8 @@ export default function MyAccount({
       setLoading(false)
     }
   }
-  // Handle moving items between folders
+
+  // Move items
   const handleMoveItems = async (itemIds: string[], targetFolderId: string) => {
     try {
       // Skip if trying to move to the same folder
@@ -871,17 +844,13 @@ export default function MyAccount({
         try {
           if (item.type === 'FOLDER') {
             // Move folder
-            await ndexClient.updateFolder(item.uuid, item.name, targetFolderId)
+            await updateFolder(item.uuid, item.name, targetFolderId)
             movedItems.successful++
             movedItems.names.push(item.name)
           } else if (item.type === 'NETWORK') {
             // Move network
             // TODO: Implement the updateNetwork method in ndexClient
-            console.log(
-              `Need to move network ${item.uuid} to folder ${targetFolderId}`,
-            )
-            // Example of what this might look like:
-            // await ndexClient.updateNetwork(item.uuid, { parent: targetFolderId })
+            // await moveNetwork(item.uuid, targetFolderId)
             movedItems.successful++
             movedItems.names.push(item.name)
           } else if (item.type === 'SHORTCUT') {
@@ -951,6 +920,73 @@ export default function MyAccount({
         description: 'An error occurred while moving items',
         type: 'error',
       })
+    }
+  }
+
+  // Handle creating a shortcut to a folder or network
+  const handleCreateShortcut = async (
+    itemId: string,
+    targetFolderId?: string,
+  ) => {
+    if (!isAuthenticated) {
+      addToast({
+        title: 'Authentication required',
+        description: 'Please sign in to create shortcuts',
+        type: 'error',
+      })
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      // Find the item to create a shortcut for
+      const itemToShortcut = displayItems.find((item) => item.uuid === itemId)
+      if (!itemToShortcut) {
+        throw new Error('Item not found')
+      }
+
+      // Generate shortcut name
+      const shortcutName = `${itemToShortcut.name} - Shortcut`
+
+      // If targetFolderId is null, create in the current folder
+      const parentFolder = targetFolderId || folderId || null
+
+      // Create the shortcut using the hook
+      await createShortcut(
+        shortcutName,
+        parentFolder,
+        itemId,
+        itemToShortcut.type,
+      )
+
+      // Refresh folder contents
+      if (tabState === MyAccountTabType.SHARED) {
+        await refreshSharedItems()
+      } else {
+        await refreshFolderContents()
+      }
+
+      // Success notification
+      addToast({
+        title: 'Shortcut created',
+        description: `Shortcut to ${itemToShortcut.name} created successfully`,
+        type: 'success',
+      })
+
+      // Close any open dropdown
+      setOpenDropdownId(null)
+      setDropdownType(null)
+    } catch (error: any) {
+      console.error('Error creating shortcut:', error)
+
+      addToast({
+        title: 'Failed to create shortcut',
+        description: error.message || 'An unexpected error occurred',
+        type: 'error',
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -1032,14 +1068,17 @@ export default function MyAccount({
             </button>
             <button
               className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
+              onClick={() => handleCreateShortcut(openDropdownId)}
             >
               <FileSymlink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
               Add Shortcut
             </button>
             <button
               className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
+              onClick={() => {
+                handleDeleteItems([openDropdownId])
+                setOpenDropdownId(null)
+              }}
             >
               <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
               Move to Trash
@@ -1098,17 +1137,20 @@ export default function MyAccount({
             </button>
             <button
               className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
+              onClick={() => handleCreateShortcut(openDropdownId)}
             >
               <FileSymlink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
               Add a Shortcut
             </button>
             <button
               className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
+              onClick={() => {
+                handleDeleteItems([openDropdownId])
+                setOpenDropdownId(null)
+              }}
             >
               <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Delete
+              Move to Trash
             </button>
           </div>
         )}
@@ -1141,7 +1183,9 @@ export default function MyAccount({
                 folders={trashItems.filter((item) => item.type === 'FOLDER')}
                 viewMode={viewMode}
                 selectedItems={selectedItems}
-                onSelect={handleItemSelect}
+                onSelect={(e, id, index) =>
+                  handleItemSelect(e, id, index, 'FOLDER', trashItems)
+                }
                 currentFolderId={folderId}
                 onDrop={() => {}} // No-op in trash
                 onDropdownToggle={handleDropdownToggle}
@@ -1151,7 +1195,9 @@ export default function MyAccount({
                 tabState={tabState}
                 viewMode={viewMode}
                 selectedItems={selectedItems}
-                onSelect={handleItemSelect}
+                onSelect={(e, id, index) =>
+                  handleItemSelect(e, id, index, 'NETWORK', trashItems)
+                }
                 onDropdownToggle={handleDropdownToggle}
               />
             </>
@@ -1197,7 +1243,9 @@ export default function MyAccount({
                 folders={filteredItems.filter((item) => item.type === 'FOLDER')}
                 viewMode={viewMode}
                 selectedItems={selectedItems}
-                onSelect={handleItemSelect}
+                onSelect={(e, id, index, type, sortedItems) =>
+                  handleItemSelect(e, id, index, type, sortedItems)
+                }
                 currentFolderId={folderId}
                 onDrop={() => {}} // No-op for shared items
                 onDropdownToggle={handleDropdownToggle}
@@ -1207,7 +1255,9 @@ export default function MyAccount({
                 tabState={tabState}
                 viewMode={viewMode}
                 selectedItems={selectedItems}
-                onSelect={handleItemSelect}
+                onSelect={(e, id, index, type, sortedItems) =>
+                  handleItemSelect(e, id, index, type, sortedItems)
+                }
                 onDropdownToggle={handleDropdownToggle}
               />
             </>
@@ -1256,20 +1306,34 @@ export default function MyAccount({
           ) : (
             <>
               <FoldersList
-                folders={filteredItems.filter((item) => item.type === 'FOLDER')}
+                folders={filteredItems.filter(
+                  (item) =>
+                    item.type === FileType.FOLDER ||
+                    (item.type === FileType.SHORTCUT &&
+                      item.attributes?.target_type === FileType.FOLDER),
+                )}
                 viewMode={viewMode}
                 selectedItems={selectedItems}
-                onSelect={handleItemSelect}
+                onSelect={(e, id, index, type, sortedItems) =>
+                  handleItemSelect(e, id, index, type, sortedItems)
+                }
                 currentFolderId={folderId}
                 onDrop={handleMoveItems}
                 onDropdownToggle={handleDropdownToggle}
               />
               <NetworksList
-                items={filteredItems.filter((item) => item.type === 'NETWORK')}
+                items={filteredItems.filter(
+                  (item) =>
+                    item.type === FileType.NETWORK ||
+                    (item.type === FileType.SHORTCUT &&
+                      item.attributes?.target_type === FileType.NETWORK),
+                )}
                 tabState={tabState}
                 viewMode={viewMode}
                 selectedItems={selectedItems}
-                onSelect={handleItemSelect}
+                onSelect={(e, id, index, type, sortedItems) =>
+                  handleItemSelect(e, id, index, type, sortedItems)
+                }
                 onDropdownToggle={handleDropdownToggle}
               />
             </>
@@ -1380,586 +1444,28 @@ export default function MyAccount({
           </header>
 
           {/* Selection Toolbar or Filters */}
-          <div className="mt-1 mb-3 mx-4">
-            {selectedItems.length > 0 && showSelectionToolbar ? (
-              <div className="px-6 py-2 flex items-center justify-start bg-gray-100 rounded-lg h-12">
-                <div className="flex items-center gap-2">
-                  <button
-                    className="p-1.5 rounded-full hover:bg-gray-200"
-                    onClick={handleCloseToolbar}
-                    title="Hide toolbar"
-                  >
-                    <X className="h-5 w-5 text-gray-600" />
-                  </button>
-                  <span className="text-sm font-medium text-gray-700 mr-8">
-                    {selectedItems.length}{' '}
-                    {selectedItems.length === 1 ? 'item' : 'items'} selected
-                  </span>
-                </div>
-                <div className="flex items-center gap-4">
-                  {tabState === MyAccountTabType.TRASH ? (
-                    // Trash-specific actions
-                    <>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className="p-1.5 rounded-full hover:bg-gray-200"
-                            title="Restore from trash"
-                            data-action-button
-                            onClick={() =>
-                              handleRestoreFromTrash(selectedItems)
-                            }
-                          >
-                            <History className="h-5 w-5 text-gray-600" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>Restore from trash</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className="p-1.5 rounded-full hover:bg-gray-200"
-                            title="Permanently delete"
-                            data-action-button
-                            onClick={() => handlePermanentDelete(selectedItems)}
-                          >
-                            <Trash2 className="h-5 w-5 text-gray-600" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>Permanently delete</TooltipContent>
-                      </Tooltip>
-                    </>
-                  ) : (
-                    // Regular actions
-                    <>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className="p-1.5 rounded-full hover:bg-gray-200"
-                            title="Share"
-                            data-action-button
-                          >
-                            <UserPlus className="h-5 w-5 text-gray-600" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>Share with others</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className="p-1.5 rounded-full hover:bg-gray-200"
-                            title="Download"
-                            data-action-button
-                          >
-                            <Download className="h-5 w-5 text-gray-600" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>Download selected items</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className="p-1.5 rounded-full hover:bg-gray-200"
-                            title="Move"
-                            data-action-button
-                          >
-                            <FolderInput className="h-5 w-5 text-gray-600" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>Move to another folder</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className="p-1.5 rounded-full hover:bg-gray-200"
-                            title="Delete"
-                            data-action-button
-                            onClick={() => handleDeleteItems(selectedItems)}
-                          >
-                            <Trash2 className="h-5 w-5 text-gray-600" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>Move to trash</TooltipContent>
-                      </Tooltip>
-                    </>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="flex">
-                {tabState === MyAccountTabType.MYNETWORKS && (
-                  <>
-                    <div
-                      className="relative ml-2 mr-2 h-12"
-                      ref={filterDropdownRef}
-                    >
-                      {/* Main filter button styled like the image */}
-                      <button
-                        className="flex items-center gap-2 px-4 py-2 rounded-md bg-white border border-gray-300 text-sky-700 hover:bg-gray-50 h-10"
-                        onClick={() =>
-                          setFilterDropdownOpen(!filterDropdownOpen)
-                        }
-                      >
-                        <SlidersHorizontal className="h-5 w-5" />
-                        <span className="font-medium">All filters</span>
-                      </button>
+          <SelectionToolbarAndFilters
+            selectedItems={selectedItems}
+            showSelectionToolbar={showSelectionToolbar}
+            tabState={tabState}
+            filterValues={filterValues}
+            selectedFilters={selectedFilters}
+            filterDropdownOpen={filterDropdownOpen}
+            activeFilterDropdown={activeFilterDropdown}
+            filterDropdownRef={filterDropdownRef}
+            handleCloseToolbar={handleCloseToolbar}
+            handleRestoreFromTrash={handleRestoreFromTrash}
+            handlePermanentDelete={handlePermanentDelete}
+            handleDeleteItems={handleDeleteItems}
+            setFilterDropdownOpen={setFilterDropdownOpen}
+            toggleFilter={toggleFilter}
+            handleFilterValueChange={handleFilterValueChange}
+            openFilterDropdown={openFilterDropdown}
+            setActiveFilterDropdown={setActiveFilterDropdown}
+            setSelectedFilters={setSelectedFilters}
+            setFilterValues={setFilterValues}
+          />
 
-                      {/* Filter dropdown with checkboxes */}
-                      {filterDropdownOpen && (
-                        <div className="absolute top-full left-0 mt-1 w-72 rounded-md bg-white border border-gray-200 shadow-sm z-10 p-5">
-                          <h3 className="text-base font-medium text-gray-900 mb-4">
-                            Filters
-                          </h3>
-                          <div className="space-y-5">
-                            {/* Edge Count Filter */}
-                            <div>
-                              <div className="flex items-center mb-2">
-                                <div
-                                  className={`h-5 w-5 flex items-center justify-center border ${
-                                    selectedFilters.has('edgeCount')
-                                      ? 'bg-sky-700 border-sky-700'
-                                      : 'border-gray-400'
-                                  } rounded cursor-pointer`}
-                                  onClick={() => toggleFilter('edgeCount')}
-                                >
-                                  {selectedFilters.has('edgeCount') && (
-                                    <Check className="h-4 w-4 text-white" />
-                                  )}
-                                </div>
-                                <label
-                                  className="ml-2 text-base font-medium text-gray-700 cursor-pointer"
-                                  onClick={() => toggleFilter('edgeCount')}
-                                >
-                                  Edge Count
-                                </label>
-                              </div>
-                              {selectedFilters.has('edgeCount') && (
-                                <div className="flex items-center gap-2 pl-7 mt-3">
-                                  <input
-                                    type="number"
-                                    placeholder="Min"
-                                    className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                    min="0"
-                                    value={filterValues.edgeCount.min}
-                                    onChange={(e) =>
-                                      handleFilterValueChange(
-                                        'edgeCount',
-                                        'min',
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                  <span>-</span>
-                                  <input
-                                    type="number"
-                                    placeholder="Max"
-                                    className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                    min="0"
-                                    value={filterValues.edgeCount.max}
-                                    onChange={(e) =>
-                                      handleFilterValueChange(
-                                        'edgeCount',
-                                        'max',
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Node Count Filter */}
-                            <div>
-                              <div className="flex items-center mb-2">
-                                <div
-                                  className={`h-5 w-5 flex items-center justify-center border ${
-                                    selectedFilters.has('nodeCount')
-                                      ? 'bg-sky-700 border-sky-700'
-                                      : 'border-gray-400'
-                                  } rounded cursor-pointer`}
-                                  onClick={() => toggleFilter('nodeCount')}
-                                >
-                                  {selectedFilters.has('nodeCount') && (
-                                    <Check className="h-4 w-4 text-white" />
-                                  )}
-                                </div>
-                                <label
-                                  className="ml-2 text-base font-medium text-gray-700 cursor-pointer"
-                                  onClick={() => toggleFilter('nodeCount')}
-                                >
-                                  Node Count
-                                </label>
-                              </div>
-                              {selectedFilters.has('nodeCount') && (
-                                <div className="flex items-center gap-2 pl-7 mt-3">
-                                  <input
-                                    type="number"
-                                    placeholder="Min"
-                                    className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                    min="0"
-                                    value={filterValues.nodeCount.min}
-                                    onChange={(e) =>
-                                      handleFilterValueChange(
-                                        'nodeCount',
-                                        'min',
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                  <span>-</span>
-                                  <input
-                                    type="number"
-                                    placeholder="Max"
-                                    className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                    min="0"
-                                    value={filterValues.nodeCount.max}
-                                    onChange={(e) =>
-                                      handleFilterValueChange(
-                                        'nodeCount',
-                                        'max',
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Modification Time Filter */}
-                            <div>
-                              <div className="flex items-center mb-2">
-                                <div
-                                  className={`h-5 w-5 flex items-center justify-center border ${
-                                    selectedFilters.has('modificationTime')
-                                      ? 'bg-sky-700 border-sky-700'
-                                      : 'border-gray-400'
-                                  } rounded cursor-pointer`}
-                                  onClick={() =>
-                                    toggleFilter('modificationTime')
-                                  }
-                                >
-                                  {selectedFilters.has('modificationTime') && (
-                                    <Check className="h-4 w-4 text-white" />
-                                  )}
-                                </div>
-                                <label
-                                  className="ml-2 text-base font-medium text-gray-700 cursor-pointer"
-                                  onClick={() =>
-                                    toggleFilter('modificationTime')
-                                  }
-                                >
-                                  Modification Time
-                                </label>
-                              </div>
-                              {selectedFilters.has('modificationTime') && (
-                                <div className="flex flex-col gap-3">
-                                  <div className="flex items-center">
-                                    <label className="text-sm text-gray-600 w-16">
-                                      From:
-                                    </label>
-                                    <div className="relative flex-1">
-                                      <input
-                                        type="date"
-                                        className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
-                                        value={
-                                          filterValues.modificationTime.start
-                                            ? formatDateForInput(
-                                                filterValues.modificationTime
-                                                  .start,
-                                              )
-                                            : ''
-                                        }
-                                        onChange={(e) => {
-                                          const formattedDate = e.target.value
-                                            ? formatDateFromInput(
-                                                e.target.value,
-                                              )
-                                            : ''
-                                          handleFilterValueChange(
-                                            'modificationTime',
-                                            'start',
-                                            formattedDate,
-                                          )
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <label className="text-sm text-gray-600 w-16">
-                                      To:
-                                    </label>
-                                    <div className="relative flex-1">
-                                      <input
-                                        type="date"
-                                        className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
-                                        value={
-                                          filterValues.modificationTime.end
-                                            ? formatDateForInput(
-                                                filterValues.modificationTime
-                                                  .end,
-                                              )
-                                            : ''
-                                        }
-                                        onChange={(e) => {
-                                          const formattedDate = e.target.value
-                                            ? formatDateFromInput(
-                                                e.target.value,
-                                              )
-                                            : ''
-                                          handleFilterValueChange(
-                                            'modificationTime',
-                                            'end',
-                                            formattedDate,
-                                          )
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-2 h-12">
-                      {(
-                        [
-                          'edgeCount',
-                          'nodeCount',
-                          'modificationTime',
-                        ] as FilterOptionType[]
-                      ).map((filterType) => (
-                        <div key={filterType} className="relative">
-                          <div
-                            className={`flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 text-sm cursor-pointer h-10 ${
-                              selectedFilters.has(filterType)
-                                ? 'bg-sky-50'
-                                : 'bg-transparent'
-                            }`}
-                            onClick={(e) => openFilterDropdown(e, filterType)}
-                            data-filter-dropdown
-                          >
-                            <span className="font-medium">
-                              {filterLabels[filterType]}
-                            </span>
-                            <ChevronDown className="h-4 w-4 text-gray-500 ml-1" />
-                            {selectedFilters.has(filterType) && (
-                              <button
-                                className="text-gray-500 hover:text-gray-700 ml-1"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  toggleFilter(filterType)
-                                }}
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Filter value editing dropdown */}
-                          {activeFilterDropdown === filterType && (
-                            <div
-                              className="absolute top-full left-0 mt-1 w-72 rounded-md bg-white border border-gray-200 shadow-sm z-10 p-4"
-                              data-filter-dropdown
-                            >
-                              <h3 className="text-base font-medium text-gray-900 mb-3">
-                                {filterLabels[filterType]} Settings
-                              </h3>
-
-                              {filterType === 'edgeCount' && (
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    placeholder="Min"
-                                    className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                    min="0"
-                                    value={filterValues.edgeCount.min}
-                                    onChange={(e) =>
-                                      handleFilterValueChange(
-                                        'edgeCount',
-                                        'min',
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                  <span>-</span>
-                                  <input
-                                    type="number"
-                                    placeholder="Max"
-                                    className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                    min="0"
-                                    value={filterValues.edgeCount.max}
-                                    onChange={(e) =>
-                                      handleFilterValueChange(
-                                        'edgeCount',
-                                        'max',
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                </div>
-                              )}
-
-                              {filterType === 'nodeCount' && (
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    placeholder="Min"
-                                    className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                    min="0"
-                                    value={filterValues.nodeCount.min}
-                                    onChange={(e) =>
-                                      handleFilterValueChange(
-                                        'nodeCount',
-                                        'min',
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                  <span>-</span>
-                                  <input
-                                    type="number"
-                                    placeholder="Max"
-                                    className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                    min="0"
-                                    value={filterValues.nodeCount.max}
-                                    onChange={(e) =>
-                                      handleFilterValueChange(
-                                        'nodeCount',
-                                        'max',
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                </div>
-                              )}
-
-                              {filterType === 'modificationTime' && (
-                                <div className="flex flex-col gap-3">
-                                  <div className="flex items-center">
-                                    <label className="text-sm text-gray-600 w-16">
-                                      From:
-                                    </label>
-                                    <div className="relative flex-1">
-                                      <input
-                                        type="date"
-                                        className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
-                                        value={
-                                          filterValues.modificationTime.start
-                                            ? formatDateForInput(
-                                                filterValues.modificationTime
-                                                  .start,
-                                              )
-                                            : ''
-                                        }
-                                        onChange={(e) => {
-                                          const formattedDate = e.target.value
-                                            ? formatDateFromInput(
-                                                e.target.value,
-                                              )
-                                            : ''
-                                          handleFilterValueChange(
-                                            'modificationTime',
-                                            'start',
-                                            formattedDate,
-                                          )
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <label className="text-sm text-gray-600 w-16">
-                                      To:
-                                    </label>
-                                    <div className="relative flex-1">
-                                      <input
-                                        type="date"
-                                        className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
-                                        value={
-                                          filterValues.modificationTime.end
-                                            ? formatDateForInput(
-                                                filterValues.modificationTime
-                                                  .end,
-                                              )
-                                            : ''
-                                        }
-                                        onChange={(e) => {
-                                          const formattedDate = e.target.value
-                                            ? formatDateFromInput(
-                                                e.target.value,
-                                              )
-                                            : ''
-                                          handleFilterValueChange(
-                                            'modificationTime',
-                                            'end',
-                                            formattedDate,
-                                          )
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              <div className="flex justify-end mt-4">
-                                <button
-                                  className="px-3 py-1.5 bg-sky-700 text-white text-sm rounded hover:bg-sky-600"
-                                  onClick={() => {
-                                    // If not already selected, add to selected filters
-                                    if (!selectedFilters.has(filterType)) {
-                                      toggleFilter(filterType)
-                                    }
-                                    setActiveFilterDropdown(null)
-                                  }}
-                                >
-                                  Apply
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-
-                      {/* Clear all filters button - only shown when filters are active */}
-                      {selectedFilters.size > 0 && (
-                        <button
-                          className="flex items-center gap-1 px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 h-10"
-                          onClick={() => {
-                            setSelectedFilters(new Set())
-                            // Reset filter values
-                            setFilterValues({
-                              edgeCount: { min: '', max: '' },
-                              nodeCount: { min: '', max: '' },
-                              modificationTime: { start: '', end: '' },
-                            })
-                          }}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                          <span>Clear Filters</span>
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {/* Show trash info message when in trash view */}
-                {tabState === MyAccountTabType.TRASH && (
-                  <div className="w-full flex items-center justify-between px-6 py-2 rounded-lg bg-gray-100 text-gray-700 border-b border-gray-200 h-12">
-                    <div>
-                      Items in trash will be deleted forever after 30 days
-                    </div>
-                    <button
-                      className="text-gray-600 hover:text-gray-900 font-medium"
-                      onClick={() => {}}
-                    >
-                      Empty trash
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
           {/* Main content with DnD support */}
           <DndProvider backend={HTML5Backend}>
             {renderContent()}

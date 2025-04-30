@@ -13,17 +13,27 @@ import {
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useDrag } from 'react-dnd'
-import { FolderItemBase } from '@/hooks/use-folder-contents'
+import { FileItemBase } from '@/types/api/ndex/File'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { ItemTypes } from '@/types/dnd/DndTypes'
 import { MyAccountTabType } from '@/types/api/ui/myAccount'
+import { FileType } from '@/types/api/ndex'
+import { useAuth } from '@/lib/contexts/KeycloakContext'
+import { getNdexClient } from '@/lib/api/ndex-client-manager'
+
 // Props for the component
 interface NetworksListProps {
-  items: FolderItemBase[]
+  items: FileItemBase[]
   tabState: MyAccountTabType
   viewMode: 'grid' | 'list'
   selectedItems: string[]
-  onSelect: (event: React.MouseEvent, id: string, index: number) => void
+  onSelect: (
+    event: React.MouseEvent,
+    id: string,
+    index: number,
+    type: 'FOLDER' | 'NETWORK',
+    sortedItems: FileItemBase[],
+  ) => void
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
@@ -32,7 +42,7 @@ interface NetworksListProps {
 }
 
 // Extended network item with additional properties we might have
-interface NetworkItem extends FolderItemBase {}
+interface NetworkItem extends FileItemBase {}
 
 // Sort direction type
 type SortDirection = 'asc' | 'desc' | null
@@ -65,7 +75,13 @@ const GridNetworkItem = ({
   network: NetworkItem
   index: number
   selectedItems: string[]
-  onSelect: (event: React.MouseEvent, id: string, index: number) => void
+  onSelect: (
+    event: React.MouseEvent,
+    id: string,
+    index: number,
+    type: 'FOLDER' | 'NETWORK',
+    sortedItems: FileItemBase[],
+  ) => void
   onDoubleClick: (event: React.MouseEvent, id: string) => void
   onDropdownToggle?: (
     event: React.MouseEvent,
@@ -105,12 +121,16 @@ const GridNetworkItem = ({
             : 'hover:bg-gray-50'
         }
       `}
-      onClick={(e) => onSelect(e, network.uuid, index)}
+      onClick={(e) => onSelect(e, network.uuid, index, 'NETWORK', [])}
       onDoubleClick={(e) => onDoubleClick(e, network.uuid)}
     >
       <div className="flex items-center gap-3 overflow-hidden">
         <div className="flex-shrink-0">
-          <File className="h-5 w-5 text-sky-700" />
+          {network.type === FileType.NETWORK ? (
+            <File className="h-5 w-5 text-sky-700" />
+          ) : (
+            <File className="h-5 w-5 text-green-600" />
+          )}
         </div>
         <span className="text-sm truncate">
           {network.name || 'Untitled Network'}
@@ -146,7 +166,13 @@ const ListNetworkItem = ({
   tabState: MyAccountTabType
   index: number
   selectedItems: string[]
-  onSelect: (event: React.MouseEvent, id: string, index: number) => void
+  onSelect: (
+    event: React.MouseEvent,
+    id: string,
+    index: number,
+    type: 'FOLDER' | 'NETWORK',
+    sortedItems: FileItemBase[],
+  ) => void
   onDoubleClick: (event: React.MouseEvent, id: string) => void
   onDropdownToggle?: (
     event: React.MouseEvent,
@@ -183,13 +209,17 @@ const ListNetworkItem = ({
       className={`cursor-pointer ${isDragging ? 'opacity-50' : 'opacity-100'} ${
         selectedItems.includes(network.uuid) ? 'bg-sky-100' : 'hover:bg-gray-50'
       }`}
-      onClick={(e) => onSelect(e, network.uuid, index)}
+      onClick={(e) => onSelect(e, network.uuid, index, 'NETWORK', [])}
       onDoubleClick={(e) => onDoubleClick(e, network.uuid)}
     >
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center max-w-full">
+        <div className="flex items-center w-full">
           <div className="flex-shrink-0 mr-3">
-            <File className="h-5 w-5 text-sky-700" />
+            {network.type === FileType.NETWORK ? (
+              <File className="h-5 w-5 text-sky-700" />
+            ) : (
+              <File className="h-5 w-5 text-green-600" />
+            )}
           </div>
           <div className="overflow-hidden">
             <div className="text-sm font-medium text-black truncate max-w-[250px]">
@@ -199,8 +229,8 @@ const ListNetworkItem = ({
         </div>
       </td>
       {tabState === MyAccountTabType.SHARED && (
-        <td className="px-6 py-4 whitespace-nowrap">
-          <div className="flex items-center text-center text-sm text-gray-500">
+        <td className="px-6 py-4 whitespace-nowrap text-center">
+          <div className="flex items-center justify-center w-full text-sm text-gray-500">
             <User className="h-4 w-4 mr-1 text-gray-400" />
             <span className="truncate">
               {network.attributes?.owner || 'Me'}
@@ -208,26 +238,28 @@ const ListNetworkItem = ({
           </div>
         </td>
       )}
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center text-sm text-gray-500">
+      <td className="px-6 py-4 whitespace-nowrap text-center">
+        <div className="flex items-center justify-center w-full text-sm text-gray-500">
           <Database className="h-4 w-4 mr-1 text-gray-400" />
           <span className="truncate">
             {formatCount(network.attributes?.edges as number)}
           </span>
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center text-sm text-gray-500">
+      <td className="px-6 py-4 whitespace-nowrap text-center">
+        <div className="flex items-center justify-center w-full text-sm text-gray-500">
           <Clock className="h-4 w-4 mr-1 text-gray-400" />
           <span className="truncate">
             {formatDate(network.modificationTime)}
           </span>
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-          {network.attributes?.visibility || 'PRIVATE'}
-        </span>
+      <td className="px-6 py-4 whitespace-nowrap text-center">
+        <div className="flex justify-center w-full">
+          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+            {network.attributes?.visibility || 'PRIVATE'}
+          </span>
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-center">
         <button
@@ -255,20 +287,46 @@ const NetworksList: React.FC<NetworksListProps> = ({
 }) => {
   const router = useRouter()
   const config = useConfig()
+  const { token } = useAuth()
   const [sortField, setSortField] = useState<
     'name' | 'modificationTime' | null
   >(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
 
   // Handle double click on network to open it
-  const handleNetworkDoubleClick = (
+  const handleNetworkDoubleClick = async (
     event: React.MouseEvent,
     networkId: string,
   ) => {
     event.preventDefault()
     event.stopPropagation()
 
-    // Open the network in a new tab using the NDEx viewer URL
+    // Find the network in the items array
+    const networkItem = items.find((item) => item.uuid === networkId)
+
+    if (networkItem) {
+      // Check if it's a shortcut
+      if (networkItem.type === FileType.SHORTCUT) {
+        try {
+          // Get the NDEx client to fetch the shortcut
+          const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+          const shortcut = await ndexClient.getShortcut(networkId)
+
+          if (shortcut && shortcut.target) {
+            // Open the target network in a new tab
+            window.open(
+              `https://${config.ndexBaseUrl}/viewer/networks/${shortcut.target}`,
+              '_blank',
+            )
+            return
+          }
+        } catch (error) {
+          console.error('Error fetching shortcut:', error)
+        }
+      }
+    }
+
+    // Default behavior - open the network directly
     window.open(
       `https://${config.ndexBaseUrl}/viewer/networks/${networkId}`,
       '_blank',
@@ -296,13 +354,8 @@ const NetworksList: React.FC<NetworksListProps> = ({
     }
   }
 
-  // Filter to only show network items
-  const networkItems = items.filter(
-    (item) => item.type === 'NETWORK',
-  ) as NetworkItem[]
-
   // Sort networks if needed
-  const sortedNetworkItems = [...networkItems]
+  const sortedNetworkItems = [...items]
 
   if (sortField && sortDirection) {
     sortedNetworkItems.sort((a, b) => {
@@ -333,7 +386,8 @@ const NetworksList: React.FC<NetworksListProps> = ({
     id: string,
     index: number,
   ) => {
-    onSelect(event, id, index + networkItems.length)
+    // Pass the sorted items along with other parameters
+    onSelect(event, id, index, 'NETWORK', sortedNetworkItems)
   }
 
   // Renders sort icon based on field and current state
@@ -352,7 +406,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
     return <ArrowUpDown className="h-3 w-3 ml-1 inline-block text-gray-500" />
   }
 
-  if (networkItems.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="mb-8">
         <h2 className="text-sm font-medium text-gray-500 mb-2">Networks</h2>
@@ -374,7 +428,9 @@ const NetworksList: React.FC<NetworksListProps> = ({
               network={network}
               index={index}
               selectedItems={selectedItems}
-              onSelect={handleItemClick}
+              onSelect={(e, id, idx) =>
+                onSelect(e, id, idx, 'NETWORK', sortedNetworkItems)
+              }
               onDoubleClick={handleNetworkDoubleClick}
               onDropdownToggle={onDropdownToggle}
             />
@@ -401,23 +457,23 @@ const NetworksList: React.FC<NetworksListProps> = ({
                 {tabState === MyAccountTabType.SHARED && (
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
                   >
                     Owner
                   </th>
                 )}
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
+                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
                 >
                   Edges
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
+                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
                 >
                   <button
-                    className="flex items-center focus:outline-none"
+                    className="flex items-center justify-center mx-auto focus:outline-none"
                     onClick={() => handleSortClick('modificationTime')}
                   >
                     Last Modified
@@ -426,13 +482,13 @@ const NetworksList: React.FC<NetworksListProps> = ({
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
+                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
                 >
                   Visibility
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16"
+                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
                 >
                   Actions
                 </th>
@@ -446,7 +502,9 @@ const NetworksList: React.FC<NetworksListProps> = ({
                   network={network}
                   index={index}
                   selectedItems={selectedItems}
-                  onSelect={handleItemClick}
+                  onSelect={(e, id, idx) =>
+                    onSelect(e, id, idx, 'NETWORK', sortedNetworkItems)
+                  }
                   onDoubleClick={handleNetworkDoubleClick}
                   onDropdownToggle={onDropdownToggle}
                 />

@@ -13,15 +13,26 @@ import {
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useDrag, useDrop } from 'react-dnd'
-import { FolderItemBase } from '@/hooks/use-folder-contents'
+import { FileItemBase } from '@/types/api/ndex/File'
 import { ItemTypes } from '@/types/dnd/DndTypes'
+import { FileType } from '@/types/api/ndex'
+import { useConfig } from '@/lib/contexts/ConfigContext'
+import { useShortcut } from '@/hooks/use-shortcut'
+import { useAuth } from '@/lib/contexts/KeycloakContext'
+import { getNdexClient } from '@/lib/api/ndex-client-manager'
 
 // Props for the component
 interface FoldersListProps {
-  folders: FolderItemBase[]
+  folders: FileItemBase[]
   viewMode: 'grid' | 'list'
   selectedItems: string[]
-  onSelect: (event: React.MouseEvent, id: string, index: number) => void
+  onSelect: (
+    event: React.MouseEvent,
+    id: string,
+    index: number,
+    type: 'FOLDER' | 'NETWORK',
+    sortedItems: FileItemBase[],
+  ) => void
   currentFolderId: string | null
   onDrop: (itemIds: string[], targetFolderId: string) => void
   onDropdownToggle?: (
@@ -32,7 +43,7 @@ interface FoldersListProps {
 }
 
 // Extended folder item with additional properties we might have
-interface FolderItem extends FolderItemBase {}
+interface FolderItem extends FileItemBase {}
 
 // Sort direction type
 type SortDirection = 'asc' | 'desc' | null
@@ -66,7 +77,13 @@ const GridFolderItem = ({
   folder: FolderItem
   index: number
   selectedItems: string[]
-  onSelect: (event: React.MouseEvent, id: string, index: number) => void
+  onSelect: (
+    event: React.MouseEvent,
+    id: string,
+    index: number,
+    type: 'FOLDER' | 'NETWORK',
+    sortedItems: FileItemBase[],
+  ) => void
   onDoubleClick: (event: React.MouseEvent, id: string) => void
   onDrop: (itemIds: string[], targetFolderId: string) => void
   onDropdownToggle?: (
@@ -117,12 +134,16 @@ const GridFolderItem = ({
             : 'hover:bg-gray-50'
         }
       `}
-      onClick={(e) => onSelect(e, folder.uuid, index)}
+      onClick={(e) => onSelect(e, folder.uuid, index, 'FOLDER', [])}
       onDoubleClick={(e) => onDoubleClick(e, folder.uuid)}
     >
       <div className="flex items-center gap-3 overflow-hidden">
         <div className="flex-shrink-0">
-          <Folder className="h-5 w-5 text-gray-600" />
+          {folder.type === FileType.FOLDER ? (
+            <Folder className="h-5 w-5 text-gray-600" />
+          ) : (
+            <Folder className="h-5 w-5 text-green-600" />
+          )}
         </div>
         <span className="text-sm truncate">{folder.name}</span>
       </div>
@@ -155,7 +176,13 @@ const ListFolderItem = ({
   folder: FolderItem
   index: number
   selectedItems: string[]
-  onSelect: (event: React.MouseEvent, id: string, index: number) => void
+  onSelect: (
+    event: React.MouseEvent,
+    id: string,
+    index: number,
+    type: 'FOLDER' | 'NETWORK',
+    sortedItems: FileItemBase[],
+  ) => void
   onDoubleClick: (event: React.MouseEvent, id: string) => void
   onDrop: (itemIds: string[], targetFolderId: string) => void
   onDropdownToggle?: (
@@ -202,16 +229,20 @@ const ListFolderItem = ({
             : 'hover:bg-gray-50'
         }
       `}
-      onClick={(e) => onSelect(e, folder.uuid, index)}
+      onClick={(e) => onSelect(e, folder.uuid, index, 'FOLDER', [])}
       onDoubleClick={(e) => onDoubleClick(e, folder.uuid)}
       ref={ref}
     >
       <td
         className={`px-6 py-4 whitespace-nowrap ${isOver ? 'bg-blue-50' : ''}`}
       >
-        <div className="flex items-center max-w-full">
+        <div className="flex items-center w-full">
           <div className="flex-shrink-0 mr-3">
-            <Folder className="h-5 w-5 text-gray-600" />
+            {folder.type === FileType.FOLDER ? (
+              <Folder className="h-5 w-5 text-gray-600" />
+            ) : (
+              <Folder className="h-5 w-5 text-green-600" />
+            )}
           </div>
           <div className="overflow-hidden">
             <div className="text-sm font-medium text-gray-900 truncate max-w-[250px]">
@@ -220,14 +251,14 @@ const ListFolderItem = ({
           </div>
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center text-sm text-gray-500">
+      <td className="px-6 py-4 whitespace-nowrap text-center">
+        <div className="flex items-center justify-center w-full text-sm text-gray-500">
           <User className="h-4 w-4 mr-1 text-gray-400" />
           <span className="truncate">{folder.attributes?.owner || 'Me'}</span>
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center text-sm text-gray-500">
+      <td className="px-6 py-4 whitespace-nowrap text-center">
+        <div className="flex items-center justify-center w-full text-sm text-gray-500">
           <Clock className="h-4 w-4 mr-1 text-gray-400" />
           <span className="truncate">
             {formatDate(folder.modificationTime)}
@@ -260,20 +291,44 @@ const FoldersList: React.FC<FoldersListProps> = ({
   onDropdownToggle,
 }) => {
   const router = useRouter()
+  const config = useConfig()
+  const { token } = useAuth()
   const [sortField, setSortField] = useState<
     'name' | 'modificationTime' | null
   >(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
 
   // Handle double click on folder to navigate into it
-  const handleFolderDoubleClick = (
+  const handleFolderDoubleClick = async (
     event: React.MouseEvent,
     folderId: string,
   ) => {
     event.preventDefault()
     event.stopPropagation()
 
-    // Navigate to the folder view
+    // Find the folder in the folders array
+    const folderItem = folders.find((folder) => folder.uuid === folderId)
+
+    if (folderItem) {
+      // Check if it's a shortcut
+      if (folderItem.type === FileType.SHORTCUT) {
+        try {
+          // Get the NDEx client to fetch the shortcut
+          const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+          const shortcut = await ndexClient.getShortcut(folderId)
+
+          // Check if the target is a folder, if so navigate to it
+          if (shortcut && shortcut.target) {
+            router.push(`/folder/${shortcut.target}`)
+            return
+          }
+        } catch (error) {
+          console.error('Error fetching shortcut:', error)
+        }
+      }
+    }
+
+    // Default behavior - navigate to the folder directly
     router.push(`/folder/${folderId}`)
   }
 
@@ -283,7 +338,8 @@ const FoldersList: React.FC<FoldersListProps> = ({
     id: string,
     index: number,
   ) => {
-    onSelect(event, id, index)
+    // Pass both the ID and the actual sorted items for proper sorting-aware selection
+    onSelect(event, id, index, 'FOLDER', [])
   }
 
   // Handle sort column click
@@ -308,12 +364,9 @@ const FoldersList: React.FC<FoldersListProps> = ({
   }
 
   // Filter out network items - this component only shows folders
-  const folderItems = folders.filter(
-    (item) => item.type === 'FOLDER',
-  ) as FolderItem[]
 
   // Sort folders if needed
-  const sortedFolderItems = [...folderItems]
+  const sortedFolderItems = [...folders]
 
   if (sortField && sortDirection) {
     sortedFolderItems.sort((a, b) => {
@@ -345,7 +398,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
     collect: (m) => ({ isOver: m.isOver() }),
   })
 
-  if (folderItems.length === 0) {
+  if (folders.length === 0) {
     return (
       <div className="mb-8">
         <h2 className="text-sm font-medium text-gray-500 mb-2">Folders</h2>
@@ -385,7 +438,9 @@ const FoldersList: React.FC<FoldersListProps> = ({
               folder={folder}
               index={index}
               selectedItems={selectedItems}
-              onSelect={handleItemClick}
+              onSelect={(e, id, idx) =>
+                onSelect(e, id, idx, 'FOLDER', sortedFolderItems)
+              }
               onDoubleClick={handleFolderDoubleClick}
               onDrop={onDrop}
               onDropdownToggle={onDropdownToggle}
@@ -412,16 +467,16 @@ const FoldersList: React.FC<FoldersListProps> = ({
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5"
+                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5"
                 >
                   Owner
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5"
+                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5"
                 >
                   <button
-                    className="flex items-center focus:outline-none"
+                    className="flex items-center justify-center mx-auto focus:outline-none"
                     onClick={() => handleSortClick('modificationTime')}
                   >
                     Last Modified
@@ -443,7 +498,9 @@ const FoldersList: React.FC<FoldersListProps> = ({
                   folder={folder}
                   index={index}
                   selectedItems={selectedItems}
-                  onSelect={handleItemClick}
+                  onSelect={(e, id, idx) =>
+                    onSelect(e, id, idx, 'FOLDER', sortedFolderItems)
+                  }
                   onDoubleClick={handleFolderDoubleClick}
                   onDrop={onDrop}
                   onDropdownToggle={onDropdownToggle}

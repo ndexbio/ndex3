@@ -2,14 +2,14 @@
 
 import React from 'react'
 import { File, Folder, X } from 'lucide-react'
-import { FolderItemBase } from '@/hooks/use-folder-contents'
+import { FileItemBase } from '@/types/api/ndex/File'
 import { formatDate } from './NetworksList'
 
 interface DetailsPanelProps {
   isOpen: boolean
   onClose: () => void
   selectedItems: string[]
-  allItems: FolderItemBase[]
+  allItems: FileItemBase[]
 }
 
 export default function DetailsPanel({
@@ -25,6 +25,7 @@ export default function DetailsPanel({
         return <Folder className="h-5 w-5 text-gray-600" />
       case 'network':
         return <File className="h-5 w-5 text-sky-700" />
+      case 'network':
       default:
         return <File className="h-5 w-5 text-gray-600" />
     }

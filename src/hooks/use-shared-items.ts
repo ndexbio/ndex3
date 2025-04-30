@@ -3,10 +3,10 @@ import useSWR from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
-import { FolderItemBase } from './use-folder-contents'
+import { FileItemBase } from '@/types/api/ndex'
 
 export interface SharedContents {
-  items: FolderItemBase[]
+  items: FileItemBase[]
   isLoading: boolean
   error: Error | null
   isEmpty: boolean
@@ -42,7 +42,7 @@ export const useSharedItems = (): SharedContents => {
   }
 
   // Use SWR to fetch and cache the data
-  const { data, error, isLoading, mutate } = useSWR<FolderItemBase[]>(
+  const { data, error, isLoading, mutate } = useSWR<FileItemBase[]>(
     cacheKey,
     fetcher,
     {
