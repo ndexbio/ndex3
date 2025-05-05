@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   X,
   UserPlus,
@@ -10,6 +10,7 @@ import {
   Check,
   RefreshCw,
   ChevronDown,
+  DownloadIcon,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -17,7 +18,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { MyAccountTabType, FilterOptionType } from '@/types/api/ui/myAccount'
+import { MyAccountTabType, FilterOptionType } from '@/types/ui/myAccount'
+import { useTrash } from '@/hooks/use-trash'
+import { useDialogs } from './DialogManager'
 
 // Helper function to format date string (MM/DD/YYYY) to input format (YYYY-MM-DD)
 const formatDateForInput = (dateString: string): string => {
@@ -66,38 +69,32 @@ const formatDateFromInput = (dateString: string): string => {
   return dateString
 }
 
+// Define the filter interface used internally
+export interface FilterState {
+  edgeCount: { min: string; max: string }
+  nodeCount: { min: string; max: string }
+  modificationTime: { start: string; end: string }
+}
+
+// Simplified props interface without filter state and handlers
 interface SelectionToolbarAndFiltersProps {
   selectedItems: string[]
   showSelectionToolbar: boolean
   tabState: MyAccountTabType
-  filterValues: {
-    edgeCount: { min: string; max: string }
-    nodeCount: { min: string; max: string }
-    modificationTime: { start: string; end: string }
-  }
-  selectedFilters: Set<FilterOptionType>
-  filterDropdownOpen: boolean
-  activeFilterDropdown: FilterOptionType | null
-  filterDropdownRef: React.RefObject<HTMLDivElement | null>
   handleCloseToolbar: (event: React.MouseEvent) => void
   handleRestoreFromTrash: (ids: string[]) => void
   handlePermanentDelete: (ids: string[]) => void
   handleDeleteItems: (ids: string[]) => void
-  setFilterDropdownOpen: (isOpen: boolean) => void
-  toggleFilter: (type: FilterOptionType) => void
-  handleFilterValueChange: (
-    type: FilterOptionType,
-    field: string,
-    value: string,
+  handleMoveItems?: (ids: string[], targetFolderId: string) => Promise<void>
+  currentFolderId?: string | null
+  onFiltersChange?: (
+    selectedFilters: Set<FilterOptionType>,
+    filterValues: FilterState,
   ) => void
-  openFilterDropdown: (event: React.MouseEvent, type: FilterOptionType) => void
-  setActiveFilterDropdown: (type: FilterOptionType | null) => void
-  setSelectedFilters: (filters: Set<FilterOptionType>) => void
-  setFilterValues: (values: {
-    edgeCount: { min: string; max: string }
-    nodeCount: { min: string; max: string }
-    modificationTime: { start: string; end: string }
-  }) => void
+  initialFilterState?: {
+    selectedFilters: Set<FilterOptionType>
+    filterValues: FilterState
+  }
 }
 
 // Filter labels
@@ -107,27 +104,148 @@ const filterLabels: Record<FilterOptionType, string> = {
   modificationTime: 'Modification Time',
 }
 
+// Default filter values
+const defaultFilterValues: FilterState = {
+  edgeCount: { min: '', max: '' },
+  nodeCount: { min: '', max: '' },
+  modificationTime: { start: '', end: '' },
+}
+
 const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
   selectedItems,
   showSelectionToolbar,
   tabState,
-  filterValues,
-  selectedFilters,
-  filterDropdownOpen,
-  activeFilterDropdown,
-  filterDropdownRef,
   handleCloseToolbar,
   handleRestoreFromTrash,
   handlePermanentDelete,
   handleDeleteItems,
-  setFilterDropdownOpen,
-  toggleFilter,
-  handleFilterValueChange,
-  openFilterDropdown,
-  setActiveFilterDropdown,
-  setSelectedFilters,
-  setFilterValues,
+  handleMoveItems,
+  currentFolderId = null,
+  onFiltersChange,
+  initialFilterState,
 }) => {
+  // Access the dialog context
+  const { openMoveFolderDialog } = useDialogs()
+
+  // Internal state for filters
+  const [filterValues, setFilterValues] = useState<FilterState>(
+    initialFilterState?.filterValues || defaultFilterValues,
+  )
+  const [selectedFilters, setSelectedFilters] = useState<Set<FilterOptionType>>(
+    initialFilterState?.selectedFilters || new Set(),
+  )
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false)
+  const [activeFilterDropdown, setActiveFilterDropdown] =
+    useState<FilterOptionType | null>(null)
+
+  // Reference for filter dropdown
+  const filterDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Function to toggle a filter
+  const toggleFilter = (type: FilterOptionType) => {
+    const newSelectedFilters = new Set(selectedFilters)
+    if (newSelectedFilters.has(type)) {
+      newSelectedFilters.delete(type)
+    } else {
+      newSelectedFilters.add(type)
+    }
+    setSelectedFilters(newSelectedFilters)
+
+    // Notify parent
+    if (onFiltersChange) {
+      onFiltersChange(newSelectedFilters, filterValues)
+    }
+  }
+
+  // Handle filter value change
+  const handleFilterValueChange = (
+    type: FilterOptionType,
+    field: string,
+    value: string,
+  ) => {
+    const newFilterValues = {
+      ...filterValues,
+      [type]: {
+        ...filterValues[type],
+        [field]: value,
+      },
+    }
+    setFilterValues(newFilterValues)
+
+    // Notify parent (with a small delay to allow multiple changes before notifying)
+    if (onFiltersChange) {
+      // Use a debounced notification to avoid too many updates
+      // In a real implementation, you might want to use a debounce function from lodash or similar
+      setTimeout(() => {
+        onFiltersChange(selectedFilters, newFilterValues)
+      }, 300)
+    }
+  }
+
+  // Handle opening filter dropdown for editing
+  const openFilterDropdown = (
+    event: React.MouseEvent,
+    type: FilterOptionType,
+  ) => {
+    event.stopPropagation()
+    setActiveFilterDropdown(activeFilterDropdown === type ? null : type)
+  }
+
+  // Reset all filters
+  const resetFilters = () => {
+    setSelectedFilters(new Set())
+    setFilterValues(defaultFilterValues)
+
+    // Notify parent
+    if (onFiltersChange) {
+      onFiltersChange(new Set(), defaultFilterValues)
+    }
+  }
+
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterDropdownOpen &&
+        filterDropdownRef.current &&
+        !filterDropdownRef.current.contains(event.target as Node)
+      ) {
+        setFilterDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [filterDropdownOpen])
+
+  // Close all filter dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!(event.target as Element)?.closest('[data-filter-dropdown]')) {
+        setActiveFilterDropdown(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  // Handle opening move dialog
+  const handleOpenMoveDialog = () => {
+    if (handleMoveItems && selectedItems.length > 0) {
+      openMoveFolderDialog(
+        selectedItems,
+        currentFolderId,
+        (targetFolderId: string) =>
+          handleMoveItems(selectedItems, targetFolderId),
+      )
+    }
+  }
+
   return (
     <div className="mt-1 mb-3 mx-4">
       {selectedItems.length > 0 && showSelectionToolbar ? (
@@ -164,6 +282,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                     <TooltipContent>Restore from trash</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -181,7 +300,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                 </TooltipProvider>
               </>
             ) : (
-              // Regular actions
+              // Regular actions for My Networks and Shared
               <>
                 <TooltipProvider>
                   <Tooltip>
@@ -197,20 +316,22 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                     <TooltipContent>Share with others</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         className="p-1.5 rounded-full hover:bg-gray-200"
-                        title="Download"
+                        title="Dowload"
                         data-action-button
                       >
-                        <Download className="h-5 w-5 text-gray-600" />
+                        <DownloadIcon className="h-5 w-5 text-gray-600" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>Download selected items</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -218,13 +339,17 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                         className="p-1.5 rounded-full hover:bg-gray-200"
                         title="Move"
                         data-action-button
+                        onClick={handleOpenMoveDialog}
                       >
                         <FolderInput className="h-5 w-5 text-gray-600" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Move to another folder</TooltipContent>
+                    <TooltipContent>
+                      <p>Move selected items</p>
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -663,15 +788,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                 {selectedFilters.size > 0 && (
                   <button
                     className="flex items-center gap-1 px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 h-10"
-                    onClick={() => {
-                      setSelectedFilters(new Set())
-                      // Reset filter values
-                      setFilterValues({
-                        edgeCount: { min: '', max: '' },
-                        nodeCount: { min: '', max: '' },
-                        modificationTime: { start: '', end: '' },
-                      })
-                    }}
+                    onClick={resetFilters}
                   >
                     <RefreshCw className="h-4 w-4" />
                     <span>Clear Filters</span>
@@ -687,7 +804,9 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
               <div>Items in trash will be deleted forever after 30 days</div>
               <button
                 className="text-gray-600 hover:text-gray-900 font-medium"
-                onClick={() => {}}
+                onClick={() => {
+                  handlePermanentDelete([])
+                }}
               >
                 Empty trash
               </button>

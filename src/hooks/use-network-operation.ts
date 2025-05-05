@@ -210,7 +210,7 @@ export const useNetworkOperation = (
         parentFolderId = data.parent
       } else {
         // Assuming there's a getNetwork method, otherwise this needs to be adjusted
-        const networkData = await ndexClient.getNetwork(networkIdToDelete)
+        const networkData = await ndexClient.getNetworkV3Summary(networkIdToDelete)
         parentFolderId = networkData.parent
       }
       

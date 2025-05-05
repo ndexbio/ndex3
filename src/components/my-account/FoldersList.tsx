@@ -20,10 +20,11 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useShortcut } from '@/hooks/use-shortcut'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
-
+import { MyAccountTabType } from '@/types/ui/myAccount'
 // Props for the component
 interface FoldersListProps {
   folders: FileItemBase[]
+  tabState: MyAccountTabType
   viewMode: 'grid' | 'list'
   selectedItems: string[]
   onSelect: (
@@ -38,7 +39,7 @@ interface FoldersListProps {
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: 'folder' | 'network',
+    type: FileType,
   ) => void
 }
 
@@ -89,7 +90,7 @@ const GridFolderItem = ({
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: 'folder' | 'network',
+    type: FileType,
   ) => void
 }) => {
   // Drop target for any DRIVE_ITEM
@@ -151,7 +152,7 @@ const GridFolderItem = ({
         <button
           className="p-1 rounded-full hover:bg-gray-200"
           onClick={(e) =>
-            onDropdownToggle && onDropdownToggle(e, folder.uuid, 'folder')
+            onDropdownToggle && onDropdownToggle(e, folder.uuid, folder.type)
           }
           data-dropdown-trigger
           data-dropdown-id={folder.uuid}
@@ -188,7 +189,7 @@ const ListFolderItem = ({
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: 'folder' | 'network',
+    type: FileType,
   ) => void
 }) => {
   // For list view, we'll make the name cell both draggable and a drop target
@@ -269,7 +270,7 @@ const ListFolderItem = ({
         <button
           className="p-1 rounded-full hover:bg-gray-200 inline-flex"
           onClick={(e) =>
-            onDropdownToggle && onDropdownToggle(e, folder.uuid, 'folder')
+            onDropdownToggle && onDropdownToggle(e, folder.uuid, folder.type)
           }
           data-dropdown-trigger
           data-dropdown-id={folder.uuid}
@@ -284,6 +285,7 @@ const ListFolderItem = ({
 const FoldersList: React.FC<FoldersListProps> = ({
   folders,
   viewMode,
+  tabState,
   selectedItems,
   onSelect,
   currentFolderId,
@@ -306,30 +308,32 @@ const FoldersList: React.FC<FoldersListProps> = ({
     event.preventDefault()
     event.stopPropagation()
 
-    // Find the folder in the folders array
-    const folderItem = folders.find((folder) => folder.uuid === folderId)
+    if (tabState !== MyAccountTabType.TRASH) {
+      // Find the folder in the folders array
+      const folderItem = folders.find((folder) => folder.uuid === folderId)
 
-    if (folderItem) {
-      // Check if it's a shortcut
-      if (folderItem.type === FileType.SHORTCUT) {
-        try {
-          // Get the NDEx client to fetch the shortcut
-          const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-          const shortcut = await ndexClient.getShortcut(folderId)
+      if (folderItem) {
+        // Check if it's a shortcut
+        if (folderItem.type === FileType.SHORTCUT) {
+          try {
+            // Get the NDEx client to fetch the shortcut
+            const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+            const shortcut = await ndexClient.getShortcut(folderId)
 
-          // Check if the target is a folder, if so navigate to it
-          if (shortcut && shortcut.target) {
-            router.push(`/folder/${shortcut.target}`)
-            return
+            // Check if the target is a folder, if so navigate to it
+            if (shortcut && shortcut.target) {
+              router.push(`/folder/${shortcut.target}`)
+              return
+            }
+          } catch (error) {
+            console.error('Error fetching shortcut:', error)
           }
-        } catch (error) {
-          console.error('Error fetching shortcut:', error)
         }
       }
-    }
 
-    // Default behavior - navigate to the folder directly
-    router.push(`/folder/${folderId}`)
+      // Default behavior - navigate to the folder directly
+      router.push(`/folder/${folderId}`)
+    }
   }
 
   // Handle item click with proper event passing

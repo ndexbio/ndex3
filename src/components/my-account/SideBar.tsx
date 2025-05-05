@@ -21,7 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
-import { MyAccountTabType } from '@/types/api/ui/myAccount'
+import { MyAccountTabType } from '@/types/ui/myAccount'
 
 interface SideBarProps {
   collapsed: boolean

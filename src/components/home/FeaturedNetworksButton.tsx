@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ChevronDown, Loader2, ExternalLink } from 'lucide-react'
 import { useFeaturedNetworks } from '@/hooks/use-content-service'
-import { FeaturedNetwork } from '@/types/api/ui/content'
+import { FeaturedNetwork } from '@/types/ui/content'
 
 export function FeaturedNetworksButton() {
   const { data, isLoading, error } = useFeaturedNetworks()

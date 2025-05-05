@@ -2,7 +2,7 @@
 
 import React from 'react'
 import MyAccount from '@/components/my-account/MyAccount'
-import { MyAccountTabType } from '@/types/api/ui/myAccount'
+import { MyAccountTabType } from '@/types/ui/myAccount'
 /**
  * Trash Page
  * This page displays items that have been moved to trash

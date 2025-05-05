@@ -16,7 +16,7 @@ import { useDrag } from 'react-dnd'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { ItemTypes } from '@/types/dnd/DndTypes'
-import { MyAccountTabType } from '@/types/api/ui/myAccount'
+import { MyAccountTabType } from '@/types/ui/myAccount'
 import { FileType } from '@/types/api/ndex'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
@@ -37,7 +37,7 @@ interface NetworksListProps {
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: 'folder' | 'network',
+    type: FileType,
   ) => void
 }
 
@@ -86,7 +86,7 @@ const GridNetworkItem = ({
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: 'folder' | 'network',
+    type: FileType,
   ) => void
 }) => {
   // Create drag source for network items
@@ -140,7 +140,7 @@ const GridNetworkItem = ({
         <button
           className="p-1 rounded-full hover:bg-gray-200"
           onClick={(e) =>
-            onDropdownToggle && onDropdownToggle(e, network.uuid, 'network')
+            onDropdownToggle && onDropdownToggle(e, network.uuid, network.type)
           }
           data-dropdown-trigger
           data-dropdown-id={network.uuid}
@@ -177,7 +177,7 @@ const ListNetworkItem = ({
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: 'folder' | 'network',
+    type: FileType,
   ) => void
 }) => {
   // For list view, we need to handle refs differently
@@ -265,7 +265,7 @@ const ListNetworkItem = ({
         <button
           className="p-1 rounded-full hover:bg-gray-200 inline-flex"
           onClick={(e) =>
-            onDropdownToggle && onDropdownToggle(e, network.uuid, 'network')
+            onDropdownToggle && onDropdownToggle(e, network.uuid, network.type)
           }
           data-dropdown-trigger
           data-dropdown-id={network.uuid}
@@ -301,36 +301,38 @@ const NetworksList: React.FC<NetworksListProps> = ({
     event.preventDefault()
     event.stopPropagation()
 
-    // Find the network in the items array
-    const networkItem = items.find((item) => item.uuid === networkId)
+    if (tabState !== MyAccountTabType.TRASH) {
+      // Find the network in the items array
+      const networkItem = items.find((item) => item.uuid === networkId)
 
-    if (networkItem) {
-      // Check if it's a shortcut
-      if (networkItem.type === FileType.SHORTCUT) {
-        try {
-          // Get the NDEx client to fetch the shortcut
-          const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-          const shortcut = await ndexClient.getShortcut(networkId)
+      if (networkItem) {
+        // Check if it's a shortcut
+        if (networkItem.type === FileType.SHORTCUT) {
+          try {
+            // Get the NDEx client to fetch the shortcut
+            const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+            const shortcut = await ndexClient.getShortcut(networkId)
 
-          if (shortcut && shortcut.target) {
-            // Open the target network in a new tab
-            window.open(
-              `https://${config.ndexBaseUrl}/viewer/networks/${shortcut.target}`,
-              '_blank',
-            )
-            return
+            if (shortcut && shortcut.target) {
+              // Open the target network in a new tab
+              window.open(
+                `https://${config.ndexBaseUrl}/viewer/networks/${shortcut.target}`,
+                '_blank',
+              )
+              return
+            }
+          } catch (error) {
+            console.error('Error fetching shortcut:', error)
           }
-        } catch (error) {
-          console.error('Error fetching shortcut:', error)
         }
       }
-    }
 
-    // Default behavior - open the network directly
-    window.open(
-      `https://${config.ndexBaseUrl}/viewer/networks/${networkId}`,
-      '_blank',
-    )
+      // Default behavior - open the network directly
+      window.open(
+        `https://${config.ndexBaseUrl}/viewer/networks/${networkId}`,
+        '_blank',
+      )
+    }
   }
 
   // Handle sort column click
@@ -378,16 +380,6 @@ const NetworksList: React.FC<NetworksListProps> = ({
       if (valueA > valueB) return 1 * direction
       return 0
     })
-  }
-
-  // Handle shift+click for range selection
-  const handleItemClick = (
-    event: React.MouseEvent,
-    id: string,
-    index: number,
-  ) => {
-    // Pass the sorted items along with other parameters
-    onSelect(event, id, index, 'NETWORK', sortedNetworkItems)
   }
 
   // Renders sort icon based on field and current state

@@ -14,15 +14,15 @@ export interface SharedContents {
 }
 
 /**
- * Hook to fetch shared items (networks and folders shared with the current user)
- * @returns Object containing shared items, loading state, and error
+ * Hook to fetch shared files (networks and folders shared with the current user)
+ * @returns Object containing shared files, loading state, and error
  */
-export const useSharedItems = (): SharedContents => {
+export const useSharedFiles = (): SharedContents => {
   const config = useConfig()
   const { token, isAuthenticated } = useAuth()
 
   // Create a cache key for revalidation
-  const cacheKey = isAuthenticated ? ['sharedItems', token] : null
+  const cacheKey = isAuthenticated ? ['sharedFiles', token] : null
 
   // Fetcher function that uses ndexClient
   const fetcher = async () => {

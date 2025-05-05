@@ -21,10 +21,3 @@ export const FilterStateType = {
 
 export type FilterStateType = (typeof FilterStateType)[keyof typeof FilterStateType]
 
-export const ItemDropdownType = {
-    FOLDER: 'folder',
-    NETWORK: 'network',
-} as const
-
-export type ItemDropdownType = (typeof ItemDropdownType)[keyof typeof ItemDropdownType]
-

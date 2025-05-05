@@ -2,19 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import SideBar from './SideBar'
-import FoldersList from './FoldersList'
-import NetworksList from './NetworksList'
 import {
   Grid,
   List,
   Info,
-  X,
-  Folder,
-  ChevronDown,
   ChevronRight,
-  Search,
-  Users,
-  Trash,
   Trash2,
   Download,
   FolderInput,
@@ -31,27 +23,29 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
 import DetailsPanel from './DetailsPanel'
 import { useFolder, useFolderContents } from '@/hooks/use-folder'
 import { FileItemBase } from '@/types/api/ndex/File'
-import { useSharedItems } from '@/hooks/use-shared-items'
+import { useSharedFiles } from '@/hooks/use-shared-files'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { useToast } from '@/lib/contexts/ToastContext'
-import {
-  MyAccountTabType,
-  FilterOptionType,
-  FilterStateType,
-  ItemDropdownType,
-} from '@/types/api/ui/myAccount'
+import { MyAccountTabType, FilterOptionType } from '@/types/ui/myAccount'
 import { FileType } from '@/types/api/ndex'
 import SelectionToolbarAndFilters from './SelectionToolbarAndFilters'
 import { useShortcut } from '@/hooks/use-shortcut'
+import { FilterState } from './SelectionToolbarAndFilters' // Import the FilterState type
+import FileRenderer from './FileRenderer'
+import { useTrash } from '@/hooks/use-trash' // Import the useTrash hook
+import { useNetworkOperation } from '@/hooks/use-network-operation'
+import ActionDropdown from './ActionDropdown' // Import the new ActionDropdown component
+import { DialogProvider } from './DialogManager' // Import DialogProvider
+
 // Define the props for MyAccount component
 interface MyAccountProps {
   tabState?: MyAccountTabType
   uuid?: string // The folder UUID, if null we're in the home folder
 }
 
-export default function MyAccount({
+function MyAccountContent({
   uuid,
   tabState = MyAccountTabType.MYNETWORKS,
 }: MyAccountProps) {
@@ -61,10 +55,31 @@ export default function MyAccount({
   const { addToast } = useToast()
 
   // Add the useShortcut hook
-  const { createShortcut, deleteShortcut } = useShortcut()
+  const { createShortcut, updateShortcut, deleteShortcut } = useShortcut()
 
   // Add the useFolder hook
   const { deleteFolder, updateFolder } = useFolder()
+
+  const { moveNetworks, deleteNetwork } = useNetworkOperation()
+
+  // Only initialize hooks that are needed based on the active tab
+  const {
+    items: trashItems,
+    isLoading: isLoadingTrash,
+    error: trashError,
+    refresh: refreshTrash,
+    emptyTrash,
+    restoreItems: restoreTrashItems,
+  } = tabState === MyAccountTabType.TRASH
+    ? useTrash()
+    : {
+        items: [],
+        isLoading: false,
+        error: null,
+        refresh: async () => {},
+        emptyTrash: async () => {},
+        restoreItems: async () => {},
+      }
 
   // Convert UUID string to null for home folder
   const folderId = uuid || null
@@ -86,26 +101,19 @@ export default function MyAccount({
   const [breadcrumbPath, setBreadcrumbPath] = useState<
     { name: string; id: string | null }[]
   >([])
-  const [activeFilter, setActiveFilter] = useState<FilterStateType>(null)
-  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false)
-  const [activeFilterDropdown, setActiveFilterDropdown] =
-    useState<FilterOptionType | null>(null)
+
   const [selectedFilters, setSelectedFilters] = useState<Set<FilterOptionType>>(
     new Set(),
   )
-  const [filterValues, setFilterValues] = useState<{
-    edgeCount: { min: string; max: string }
-    nodeCount: { min: string; max: string }
-    modificationTime: { start: string; end: string }
-  }>({
+  const [filterValues, setFilterValues] = useState<FilterState>({
     edgeCount: { min: '', max: '' },
     nodeCount: { min: '', max: '' },
     modificationTime: { start: '', end: '' },
   })
-  const [trashItems, setTrashItems] = useState<FileItemBase[]>([])
-  const [dropdownType, setDropdownType] = useState<ItemDropdownType | null>(
-    null,
-  )
+
+  // Remove the trashItems state since we're now using the hook
+  // const [trashItems, setTrashItems] = useState<FileItemBase[]>([])
+  const [dropdownType, setDropdownType] = useState<FileType | null>(null)
   const [lastSelectedType, setLastSelectedType] = useState<
     'FOLDER' | 'NETWORK' | null
   >(null)
@@ -113,6 +121,50 @@ export default function MyAccount({
   // Reference to detect clicks outside the dropdown
   const dropdownRef = useRef<HTMLDivElement>(null)
   const actionDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Effect to close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Only proceed if a dropdown is open
+      if (!openDropdownId) return
+
+      const target = event.target as Element
+
+      // Don't close if clicking inside any dropdown menu
+      if (target.closest('[data-dropdown-menu="true"]')) {
+        return
+      }
+
+      // Don't close if clicking on the trigger button
+      if (target.closest(`[data-dropdown-id="${openDropdownId}"]`)) {
+        return
+      }
+
+      // Close the dropdown if the click is outside
+      setOpenDropdownId(null)
+      setDropdownType(null)
+    }
+
+    // Add event listener to document for all mouse down events
+    document.addEventListener('mousedown', handleClickOutside)
+
+    // Clean up event listener when component unmounts or dropdown state changes
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [openDropdownId]) // Re-attach listener when openDropdownId changes
+
+  // Handler for filter changes from SelectionToolbarAndFilters
+  const handleFiltersChange = (
+    newSelectedFilters: Set<FilterOptionType>,
+    newFilterValues: FilterState,
+  ) => {
+    // Update our local state to match what's in the component
+    setSelectedFilters(newSelectedFilters)
+    setFilterValues(newFilterValues)
+
+    // No need to do anything else - applyFilters will use these values
+  }
 
   // Function to apply filters to the items
   const applyFilters = (items: FileItemBase[]): FileItemBase[] => {
@@ -225,70 +277,79 @@ export default function MyAccount({
     })
   }
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      // Only proceed if a dropdown is open
-      if (!openDropdownId) return
-
-      const target = event.target as Element
-
-      // Check if click is on dropdown itself
-      const isClickInsideDropdown =
-        actionDropdownRef.current && actionDropdownRef.current.contains(target)
-
-      // Check if click is on the trigger button that opened this dropdown
-      const isClickOnTrigger = target.closest(
-        `[data-dropdown-trigger][data-dropdown-id="${openDropdownId}"]`,
-      )
-
-      // Close the dropdown if click is outside both the dropdown and its trigger
-      if (!isClickInsideDropdown && !isClickOnTrigger) {
-        console.log('Closing dropdown from outside click')
-        setOpenDropdownId(null)
-        setDropdownType(null)
-      }
-    }
-
-    // Add event listener to document for all mouse down events
-    document.addEventListener('mousedown', handleClickOutside)
-
-    // Clean up event listener when component unmounts or dropdown state changes
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [openDropdownId]) // Re-attach listener when openDropdownId changes
-
-  // Fetch folder contents using the hook
+  // Only fetch folder contents if we're in My Networks tab
   const {
     items: folderContents,
     isLoading,
     error,
     isEmpty,
     refresh: refreshFolderContents,
-  } = useFolderContents(folderId)
+  } = tabState === MyAccountTabType.MYNETWORKS
+    ? useFolderContents(folderId)
+    : {
+        items: [],
+        isLoading: false,
+        error: null,
+        isEmpty: true,
+        refresh: async () => {},
+      }
 
-  // Fetch shared items if in shared view
+  // Only fetch shared items if we're in Shared tab
   const {
-    items: sharedItems,
+    items: sharedFiles,
     isLoading: isLoadingShared,
     error: sharedError,
     isEmpty: isSharedEmpty,
-    refresh: refreshSharedItems,
-  } = useSharedItems()
+    refresh: refreshSharedFiles,
+  } = tabState === MyAccountTabType.SHARED
+    ? useSharedFiles()
+    : {
+        items: [],
+        isLoading: false,
+        error: null,
+        isEmpty: true,
+        refresh: async () => {},
+      }
 
-  // Determine which items to display based on the current view
+  // Update the determination of which items to display based on the current view
   const displayItems =
-    tabState === MyAccountTabType.SHARED ? sharedItems : folderContents
+    tabState === MyAccountTabType.SHARED
+      ? sharedFiles
+      : tabState === MyAccountTabType.TRASH
+      ? trashItems
+      : folderContents
+
   const currentLoading =
-    tabState === MyAccountTabType.SHARED ? isLoadingShared : isLoading
+    tabState === MyAccountTabType.SHARED
+      ? isLoadingShared
+      : tabState === MyAccountTabType.TRASH
+      ? isLoadingTrash
+      : isLoading
+
   const currentError =
-    tabState === MyAccountTabType.SHARED ? sharedError : error
+    tabState === MyAccountTabType.SHARED
+      ? sharedError
+      : tabState === MyAccountTabType.TRASH
+      ? trashError
+      : error
+
   const currentIsEmpty =
-    tabState === MyAccountTabType.SHARED ? isSharedEmpty : isEmpty
+    tabState === MyAccountTabType.SHARED
+      ? isSharedEmpty
+      : tabState === MyAccountTabType.TRASH
+      ? !trashItems || trashItems.length === 0
+      : isEmpty
 
   // Apply filters to get filtered items
   const filteredItems = applyFilters(displayItems)
+
+  // Add the useEffect for trash to set breadcrumb
+  useEffect(() => {
+    if (tabState === MyAccountTabType.TRASH) {
+      // Set breadcrumb for trash
+      setBreadcrumbPath([{ name: 'Trash', id: null }])
+    }
+  }, [tabState])
 
   // Fetch current folder info if we're in a subfolder
   useEffect(() => {
@@ -512,9 +573,8 @@ export default function MyAccount({
   const handleDropdownToggle = (
     event: React.MouseEvent,
     id: string,
-    type: ItemDropdownType,
+    type: FileType,
   ) => {
-    event.stopPropagation()
     event.preventDefault()
     if (openDropdownId === id && dropdownType === type) {
       setOpenDropdownId(null)
@@ -596,121 +656,38 @@ export default function MyAccount({
     }
   }, [systemPropertiesOpen])
 
-  // Handle filter selection toggle
-  const toggleFilter = (type: FilterOptionType) => {
-    const newSelectedFilters = new Set(selectedFilters)
-    if (newSelectedFilters.has(type)) {
-      newSelectedFilters.delete(type)
-    } else {
-      newSelectedFilters.add(type)
-    }
-    setSelectedFilters(newSelectedFilters)
-  }
-
-  // Handle filter value change
-  const handleFilterValueChange = (
-    type: FilterOptionType,
-    field: string,
-    value: string,
-  ) => {
-    setFilterValues({
-      ...filterValues,
-      [type]: {
-        ...filterValues[type],
-        [field]: value,
-      },
-    })
-  }
-
-  // Filter dropdown reference for outside click handling
-  const filterDropdownRef = useRef<HTMLDivElement>(null)
-
-  // Close filter dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        filterDropdownOpen &&
-        filterDropdownRef.current &&
-        !filterDropdownRef.current.contains(event.target as Node)
-      ) {
-        setFilterDropdownOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [filterDropdownOpen])
-
-  // Handle opening filter dropdown for editing
-  const openFilterDropdown = (
-    event: React.MouseEvent,
-    type: FilterOptionType,
-  ) => {
-    event.stopPropagation()
-    setActiveFilterDropdown(activeFilterDropdown === type ? null : type)
-  }
-
-  // Close all filter dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!(event.target as Element)?.closest('[data-filter-dropdown]')) {
-        setActiveFilterDropdown(null)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
-
-  // Fetch trash contents when in trash view
-  useEffect(() => {
-    if (tabState === MyAccountTabType.TRASH && isAuthenticated && token) {
-      fetchTrashItems()
-    }
-  }, [tabState, isAuthenticated, token, config.ndexBaseUrl])
-
-  // Function to fetch trash items
-  const fetchTrashItems = async () => {
-    if (tabState === MyAccountTabType.TRASH && isAuthenticated && token) {
-      try {
-        setLoading(true)
-        const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-        const trashResults = await ndexClient.getTrash()
-        setTrashItems(trashResults)
-        // Set breadcrumb for trash
-        setBreadcrumbPath([{ name: 'Trash', id: null }])
-        setLoading(false)
-      } catch (error) {
-        console.error('Error fetching trash items:', error)
-        setErrorMessage('Failed to load trash items')
-        setLoading(false)
-      }
-    }
-  }
-
-  // Handle trash-specific actions
+  // Modify handleRestoreFromTrash to use our hook
   const handleRestoreFromTrash = async (ids: string[]) => {
     if (
       tabState === MyAccountTabType.TRASH &&
       ids.length > 0 &&
-      isAuthenticated &&
-      token
+      isAuthenticated
     ) {
       try {
         setLoading(true)
-        const ndexClient = getNdexClient(config.ndexBaseUrl, token)
 
-        // Restore each item
-        for (const id of ids) {
-          await ndexClient.restoreFromTrash(id)
-        }
+        // Group IDs by type
+        const folderIds: string[] = []
+        const networkIds: string[] = []
+        const shortcutIds: string[] = []
 
-        // Refresh the trash items
-        await fetchTrashItems()
+        // Filter items by type and get their IDs
+        ids.forEach((id) => {
+          const item = trashItems.find((item) => item.uuid === id)
+          if (item) {
+            if (item.type === 'FOLDER') {
+              folderIds.push(id)
+            } else if (item.type === 'NETWORK') {
+              networkIds.push(id)
+            } else if (item.type === 'SHORTCUT') {
+              shortcutIds.push(id)
+            }
+          }
+        })
+
+        // Use the hook's restoreItems function
+        await restoreTrashItems(networkIds, folderIds, shortcutIds)
+
         setSelectedItems([])
         setLoading(false)
 
@@ -735,34 +712,39 @@ export default function MyAccount({
     }
   }
 
-  // Delete items
+  // Modify handlePermanentDelete to use emptyTrash for bulk operations
   const handlePermanentDelete = async (ids: string[]) => {
-    if (
-      tabState === MyAccountTabType.TRASH &&
-      ids.length > 0 &&
-      isAuthenticated &&
-      token
-    ) {
+    if (tabState === MyAccountTabType.TRASH && isAuthenticated) {
       try {
         setLoading(true)
-        const ndexClient = getNdexClient(config.ndexBaseUrl, token)
 
-        // Permanently delete each item
-        for (const id of ids) {
-          await ndexClient.permanentlyDeleteFromTrash(id)
+        // If all items in trash are selected, use emptyTrash
+        if (ids.length === trashItems.length || ids.length === 0) {
+          await emptyTrash()
+
+          setSelectedItems([])
+          setLoading(false)
+
+          addToast({
+            title: 'Trash emptied',
+            description: 'All items have been permanently deleted',
+            type: 'success',
+          })
+        } else {
+          // Todo
+
+          // Refresh the trash contents
+          await refreshTrash()
+          setSelectedItems([])
+          setLoading(false)
+
+          // Show success toast
+          addToast({
+            title: 'Items deleted',
+            description: `${ids.length} item(s) permanently deleted`,
+            type: 'success',
+          })
         }
-
-        // Refresh the trash items
-        await fetchTrashItems()
-        setSelectedItems([])
-        setLoading(false)
-
-        // Show success toast
-        addToast({
-          title: 'Items deleted',
-          description: `${ids.length} item(s) permanently deleted`,
-          type: 'success',
-        })
       } catch (error) {
         console.error('Error permanently deleting items:', error)
         setErrorMessage('Failed to permanently delete items')
@@ -785,15 +767,17 @@ export default function MyAccount({
       const items = displayItems.filter((item) => itemIds.includes(item.uuid))
       setLoading(true)
       for (const item of items) {
-        if (item.type === 'FOLDER') {
+        if (item.type === FileType.FOLDER) {
           await deleteFolder(item.uuid)
-        } else if (item.type === 'SHORTCUT') {
+        } else if (item.type === FileType.SHORTCUT) {
           await deleteShortcut(item.uuid)
+        } else if (item.type === FileType.NETWORK) {
+          await deleteNetwork(item.uuid)
         }
       }
 
       if (tabState === MyAccountTabType.SHARED) {
-        await refreshSharedItems()
+        await refreshSharedFiles()
       } else {
         await refreshFolderContents()
       }
@@ -801,7 +785,7 @@ export default function MyAccount({
     }
   }
 
-  // Move items
+  // Update the handleMoveItems function to refresh trash when needed
   const handleMoveItems = async (itemIds: string[], targetFolderId: string) => {
     try {
       // Skip if trying to move to the same folder
@@ -839,6 +823,7 @@ export default function MyAccount({
         names: [] as string[],
       }
 
+      let networksToMove: string[] = []
       // Move each item to the target folder based on its type
       for (const item of itemsToMove) {
         try {
@@ -850,16 +835,14 @@ export default function MyAccount({
           } else if (item.type === 'NETWORK') {
             // Move network
             // TODO: Implement the updateNetwork method in ndexClient
-            // await moveNetwork(item.uuid, targetFolderId)
-            movedItems.successful++
-            movedItems.names.push(item.name)
+            networksToMove.push(item.uuid)
           } else if (item.type === 'SHORTCUT') {
             // Update shortcut parent
-            await ndexClient.updateShortcut(
+            await updateShortcut(
               item.uuid,
               item.name,
               targetFolderId,
-              null,
+              item.attributes.target as string,
             )
             movedItems.successful++
             movedItems.names.push(item.name)
@@ -867,6 +850,13 @@ export default function MyAccount({
         } catch (error) {
           console.error(`Error moving item ${item.name}:`, error)
           movedItems.failed++
+        }
+      }
+      if (networksToMove.length > 0) {
+        try {
+          await moveNetworks(networksToMove, targetFolderId)
+        } catch (error) {
+          console.error('Error moving networks:', error)
         }
       }
 
@@ -901,9 +891,9 @@ export default function MyAccount({
 
       // Refresh the data based on current view
       if (tabState === MyAccountTabType.TRASH) {
-        await fetchTrashItems()
+        await refreshTrash()
       } else if (tabState === MyAccountTabType.SHARED) {
-        await refreshSharedItems()
+        await refreshSharedFiles()
       } else {
         await refreshFolderContents()
       }
@@ -962,7 +952,7 @@ export default function MyAccount({
 
       // Refresh folder contents
       if (tabState === MyAccountTabType.SHARED) {
-        await refreshSharedItems()
+        await refreshSharedFiles()
       } else {
         await refreshFolderContents()
       }
@@ -987,359 +977,6 @@ export default function MyAccount({
       })
     } finally {
       setLoading(false)
-    }
-  }
-
-  // Folder and Network action dropdowns
-  const renderActionDropdown = () => {
-    if (!openDropdownId) return null
-
-    const item = displayItems.find((item) => item.uuid === openDropdownId)
-    if (!item) return null
-
-    // Position the dropdown
-    const targetElement = document.querySelector(
-      `[data-dropdown-id="${openDropdownId}"]`,
-    ) as HTMLElement
-    if (!targetElement) return null
-
-    // Calculate position
-    const rect = targetElement.getBoundingClientRect()
-
-    // Check if dropdown would go off-screen horizontally
-    const isRightAligned = window.innerWidth - rect.right < 180
-
-    // Estimate dropdown height - these are approximate
-    const dropdownHeight = dropdownType === 'network' ? 340 : 240
-
-    // Check if dropdown would go below viewport
-    const wouldGoBelow = rect.bottom + dropdownHeight > window.innerHeight
-
-    // Set vertical position
-    const verticalPosition = wouldGoBelow
-      ? { bottom: `${window.innerHeight - rect.top + 5}px` }
-      : { top: `${rect.bottom + window.scrollY + 5}px` }
-
-    // Set horizontal position
-    const horizontalPosition = isRightAligned
-      ? { right: `${window.innerWidth - rect.right}px` }
-      : { left: `${rect.left}px` }
-
-    const style = {
-      ...verticalPosition,
-      ...horizontalPosition,
-    }
-
-    return (
-      <div
-        ref={actionDropdownRef}
-        className="fixed z-50 mt-1 min-w-[220px] rounded-md bg-white shadow-lg shadow-gray-400 focus:outline-none"
-        style={style}
-      >
-        {dropdownType === 'folder' ? (
-          <div className="py-2">
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
-            >
-              <Download className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Download
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
-            >
-              <FileEdit className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Rename
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
-            >
-              <UserPlus className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Share
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
-            >
-              <FolderInput className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Move
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => handleCreateShortcut(openDropdownId)}
-            >
-              <FileSymlink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Add Shortcut
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => {
-                handleDeleteItems([openDropdownId])
-                setOpenDropdownId(null)
-              }}
-            >
-              <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Move to Trash
-            </button>
-          </div>
-        ) : (
-          <div className="py-2">
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
-            >
-              <ExternalLink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Open in Cytoscape Desktop
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
-            >
-              <BookCopy className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Request DOI
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
-            >
-              <Download className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Download
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
-            >
-              <FileEdit className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Edit Properties
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
-            >
-              <Copy className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Make a Copy
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
-            >
-              <UserPlus className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Share
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpenDropdownId(null)}
-            >
-              <FolderInput className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Move
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => handleCreateShortcut(openDropdownId)}
-            >
-              <FileSymlink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Add a Shortcut
-            </button>
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => {
-                handleDeleteItems([openDropdownId])
-                setOpenDropdownId(null)
-              }}
-            >
-              <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Move to Trash
-            </button>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // Main content
-  const renderContent = () => {
-    if (tabState === MyAccountTabType.TRASH) {
-      // Trash content
-      return (
-        <div
-          className="px-6 py-5 flex-1 overflow-y-auto"
-          onClick={handleOutsideClick}
-        >
-          {trashItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full opacity-70">
-              <Trash className="h-16 w-16 text-gray-400 mb-4" />
-              <p className="text-lg text-gray-500 font-medium">
-                Trash is empty
-              </p>
-              <p className="text-sm text-gray-400">
-                Items in trash will be automatically deleted after 30 days
-              </p>
-            </div>
-          ) : (
-            <>
-              <FoldersList
-                folders={trashItems.filter((item) => item.type === 'FOLDER')}
-                viewMode={viewMode}
-                selectedItems={selectedItems}
-                onSelect={(e, id, index) =>
-                  handleItemSelect(e, id, index, 'FOLDER', trashItems)
-                }
-                currentFolderId={folderId}
-                onDrop={() => {}} // No-op in trash
-                onDropdownToggle={handleDropdownToggle}
-              />
-              <NetworksList
-                items={trashItems.filter((item) => item.type === 'NETWORK')}
-                tabState={tabState}
-                viewMode={viewMode}
-                selectedItems={selectedItems}
-                onSelect={(e, id, index) =>
-                  handleItemSelect(e, id, index, 'NETWORK', trashItems)
-                }
-                onDropdownToggle={handleDropdownToggle}
-              />
-            </>
-          )}
-        </div>
-      )
-    } else if (tabState === MyAccountTabType.SHARED) {
-      // Shared content
-      return (
-        <div
-          className="px-6 py-5 flex-1 overflow-y-auto"
-          onClick={handleOutsideClick}
-        >
-          {filteredItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full opacity-70">
-              {displayItems.length === 0 ? (
-                // No items at all
-                <>
-                  <Users className="h-16 w-16 text-gray-400 mb-4" />
-                  <p className="text-lg text-gray-500 font-medium">
-                    No items shared with you
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    Items shared with you by other users will appear here
-                  </p>
-                </>
-              ) : (
-                // No items match the current filters
-                <>
-                  <Search className="h-16 w-16 text-gray-400 mb-4" />
-                  <p className="text-lg text-gray-500 font-medium">
-                    No items match the current filters
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    Try adjusting your filter criteria
-                  </p>
-                </>
-              )}
-            </div>
-          ) : (
-            <>
-              <FoldersList
-                folders={filteredItems.filter((item) => item.type === 'FOLDER')}
-                viewMode={viewMode}
-                selectedItems={selectedItems}
-                onSelect={(e, id, index, type, sortedItems) =>
-                  handleItemSelect(e, id, index, type, sortedItems)
-                }
-                currentFolderId={folderId}
-                onDrop={() => {}} // No-op for shared items
-                onDropdownToggle={handleDropdownToggle}
-              />
-              <NetworksList
-                items={filteredItems.filter((item) => item.type === 'NETWORK')}
-                tabState={tabState}
-                viewMode={viewMode}
-                selectedItems={selectedItems}
-                onSelect={(e, id, index, type, sortedItems) =>
-                  handleItemSelect(e, id, index, type, sortedItems)
-                }
-                onDropdownToggle={handleDropdownToggle}
-              />
-            </>
-          )}
-        </div>
-      )
-    } else {
-      // Regular folder content
-      return (
-        <div
-          className="px-6 py-5 flex-1 overflow-y-auto"
-          onClick={handleOutsideClick}
-        >
-          {filteredItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full opacity-70">
-              {displayItems.length === 0 ? (
-                // Folder is completely empty
-                <>
-                  <Folder className="h-16 w-16 text-gray-400 mb-4" />
-                  <p className="text-lg text-gray-500 font-medium">
-                    This folder is empty
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    Upload files or create a folder to get started
-                  </p>
-                </>
-              ) : (
-                // No items match the current filters
-                <>
-                  <Search className="h-16 w-16 text-gray-400 mb-4" />
-                  <p className="text-lg text-gray-500 font-medium">
-                    No items match the current filters
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    Try adjusting your filter criteria
-                  </p>
-                  <button
-                    className="mt-4 px-4 py-2 bg-sky-700 text-white rounded-md hover:bg-sky-600 text-sm font-medium"
-                    onClick={() => setSelectedFilters(new Set())}
-                  >
-                    Clear all filters
-                  </button>
-                </>
-              )}
-            </div>
-          ) : (
-            <>
-              <FoldersList
-                folders={filteredItems.filter(
-                  (item) =>
-                    item.type === FileType.FOLDER ||
-                    (item.type === FileType.SHORTCUT &&
-                      item.attributes?.target_type === FileType.FOLDER),
-                )}
-                viewMode={viewMode}
-                selectedItems={selectedItems}
-                onSelect={(e, id, index, type, sortedItems) =>
-                  handleItemSelect(e, id, index, type, sortedItems)
-                }
-                currentFolderId={folderId}
-                onDrop={handleMoveItems}
-                onDropdownToggle={handleDropdownToggle}
-              />
-              <NetworksList
-                items={filteredItems.filter(
-                  (item) =>
-                    item.type === FileType.NETWORK ||
-                    (item.type === FileType.SHORTCUT &&
-                      item.attributes?.target_type === FileType.NETWORK),
-                )}
-                tabState={tabState}
-                viewMode={viewMode}
-                selectedItems={selectedItems}
-                onSelect={(e, id, index, type, sortedItems) =>
-                  handleItemSelect(e, id, index, type, sortedItems)
-                }
-                onDropdownToggle={handleDropdownToggle}
-              />
-            </>
-          )}
-        </div>
-      )
     }
   }
 
@@ -1448,29 +1085,55 @@ export default function MyAccount({
             selectedItems={selectedItems}
             showSelectionToolbar={showSelectionToolbar}
             tabState={tabState}
-            filterValues={filterValues}
-            selectedFilters={selectedFilters}
-            filterDropdownOpen={filterDropdownOpen}
-            activeFilterDropdown={activeFilterDropdown}
-            filterDropdownRef={filterDropdownRef}
             handleCloseToolbar={handleCloseToolbar}
             handleRestoreFromTrash={handleRestoreFromTrash}
             handlePermanentDelete={handlePermanentDelete}
             handleDeleteItems={handleDeleteItems}
-            setFilterDropdownOpen={setFilterDropdownOpen}
-            toggleFilter={toggleFilter}
-            handleFilterValueChange={handleFilterValueChange}
-            openFilterDropdown={openFilterDropdown}
-            setActiveFilterDropdown={setActiveFilterDropdown}
-            setSelectedFilters={setSelectedFilters}
-            setFilterValues={setFilterValues}
+            handleMoveItems={handleMoveItems}
+            currentFolderId={folderId}
+            onFiltersChange={handleFiltersChange}
+            initialFilterState={{
+              selectedFilters,
+              filterValues,
+            }}
           />
 
           {/* Main content with DnD support */}
           <DndProvider backend={HTML5Backend}>
-            {renderContent()}
-            {/* Render the action dropdown when an item's dropdown is open */}
-            {openDropdownId && renderActionDropdown()}
+            <FileRenderer
+              tabState={tabState}
+              filteredItems={filteredItems}
+              displayItems={displayItems}
+              trashItems={trashItems}
+              viewMode={viewMode}
+              selectedItems={selectedItems}
+              currentFolderId={folderId}
+              handleItemSelect={handleItemSelect}
+              handleOutsideClick={handleOutsideClick}
+              handleMoveItems={handleMoveItems}
+              handleDropdownToggle={handleDropdownToggle}
+              setSelectedFilters={setSelectedFilters}
+            />
+            {/* Replace renderActionDropdown() with ActionDropdown component */}
+            {openDropdownId && (
+              <ActionDropdown
+                openDropdownId={openDropdownId}
+                dropdownType={dropdownType}
+                item={
+                  filteredItems.find((item) => item.uuid === openDropdownId) ||
+                  null
+                }
+                tabState={tabState}
+                onClose={() => {
+                  setOpenDropdownId(null)
+                  setDropdownType(null)
+                }}
+                onDelete={handleDeleteItems}
+                onRestore={handleRestoreFromTrash}
+                onCreateShortcut={handleCreateShortcut}
+                onMoveItems={handleMoveItems}
+              />
+            )}
           </DndProvider>
         </div>
 
@@ -1485,5 +1148,14 @@ export default function MyAccount({
         )}
       </div>
     </div>
+  )
+}
+
+// Export the component wrapped with necessary providers
+export default function MyAccount(props: MyAccountProps) {
+  return (
+    <DialogProvider>
+      <MyAccountContent {...props} />
+    </DialogProvider>
   )
 }
