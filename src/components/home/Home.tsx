@@ -6,14 +6,10 @@ import { LogoCarousel } from '@/components/home/LogoCarousel'
 
 export default function Home() {
   return (
-    <main className="container mx-auto px-2 py-3 mb-4">
+    <main className="container mx-auto px-1 py-1 mb-1 flex flex-col gap-2">
       <FeaturedContentCarousel />
-      <div className="mt-6">
-        <BlogContent />
-      </div>
-      <div className="mt-6">
-        <LogoCarousel />
-      </div>
+      <BlogContent />
+      <LogoCarousel />
     </main>
   )
 }

@@ -3,6 +3,7 @@
 import { useBlogContent } from '@/hooks/use-content-service'
 import { Skeleton } from '@/components/ui/skeleton'
 import './blog-content.css'
+import { Card, CardContent } from '@/components/ui/card'
 
 export function BlogContent() {
   const { data, isLoading, error } = useBlogContent()
@@ -46,16 +47,16 @@ export function BlogContent() {
 
   // Render content side by side
   return (
-    <div className="min-w-[25rem] bg-white px-8 py-2 rounded-lg shadow-sm border border-gray-100">
-      <div className="flex flex-col lg:flex-row h-full gap-10">
-        {data.map((html, idx) => (
+    <Card className="w-full container px-0 py-0">
+      <CardContent className="py-0 flex gap-6">
+        {data.map((html, idx: number) => (
           <div
             key={idx}
             className="flex-1 overflow-auto blog-content"
             dangerouslySetInnerHTML={{ __html: html }}
           />
         ))}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

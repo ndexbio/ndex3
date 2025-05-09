@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { ThemeWrapper } from '@/components/theme-wrapper'
+import { ThemeWrapper } from '@/components/ThemeWrapper'
 import { ConfigProvider } from '@/lib/contexts/ConfigContext'
 import { KeycloakProvider } from '@/lib/contexts/KeycloakContext'
 import { NavBar } from '@/components/NavBar'
@@ -53,9 +53,11 @@ export default function RootLayout({
         <ConfigProvider>
           <KeycloakProvider>
             <ThemeWrapper>
-              <NavBar />
-              <MainPanel>{children}</MainPanel>
-              <Footer />
+              <div className="flex flex-col gap-4 h-screen">
+                <NavBar />
+                <MainPanel>{children}</MainPanel>
+                <Footer />
+              </div>
             </ThemeWrapper>
           </KeycloakProvider>
         </ConfigProvider>

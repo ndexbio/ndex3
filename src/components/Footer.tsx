@@ -6,13 +6,14 @@ import Image from 'next/image'
 
 export function Footer() {
   return (
-    <footer className="w-full bg-gray-100 py-6">
-      {/* Container */}
-      <div className="mx-auto max-w-6xl px-4 md:flex md:justify-between md:items-start text-sm">
+    <footer className="w-full py-4 bg-gray-100 flex-grow-1">
+      <div className="mx-auto max-w-7xl px-4 md:flex md:justify-between md:items-start text-sm">
         {/* Left Column: LEGAL */}
         <div className="mb-6 md:mb-0">
-          <h3 className="font-bold uppercase text-gray-700 mb-2">LEGAL</h3>
-          <p>
+          <h4 className="scroll-m-20 text-lg font-semibold tracking-tight">
+            Legal
+          </h4>
+          <p className="leading-7 [&:not(:first-child)]:mt-6">
             NDEx{' '}
             <Link
               href="https://home.ndexbio.org/disclaimer-license/"
@@ -30,8 +31,10 @@ export function Footer() {
 
         {/* Right Column: FOLLOW US */}
         <div>
-          <h3 className="font-bold uppercase text-gray-700 mb-2">Follow Us</h3>
-          <div className="flex items-center space-x-4">
+          <h3 className="scroll-m-20 text-lg font-semibold tracking-tight">
+            Follow Us
+          </h3>
+          <div className="container py-2 flex items-center">
             {/* YouTube Link */}
             <Link
               href="https://www.youtube.com/@ndexproject"
@@ -40,8 +43,8 @@ export function Footer() {
               <Image
                 src="/youtube_mono.svg"
                 alt="YouTube"
-                width={24}
-                height={24}
+                width={32}
+                height={32}
               />
             </Link>
           </div>
