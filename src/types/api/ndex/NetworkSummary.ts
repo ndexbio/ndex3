@@ -25,4 +25,9 @@ export interface NetworkSummary {
   isCertified: boolean // True if this is a published network in NDEx with a DOI assigned
   hasLayout: boolean // True if the network has coordinates on its nodes
   hasSample: boolean // True if the network has a sample network
+  // TODO: Missing Properties? Different on dev1.ndexbio.org and www.ndexbio.org?
+  // isDeleted?: boolean // True if the network is marked as deleted
+  // cxFormat?: string // The format of the network
+  // cxFileSize?: number // The size of the network in bytes
+  // cx2FileSize?: number // The size of the network in bytes
 }

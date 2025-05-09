@@ -12,6 +12,7 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
 import { EmailVerificationDialog } from '@/components/EmailVerificationDialog'
 // @ts-expect-error-next-line
 import { NDEx } from '@js4cytoscape/ndex-client'
+import { getNdexClient } from '../api/ndex-client-manager'
 
 type AuthContextType = {
   keycloak: Keycloak | null
@@ -20,6 +21,9 @@ type AuthContextType = {
   tokenParsed?: KeycloakTokenParsed
   login: () => void
   logout: () => void
+  isInitializing: boolean
+  diskUsed: number
+  diskQuota: number
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -43,6 +47,9 @@ export const KeycloakProvider = ({
   const [tokenParsed, setTokenParsed] = useState<
     KeycloakTokenParsed | undefined
   >(undefined)
+  const [diskUsed, setDiskUsed] = useState(0)
+  const [diskQuota, setDiskQuota] = useState(0)
+  const [isInitializing, setIsInitializing] = useState(true)
 
   // State for email verification
   const [emailUnverified, setEmailUnverified] = useState(false)
@@ -55,8 +62,10 @@ export const KeycloakProvider = ({
    */
   const checkUserVerification = async (ndexBaseUrl: string, token: string) => {
     try {
-      const ndexClient = new NDEx(ndexBaseUrl)
-      await ndexClient.signInFromIdToken(token)
+      const ndexClient = getNdexClient(ndexBaseUrl)
+      const userInfo = await ndexClient.signInFromIdToken(token)
+      setDiskUsed(userInfo.diskUsed)
+      setDiskQuota(userInfo.diskQuota)
       // If it succeeds, user is verified
       setEmailUnverified(false)
     } catch (e: any) {
@@ -134,9 +143,14 @@ export const KeycloakProvider = ({
               .catch(() => kc.logout())
           }, 60000)
         }
+
+        // Mark initialization as complete
+        setIsInitializing(false)
       })
       .catch((err) => {
         console.error('Keycloak init failed', err)
+        // Mark initialization as complete even on error
+        setIsInitializing(false)
       })
   }, [config])
 
@@ -149,6 +163,9 @@ export const KeycloakProvider = ({
         tokenParsed,
         login: () => keycloakRef.current?.login(),
         logout: () => keycloakRef.current?.logout(),
+        isInitializing,
+        diskUsed,
+        diskQuota,
       }}
     >
       {/* Normal app children */}

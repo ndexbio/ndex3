@@ -1,5 +1,5 @@
 {
-  "ndexBaseUrl": "www.ndexbio.org",
+  "ndexBaseUrl": "dev1.ndexbio.org",
   "keycloakConfig": {
     "url": "https://dev1.ndexbio.org/auth2",
     "clientId": "cytoscapendex",

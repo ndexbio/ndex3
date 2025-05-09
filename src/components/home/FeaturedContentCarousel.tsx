@@ -9,8 +9,8 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel'
-// import { Skeleton } from '@/components/ui/skeleton'
-import { FeaturedContentItem } from '@/types/api/ui/content'
+import { Skeleton } from '@/components/ui/skeleton'
+import { FeaturedContentItem } from '@/types/ui/content'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Image from 'next/image'
 import { ExternalLinkIcon } from 'lucide-react'

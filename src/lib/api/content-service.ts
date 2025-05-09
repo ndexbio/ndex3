@@ -1,4 +1,4 @@
-import { FeaturedContentResponse, FeaturedNetworkResponse } from '@/types/api/ui/content';
+import { FeaturedContentResponse, FeaturedNetworkResponse } from '@/types/ui/content';
 import { AppConfig } from '@/types/entities/AppConfig';
 
 /**
