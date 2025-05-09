@@ -20,22 +20,22 @@ export interface Network extends FileItemBase {
  */
 export const useNetworkOperation = (
   networkId: string | null = null,
-  accessKey?: string
+  accessKey?: string,
 ) => {
   const config = useConfig()
   const { token, isAuthenticated } = useAuth()
 
   // Create a cache key for revalidation
-  const cacheKey = networkId 
-    ? isAuthenticated 
-      ? ['network', networkId, token, accessKey] 
+  const cacheKey = networkId
+    ? isAuthenticated
+      ? ['network', networkId, token, accessKey]
       : ['network', networkId, accessKey]
     : null
 
   // Fetcher function that uses ndexClient
   const fetcher = async () => {
     const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-    
+
     try {
       if (networkId) {
         // Get network summary
@@ -56,13 +56,69 @@ export const useNetworkOperation = (
     {
       revalidateOnFocus: false,
       dedupingInterval: 60000, // 1 minute
-    }
+    },
   )
 
   // Function to manually refresh the data
   const refresh = async () => {
     if (cacheKey) {
       await mutate()
+    }
+  }
+
+  /**
+   * Gets network summary in specified format
+   * @param networkIdToFetch ID of the network to fetch
+   * @param summaryAccessKey Optional access key for shared networks
+   * @param format Format of the summary (defaults to "FULL")
+   * @returns Promise that resolves to the network summary data
+   */
+  const getNetworkSummary = async (
+    networkIdToFetch: string,
+    summaryAccessKey?: string,
+    format?: string,
+  ): Promise<any> => {
+    try {
+      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+      return await ndexClient.getNetworkV3Summary(
+        networkIdToFetch,
+        summaryAccessKey,
+        format,
+      )
+    } catch (error) {
+      console.error('Error fetching network summary:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Copies a network
+   * @param networkIdToCopy ID of the network to copy
+   * @returns Promise that resolves when operation is complete
+   */
+  const copyNetwork = async (
+    networkIdToCopy: string,
+  ): Promise<any> => {
+    try {
+      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+      return await ndexClient.copyNetwork(networkIdToCopy)
+    } catch (error) {
+      console.error('Error copying network:', error)
+    }
+  }
+
+  /**
+   * Gets the DOI of a network
+   * @param networkId ID of the network to get DOI for
+   * @returns Promise that resolves to the network DOI
+   */
+  const getNetworkDOI = async (networkId:string): Promise<string> => {
+    try {
+      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+      return await ndexClient.getNetworkDOI(networkId)
+    } catch (error) {
+      console.error('Error fetching network DOI:', error)       
+      return ''
     }
   }
 
@@ -74,7 +130,7 @@ export const useNetworkOperation = (
    */
   const moveNetworks = async (
     networkIds: string[],
-    targetFolderId: string
+    targetFolderId: string,
   ): Promise<any> => {
     if (!isAuthenticated) {
       throw new Error('Authentication required to move networks')
@@ -83,29 +139,31 @@ export const useNetworkOperation = (
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
       const result = await ndexClient.moveNetworks(networkIds, targetFolderId)
-      
+
       // If we're moving the current network, refresh it
       if (networkId && networkIds.includes(networkId)) {
         await refresh()
       }
-      
+
       // Get source folder IDs to refresh them
       if (data) {
         // Refresh the source folder contents
-        globalMutate((key) => 
-          Array.isArray(key) && 
-          key[0] === 'folderContents' && 
-          key[1] === data.parent
+        globalMutate(
+          (key) =>
+            Array.isArray(key) &&
+            key[0] === 'folderContents' &&
+            key[1] === data.parent,
         )
       }
-      
+
       // Refresh target folder contents
-      globalMutate((key) => 
-        Array.isArray(key) && 
-        key[0] === 'folderContents' && 
-        key[1] === targetFolderId
+      globalMutate(
+        (key) =>
+          Array.isArray(key) &&
+          key[0] === 'folderContents' &&
+          key[1] === targetFolderId,
       )
-      
+
       return result
     } catch (error) {
       console.error('Error moving networks:', error)
@@ -121,11 +179,14 @@ export const useNetworkOperation = (
    */
   const downloadRawNetwork = async (
     networkIdToDownload: string,
-    networkAccessKey?: string
+    networkAccessKey?: string,
   ): Promise<any> => {
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      return await ndexClient.getRawNetwork(networkIdToDownload, networkAccessKey)
+      return await ndexClient.getRawNetwork(
+        networkIdToDownload,
+        networkAccessKey,
+      )
     } catch (error) {
       console.error('Error downloading raw network:', error)
       throw error
@@ -140,11 +201,14 @@ export const useNetworkOperation = (
    */
   const downloadCX2Network = async (
     networkIdToDownload: string,
-    networkAccessKey?: string
+    networkAccessKey?: string,
   ): Promise<any> => {
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      return await ndexClient.getCX2Network(networkIdToDownload, networkAccessKey)
+      return await ndexClient.getCX2Network(
+        networkIdToDownload,
+        networkAccessKey,
+      )
     } catch (error) {
       console.error('Error downloading CX2 network:', error)
       throw error
@@ -159,7 +223,7 @@ export const useNetworkOperation = (
    */
   const updateNetworkWithCX2 = async (
     networkIdToUpdate: string,
-    rawCX2: any
+    rawCX2: any,
   ): Promise<any> => {
     if (!isAuthenticated) {
       throw new Error('Authentication required to update networks')
@@ -167,22 +231,26 @@ export const useNetworkOperation = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const result = await ndexClient.updateNetworkFromRawCX2(networkIdToUpdate, rawCX2)
-      
+      const result = await ndexClient.updateNetworkFromRawCX2(
+        networkIdToUpdate,
+        rawCX2,
+      )
+
       // If this is the network we're currently viewing, refresh it
       if (networkId === networkIdToUpdate) {
         await refresh()
       }
-      
+
       // If we have the current network data, refresh its parent folder
       if (data && data.parent) {
-        globalMutate((key) => 
-          Array.isArray(key) && 
-          key[0] === 'folderContents' && 
-          key[1] === data.parent
+        globalMutate(
+          (key) =>
+            Array.isArray(key) &&
+            key[0] === 'folderContents' &&
+            key[1] === data.parent,
         )
       }
-      
+
       return result
     } catch (error) {
       console.error('Error updating network:', error)
@@ -202,31 +270,33 @@ export const useNetworkOperation = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      
+
       // Get the network data first (to know its parent) if not the current one
       let parentFolderId
-      
+
       if (networkId === networkIdToDelete && data) {
         parentFolderId = data.parent
       } else {
         // Assuming there's a getNetwork method, otherwise this needs to be adjusted
-        const networkData = await ndexClient.getNetworkV3Summary(networkIdToDelete)
+        const networkData = await ndexClient.getNetworkV3Summary(
+          networkIdToDelete,
+        )
         parentFolderId = networkData.parent
       }
-      
+
       // Delete the network
       // Assuming there's a deleteNetwork method, otherwise this needs to be adjusted
       await ndexClient.deleteNetwork(networkIdToDelete)
-      
+
       // Refresh parent folder contents if it's being viewed
       if (parentFolderId) {
-        globalMutate((key) => 
-          Array.isArray(key) && 
-          key[0] === 'folderContents' && 
-          key[1] === parentFolderId
+        globalMutate(
+          (key) =>
+            Array.isArray(key) &&
+            key[0] === 'folderContents' &&
+            key[1] === parentFolderId,
         )
       }
-      
     } catch (error) {
       console.error('Error deleting network:', error)
       throw error
@@ -238,6 +308,9 @@ export const useNetworkOperation = (
     isLoading,
     error,
     refresh,
+    getNetworkSummary,
+    copyNetwork,
+    getNetworkDOI,
     moveNetworks,
     downloadRawNetwork,
     downloadCX2Network,
@@ -258,7 +331,7 @@ export const fetchNetwork = async (
   ndexBaseUrl: string,
   token: string,
   networkId: string,
-  accessKey?: string
+  accessKey?: string,
 ): Promise<Network> => {
   const ndexClient = getNdexClient(ndexBaseUrl, token)
   // Assuming there's a getNetwork method, otherwise this needs to be adjusted

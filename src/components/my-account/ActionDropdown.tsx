@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import {
   Download,
   FileEdit,
@@ -10,10 +10,76 @@ import {
   BookCopy,
   Copy,
   History,
+  Loader2,
 } from 'lucide-react'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 import { FileItemBase, FileType } from '@/types/api/ndex/File'
-import { useDialogs } from './DialogManager'
+import { useDialogs } from '../../lib/contexts/DialogContext'
+import { useNetworkDownload } from '@/hooks/use-network-download'
+
+// Add a dropdown menu for download formats
+const DownloadMenu: React.FC<{
+  networkId: string
+  networkName: string
+  onClose: () => void
+}> = ({ networkId, networkName, onClose }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const { downloadNetwork, isDownloading } = useNetworkDownload()
+
+  const handleDownload = async (format: 'CX' | 'CX2') => {
+    await downloadNetwork(networkId, networkName, { format })
+    setIsOpen(false)
+    onClose()
+  }
+
+  return (
+    <div className="relative">
+      <button
+        className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsOpen(!isOpen)
+        }}
+      >
+        <Download className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+        {isDownloading[networkId] ? (
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Downloading...</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between w-full">
+            <span>Download</span>
+            <span className="text-xs text-gray-500">▶</span>
+          </div>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-full top-0 ml-1 w-44 rounded-md bg-white shadow-lg">
+          <button
+            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleDownload('CX')
+            }}
+          >
+            <span>CX Format</span>
+          </button>
+          <button
+            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleDownload('CX2')
+            }}
+          >
+            <span>CX2 Format</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface ActionDropdownProps {
   openDropdownId: string | null
@@ -39,7 +105,11 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   onMoveItems,
 }) => {
   const actionDropdownRef = useRef<HTMLDivElement>(null)
-  const { openRenameFolderDialog, openMoveFolderDialog } = useDialogs()
+  const {
+    openRenameFolderDialog,
+    openMoveFolderDialog,
+    openEditNetworkPropertiesDialog,
+  } = useDialogs()
 
   // Add an effect to mark the component as mounted for event handling
   useEffect(() => {
@@ -106,6 +176,12 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       item.name,
       (item as any).parent || '',
     )
+    onClose() // Close the dropdown
+  }
+
+  // Handle opening the edit properties dialog
+  const handleOpenEditPropertiesDialog = () => {
+    openEditNetworkPropertiesDialog(openDropdownId)
     onClose() // Close the dropdown
   }
 
@@ -225,16 +301,14 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             <BookCopy className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
             Request DOI
           </button>
+          <DownloadMenu
+            networkId={openDropdownId}
+            networkName={item.name || 'network'}
+            onClose={onClose}
+          />
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => onClose())}
-          >
-            <Download className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Download
-          </button>
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => onClose())}
+            onClick={handleButtonClick(handleOpenEditPropertiesDialog)}
           >
             <FileEdit className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
             Edit Properties

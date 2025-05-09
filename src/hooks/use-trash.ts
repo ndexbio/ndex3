@@ -13,6 +13,7 @@ export interface TrashContents {
   refresh: () => Promise<void>
   emptyTrash: () => Promise<void>
   restoreItems: (networkIds?: string[], folderIds?: string[], shortcutIds?: string[]) => Promise<void>
+  permanentDelete: (itemId: string) => Promise<void>
 }
 
 /**
@@ -121,6 +122,25 @@ export const useTrash = (): TrashContents => {
     }
   }
 
+  /**
+   * Permanently deletes selected an item from trash
+   * @param UUID of the item to delete
+   * @returns Promise that resolves when item is deleted
+   */
+  const permanentDelete = async (itemId: string): Promise<void> => {
+    if (!isAuthenticated) {
+      throw new Error('Authentication required to delete item')
+    }   
+
+    try {
+      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+      await ndexClient.permanentlyDeleteFile(itemId)
+    } catch (error) {
+      console.error('Error deleting item from trash:', error)
+      throw error
+    }
+  }
+
   return {
     items: data || [],
     isLoading,
@@ -129,6 +149,7 @@ export const useTrash = (): TrashContents => {
     refresh,
     emptyTrash,
     restoreItems,
+    permanentDelete,
   }
 }
 

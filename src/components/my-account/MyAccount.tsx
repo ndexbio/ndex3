@@ -37,7 +37,7 @@ import FileRenderer from './FileRenderer'
 import { useTrash } from '@/hooks/use-trash' // Import the useTrash hook
 import { useNetworkOperation } from '@/hooks/use-network-operation'
 import ActionDropdown from './ActionDropdown' // Import the new ActionDropdown component
-import { DialogProvider } from './DialogManager' // Import DialogProvider
+import { DialogProvider } from '../../lib/contexts/DialogContext' // Import DialogProvider
 
 // Define the props for MyAccount component
 interface MyAccountProps {
@@ -60,7 +60,8 @@ function MyAccountContent({
   // Add the useFolder hook
   const { deleteFolder, updateFolder } = useFolder()
 
-  const { moveNetworks, deleteNetwork } = useNetworkOperation()
+  const { moveNetworks, deleteNetwork, getNetworkDOI, copyNetwork } =
+    useNetworkOperation()
 
   // Only initialize hooks that are needed based on the active tab
   const {
@@ -70,6 +71,7 @@ function MyAccountContent({
     refresh: refreshTrash,
     emptyTrash,
     restoreItems: restoreTrashItems,
+    permanentDelete,
   } = tabState === MyAccountTabType.TRASH
     ? useTrash()
     : {
@@ -79,6 +81,7 @@ function MyAccountContent({
         refresh: async () => {},
         emptyTrash: async () => {},
         restoreItems: async () => {},
+        permanentDelete: async () => {},
       }
 
   // Convert UUID string to null for home folder
@@ -713,49 +716,37 @@ function MyAccountContent({
   }
 
   // Modify handlePermanentDelete to use emptyTrash for bulk operations
-  const handlePermanentDelete = async (ids: string[]) => {
+  const handlePermanentDelete = async (ids?: string[]) => {
     if (tabState === MyAccountTabType.TRASH && isAuthenticated) {
-      try {
-        setLoading(true)
-
-        // If all items in trash are selected, use emptyTrash
-        if (ids.length === trashItems.length || ids.length === 0) {
+      setLoading(true)
+      if (ids) {
+        for (const id of ids) {
+          try {
+            await permanentDelete(id)
+            addToast({
+              title: 'Item deleted',
+              description: 'Item deleted successfully',
+              type: 'success',
+            })
+          } catch (error) {
+            console.error('Error permanently deleting item:', error)
+            setErrorMessage('Failed to permanently delete item')
+            setLoading(false)
+          }
+        }
+      } else {
+        try {
           await emptyTrash()
-
-          setSelectedItems([])
-          setLoading(false)
-
           addToast({
             title: 'Trash emptied',
-            description: 'All items have been permanently deleted',
+            description: 'Trash emptied successfully',
             type: 'success',
           })
-        } else {
-          // Todo
-
-          // Refresh the trash contents
-          await refreshTrash()
-          setSelectedItems([])
+        } catch (error) {
+          console.error('Error emptying trash:', error)
+          setErrorMessage('Failed to empty trash')
           setLoading(false)
-
-          // Show success toast
-          addToast({
-            title: 'Items deleted',
-            description: `${ids.length} item(s) permanently deleted`,
-            type: 'success',
-          })
         }
-      } catch (error) {
-        console.error('Error permanently deleting items:', error)
-        setErrorMessage('Failed to permanently delete items')
-        setLoading(false)
-
-        // Show error toast
-        addToast({
-          title: 'Delete failed',
-          description: 'Failed to permanently delete items',
-          type: 'error',
-        })
       }
     }
   }

@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ChevronDown,
   DownloadIcon,
+  Loader2,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -20,7 +21,110 @@ import {
 } from '@/components/ui/tooltip'
 import { MyAccountTabType, FilterOptionType } from '@/types/ui/myAccount'
 import { useTrash } from '@/hooks/use-trash'
-import { useDialogs } from './DialogManager'
+import { useDialogs } from '../../lib/contexts/DialogContext'
+import { useNetworkDownload } from '@/hooks/use-network-download'
+import { FileType } from '@/types/api/ndex/File'
+
+// Add a dropdown menu for bulk network downloads
+const BulkDownloadMenu: React.FC<{
+  selectedItems: Array<{ id: string; name: string; type: FileType }>
+  onClose: () => void
+}> = ({ selectedItems, onClose }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const { downloadMultipleNetworks } = useNetworkDownload()
+
+  // Filter selected items to only include networks
+  const networkItems = selectedItems
+    .filter((item) => item.type === FileType.NETWORK)
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+    }))
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isOpen &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen])
+
+  const handleDownload = async (format: 'CX' | 'CX2') => {
+    if (networkItems.length === 0) return
+
+    setIsDownloading(true)
+    try {
+      await downloadMultipleNetworks(networkItems, { format })
+    } catch (error) {
+      console.error('Error downloading networks:', error)
+    } finally {
+      setIsDownloading(false)
+      setIsOpen(false)
+    }
+  }
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="p-1.5 rounded-full hover:bg-gray-200"
+              title="Download selected networks"
+              data-action-button
+              onClick={() => setIsOpen(!isOpen)}
+              disabled={networkItems.length === 0 || isDownloading}
+            >
+              {isDownloading ? (
+                <Loader2 className="h-5 w-5 text-gray-600 animate-spin" />
+              ) : (
+                <DownloadIcon className="h-5 w-5 text-gray-600" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            Download selected networks
+            {networkItems.length === 0 && ' (Only networks can be downloaded)'}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      {isOpen && (
+        <div className="absolute top-full right-0 mt-1 w-44 rounded-md bg-white shadow-lg z-50">
+          <div className="py-1 text-sm font-medium text-gray-700 px-3 border-b border-gray-100">
+            Download Format
+          </div>
+          <button
+            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            onClick={() => handleDownload('CX')}
+            disabled={isDownloading || networkItems.length === 0}
+          >
+            <span>CX Format</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            onClick={() => handleDownload('CX2')}
+            disabled={isDownloading || networkItems.length === 0}
+          >
+            <span>CX2 Format</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // Helper function to format date string (MM/DD/YYYY) to input format (YYYY-MM-DD)
 const formatDateForInput = (dateString: string): string => {
@@ -79,11 +183,12 @@ export interface FilterState {
 // Simplified props interface without filter state and handlers
 interface SelectionToolbarAndFiltersProps {
   selectedItems: string[]
+  itemDataMap?: Record<string, { name: string; type: FileType }>
   showSelectionToolbar: boolean
   tabState: MyAccountTabType
   handleCloseToolbar: (event: React.MouseEvent) => void
   handleRestoreFromTrash: (ids: string[]) => void
-  handlePermanentDelete: (ids: string[]) => void
+  handlePermanentDelete: (ids?: string[]) => void
   handleDeleteItems: (ids: string[]) => void
   handleMoveItems?: (ids: string[], targetFolderId: string) => Promise<void>
   currentFolderId?: string | null
@@ -113,6 +218,7 @@ const defaultFilterValues: FilterState = {
 
 const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
   selectedItems,
+  itemDataMap = {},
   showSelectionToolbar,
   tabState,
   handleCloseToolbar,
@@ -246,6 +352,15 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
     }
   }
 
+  // Create array of item objects for the BulkDownloadMenu component
+  const getSelectedItemObjects = () => {
+    return selectedItems.map((id) => ({
+      id,
+      name: itemDataMap[id]?.name || `item_${id}`,
+      type: itemDataMap[id]?.type || FileType.NETWORK, // Default to NETWORK if no type specified
+    }))
+  }
+
   return (
     <div className="mt-1 mb-3 mx-4">
       {selectedItems.length > 0 && showSelectionToolbar ? (
@@ -320,15 +435,12 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button
-                        className="p-1.5 rounded-full hover:bg-gray-200"
-                        title="Dowload"
-                        data-action-button
-                      >
-                        <DownloadIcon className="h-5 w-5 text-gray-600" />
-                      </button>
+                      <BulkDownloadMenu
+                        selectedItems={getSelectedItemObjects()}
+                        onClose={() => {}}
+                      />
                     </TooltipTrigger>
-                    <TooltipContent>Download selected items</TooltipContent>
+                    <TooltipContent>Download selected networks</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
 
@@ -805,7 +917,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
               <button
                 className="text-gray-600 hover:text-gray-900 font-medium"
                 onClick={() => {
-                  handlePermanentDelete([])
+                  handlePermanentDelete()
                 }}
               >
                 Empty trash
