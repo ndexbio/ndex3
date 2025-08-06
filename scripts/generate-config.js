@@ -8,9 +8,12 @@
  */
 
 import fs from 'fs'
+import { fileURLToPath } from 'url';
 import path from 'path'
 
 // Read the master configuration from public/config.json
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const masterConfigPath = path.join(__dirname, '..', 'public', 'config.json')
 const masterConfig = JSON.parse(fs.readFileSync(masterConfigPath, 'utf8'))
 
