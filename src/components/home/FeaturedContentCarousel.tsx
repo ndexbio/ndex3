@@ -9,7 +9,6 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel'
-import { Skeleton } from '@/components/ui/skeleton'
 import { FeaturedContentItem } from '@/types/ui/content'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Image from 'next/image'
@@ -53,6 +52,7 @@ function FeaturedContentDisplay() {
                       width={180} // Set a fixed width for the image
                       height={180} // Set a fixed height for the image
                       className="h-full w-auto px-10 max-w-none object-cover"
+                      unoptimized // Disable Next.js image optimization for external images
                     />
                   </div>
 

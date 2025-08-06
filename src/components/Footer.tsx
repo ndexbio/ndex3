@@ -3,6 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { withBasePath } from '../lib/utils/path-utils'
 
 export function Footer() {
   return (
@@ -40,12 +41,15 @@ export function Footer() {
               href="https://www.youtube.com/@ndexproject"
               aria-label="YouTube"
             >
-              <Image
-                src="/youtube_mono.svg"
-                alt="YouTube"
-                width={32}
-                height={32}
-              />
+              <div className="relative w-8 h-8">
+                <Image
+                  src={withBasePath("/youtube_mono.svg")}
+                  alt="YouTube"
+                  fill
+                  sizes="32px"
+                  className="object-contain"
+                />
+              </div>
             </Link>
           </div>
         </div>

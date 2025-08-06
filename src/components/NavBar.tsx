@@ -7,6 +7,7 @@ import { SearchBox } from '@/components/search/SearchBox'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { User } from 'lucide-react'
 import { UserAvatar } from './user/UserAvatar'
+import { withBasePath } from '@/lib/utils/path-utils'
 
 export function NavBar() {
   const { isAuthenticated, login } = useAuth()
@@ -21,12 +22,15 @@ export function NavBar() {
             className="scroll-m-20 text-5xl font-light tracking-tight flex items-center
                        justify-start gap-2 text-ndex"
           >
-            <Image
-              src="/ndex-logo.svg"
-              alt="NDEx Logo"
-              width={80}
-              height={24}
-            />
+            <div className="relative w-20 h-6">
+              <Image
+                src={withBasePath("/ndex-logo.svg")}
+                alt="NDEx Logo"
+                fill
+                sizes="80px"
+                className="object-contain"
+              />
+            </div>
             NDEx
           </Link>
           <div className="flex-1 px-4">

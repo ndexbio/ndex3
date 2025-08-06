@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "npm run generate-config && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate-config": "node scripts/generate-config.js"
   },
   "dependencies": {
     "@js4cytoscape/ndex-client": "0.5.0-alpha.9",

@@ -10,9 +10,9 @@ import React, {
 import Keycloak, { KeycloakTokenParsed } from 'keycloak-js'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { EmailVerificationDialog } from '@/components/EmailVerificationDialog'
-// @ts-expect-error-next-line
-import { NDEx } from '@js4cytoscape/ndex-client'
+//import { NDEx } from '@js4cytoscape/ndex-client'
 import { getNdexClient } from '../api/ndex-client-manager'
+import { withBasePath } from '@/lib/utils/path-utils'
 
 type AuthContextType = {
   keycloak: Keycloak | null
@@ -119,7 +119,7 @@ export const KeycloakProvider = ({
       onLoad: 'check-sso',
       checkLoginIframe: false,
       silentCheckSsoRedirectUri:
-        window.location.origin + config.urlBaseName + 'silent-check-sso.html',
+        window.location.origin + withBasePath('/silent-check-sso.html'),
     })
       .then(async (authenticated) => {
         setIsAuthenticated(authenticated)
