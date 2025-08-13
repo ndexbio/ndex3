@@ -65,16 +65,16 @@ const NewFolderDialog: React.FC<NewFolderDialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Completely transparent background overlay */}
+      {/* Background overlay */}
       <div
-        className="fixed inset-0 bg-gray-300 opacity-50"
+        className="fixed inset-0 bg-black/50 dark:bg-black/70"
         onClick={onClose}
       ></div>
 
       {/* Dialog box */}
-      <div className="bg-white rounded-lg shadow-xl w-[400px] max-w-full z-10">
+      <div className="bg-card border border-border rounded-lg shadow-xl w-[400px] max-w-full z-10">
         <div className="px-6 py-5">
-          <h2 className="text-xl font-normal mb-5">New folder</h2>
+          <h2 className="text-xl font-normal mb-5 text-foreground">New folder</h2>
 
           <input
             type="text"
@@ -82,21 +82,21 @@ const NewFolderDialog: React.FC<NewFolderDialogProps> = ({
             value={folderName}
             onChange={(e) => setFolderName(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full p-3 border border-sky-700 rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="w-full p-3 border border-primary rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground"
             disabled={isSubmitting}
           />
 
           <div className="flex justify-end gap-4 mt-5">
             <button
               onClick={onClose}
-              className="px-4 py-1.5 text-sky-700 hover:bg-gray-50 text-sm"
+              className="px-4 py-1.5 text-primary hover:bg-accent hover:text-accent-foreground text-sm rounded transition-colors"
               disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               onClick={handleCreateFolder}
-              className="px-4 py-1.5 text-sky-700 hover:bg-gray-50 text-sm"
+              className="px-4 py-1.5 text-primary hover:bg-accent hover:text-accent-foreground text-sm rounded transition-colors"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Creating...' : 'Create'}

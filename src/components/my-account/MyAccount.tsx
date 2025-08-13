@@ -600,12 +600,12 @@ function MyAccountContent({
     if (errorMsg.includes('401') || errorMsg.includes('unauthorized')) {
       return (
         <div className="flex flex-col items-center justify-center">
-          <p className="text-red-500 mb-2">Authentication error</p>
-          <p className="text-gray-700 text-sm mb-4">
+          <p className="text-destructive mb-2">Authentication error</p>
+          <p className="text-muted-foreground text-sm mb-4">
             Your session may have expired
           </p>
           <button
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
             onClick={() => {
               // Relogin
               if (isAuthenticated) {
@@ -619,7 +619,7 @@ function MyAccountContent({
       )
     }
 
-    return <p className="text-red-500">Error loading content: {errorMsg}</p>
+    return <p className="text-destructive">Error loading content: {errorMsg}</p>
   }
 
   // Add function to handle clicks outside of items to deselect them
@@ -974,7 +974,7 @@ function MyAccountContent({
   if (isInitializing || !isAuthenticated || !token) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <div className="h-16 w-16 animate-spin rounded-full border-4 border-gray-300 border-t-primary"></div>
+        <div className="h-16 w-16 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
       </div>
     )
   }
@@ -982,7 +982,7 @@ function MyAccountContent({
   if (currentLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <div className="h-16 w-16 animate-spin rounded-full border-4 border-gray-300 border-t-primary"></div>
+        <div className="h-16 w-16 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
       </div>
     )
   }
@@ -1008,7 +1008,7 @@ function MyAccountContent({
       {/* Main Content and Details Panel Container */}
       <div className="flex-1 flex h-full overflow-hidden gap-x-4">
         {/* Main Content */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-white border border-gray-200 rounded-md transition-all duration-300 ease-in-out">
+        <div className="flex-1 flex flex-col h-full overflow-hidden bg-card border border-border rounded-md transition-all duration-300 ease-in-out">
           {/* Header */}
           <header className="px-6 py-3 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
@@ -1017,14 +1017,14 @@ function MyAccountContent({
                 {breadcrumbPath.map((crumb, index) => (
                   <React.Fragment key={index}>
                     {index > 0 && (
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     )}
                     <button
                       className={`text-${
                         index === breadcrumbPath.length - 1
-                          ? 'xl font-semibold'
-                          : 'sm'
-                      } hover:underline`}
+                          ? 'xl font-semibold text-foreground'
+                          : 'sm text-muted-foreground'
+                      } hover:underline hover:text-foreground transition-colors`}
                       onClick={() => handleBreadcrumbClick(crumb.id)}
                     >
                       {crumb.name}
@@ -1036,12 +1036,12 @@ function MyAccountContent({
 
             <div className="flex items-center gap-2">
               {/* View Mode Toggle */}
-              <div className="flex rounded-full overflow-hidden border border-gray-200">
+              <div className="flex rounded-full overflow-hidden border border-border">
                 <button
                   className={`flex items-center justify-center p-2 w-10 transition-colors ${
                     viewMode === 'list'
-                      ? 'bg-sky-50 text-sky-700'
-                      : 'bg-white text-gray-500 hover:bg-gray-50'
+                      ? 'bg-accent text-accent-foreground'
+                      : 'bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   }`}
                   onClick={() => setViewMode('list')}
                   aria-label="List view"
@@ -1051,8 +1051,8 @@ function MyAccountContent({
                 <button
                   className={`flex items-center justify-center p-2 w-10 transition-colors ${
                     viewMode === 'grid'
-                      ? 'bg-sky-50 text-sky-700'
-                      : 'bg-white text-gray-500 hover:bg-gray-50'
+                      ? 'bg-accent text-accent-foreground'
+                      : 'bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   }`}
                   onClick={() => setViewMode('grid')}
                   aria-label="Grid view"
@@ -1061,8 +1061,8 @@ function MyAccountContent({
                 </button>
               </div>
               <button
-                className={`p-3 rounded-full ${
-                  detailsOpen ? 'bg-sky-50 text-sky-700' : 'hover:bg-gray-100'
+                className={`p-3 rounded-full transition-colors ${
+                  detailsOpen ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                 }`}
                 onClick={() => setDetailsOpen(!detailsOpen)}
               >

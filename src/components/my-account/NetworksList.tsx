@@ -138,14 +138,14 @@ const GridNetworkItem = ({
       </div>
       <div className="flex items-center gap-4">
         <button
-          className="p-1 rounded-full hover:bg-gray-200"
+          className="p-1 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
           onClick={(e) =>
             onDropdownToggle && onDropdownToggle(e, network.uuid, network.type)
           }
           data-dropdown-trigger
           data-dropdown-id={network.uuid}
         >
-          <MoreVertical className="h-4 w-4 text-gray-500" />
+          <MoreVertical className="h-4 w-4 text-muted-foreground" />
         </button>
       </div>
     </div>
@@ -230,8 +230,8 @@ const ListNetworkItem = ({
       </td>
       {tabState === MyAccountTabType.SHARED && (
         <td className="px-6 py-4 whitespace-nowrap text-center">
-          <div className="flex items-center justify-center w-full text-sm text-gray-500">
-            <User className="h-4 w-4 mr-1 text-gray-400" />
+          <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
+            <User className="h-4 w-4 mr-1 text-muted-foreground" />
             <span className="truncate">
               {network.attributes?.owner || 'Me'}
             </span>
@@ -239,16 +239,16 @@ const ListNetworkItem = ({
         </td>
       )}
       <td className="px-6 py-4 whitespace-nowrap text-center">
-        <div className="flex items-center justify-center w-full text-sm text-gray-500">
-          <Database className="h-4 w-4 mr-1 text-gray-400" />
+        <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
+          <Database className="h-4 w-4 mr-1 text-muted-foreground" />
           <span className="truncate">
             {formatCount(network.attributes?.edges as number)}
           </span>
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-center">
-        <div className="flex items-center justify-center w-full text-sm text-gray-500">
-          <Clock className="h-4 w-4 mr-1 text-gray-400" />
+        <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
+          <Clock className="h-4 w-4 mr-1 text-muted-foreground" />
           <span className="truncate">
             {formatDate(network.modificationTime)}
           </span>
@@ -256,21 +256,27 @@ const ListNetworkItem = ({
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-center">
         <div className="flex justify-center w-full">
-          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+          <span 
+            className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
+              network.attributes?.visibility === 'PUBLIC'
+                ? 'bg-green-200 dark:bg-green-800/60'
+                : 'bg-blue-300 dark:bg-blue-700/70'
+            }`}
+          >
             {network.attributes?.visibility || 'PRIVATE'}
           </span>
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-center">
         <button
-          className="p-1 rounded-full hover:bg-gray-200 inline-flex"
+          className="p-1 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors inline-flex"
           onClick={(e) =>
             onDropdownToggle && onDropdownToggle(e, network.uuid, network.type)
           }
           data-dropdown-trigger
           data-dropdown-id={network.uuid}
         >
-          <MoreVertical className="h-4 w-4 text-gray-500" />
+          <MoreVertical className="h-4 w-4 text-muted-foreground" />
         </button>
       </td>
     </tr>
@@ -401,15 +407,15 @@ const NetworksList: React.FC<NetworksListProps> = ({
   if (items.length === 0) {
     return (
       <div className="mb-8">
-        <h2 className="text-sm font-medium text-gray-500 mb-2">Networks</h2>
-        <p className="text-sm text-gray-500">No networks found</p>
+        <h2 className="text-sm font-medium text-foreground mb-2">Networks</h2>
+        <p className="text-sm text-muted-foreground">No networks found</p>
       </div>
     )
   }
 
   return (
     <div className="mb-8">
-      <h2 className="text-sm font-medium text-gray-500 mb-2">Networks</h2>
+      <h2 className="text-sm font-medium text-foreground mb-2">Networks</h2>
 
       {viewMode === 'grid' ? (
         // Grid View

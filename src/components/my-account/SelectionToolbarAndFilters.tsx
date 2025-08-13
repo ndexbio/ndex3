@@ -81,16 +81,16 @@ const BulkDownloadMenu: React.FC<{
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              className="p-1.5 rounded-full hover:bg-gray-200"
+              className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
               title="Download selected networks"
               data-action-button
               onClick={() => setIsOpen(!isOpen)}
               disabled={networkItems.length === 0 || isDownloading}
             >
               {isDownloading ? (
-                <Loader2 className="h-5 w-5 text-gray-600 animate-spin" />
+                <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
               ) : (
-                <DownloadIcon className="h-5 w-5 text-gray-600" />
+                <DownloadIcon className="h-5 w-5 text-muted-foreground" />
               )}
             </button>
           </TooltipTrigger>
@@ -102,19 +102,19 @@ const BulkDownloadMenu: React.FC<{
       </TooltipProvider>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-1 w-44 rounded-md bg-white shadow-lg z-50">
-          <div className="py-1 text-sm font-medium text-gray-700 px-3 border-b border-gray-100">
+        <div className="absolute top-full right-0 mt-1 w-44 rounded-md bg-popover shadow-lg z-50 border border-border">
+          <div className="py-1 text-sm font-medium text-popover-foreground px-3 border-b border-border">
             Download Format
           </div>
           <button
-            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => handleDownload('CX')}
             disabled={isDownloading || networkItems.length === 0}
           >
             <span>CX Format</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => handleDownload('CX2')}
             disabled={isDownloading || networkItems.length === 0}
           >
@@ -364,16 +364,16 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
   return (
     <div className="mt-1 mb-3 mx-4">
       {selectedItems.length > 0 && showSelectionToolbar ? (
-        <div className="px-6 py-2 flex items-center justify-start bg-gray-100 rounded-lg h-12">
+        <div className="px-6 py-2 flex items-center justify-start bg-muted rounded-lg h-12">
           <div className="flex items-center gap-2">
             <button
-              className="p-1.5 rounded-full hover:bg-gray-200"
+              className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
               onClick={handleCloseToolbar}
               title="Hide toolbar"
             >
-              <X className="h-5 w-5 text-gray-600" />
+              <X className="h-5 w-5 text-muted-foreground" />
             </button>
-            <span className="text-sm font-medium text-gray-700 mr-8">
+            <span className="text-sm font-medium text-foreground mr-8">
               {selectedItems.length}{' '}
               {selectedItems.length === 1 ? 'item' : 'items'} selected
             </span>
@@ -386,12 +386,12 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        className="p-1.5 rounded-full hover:bg-gray-200"
+                        className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
                         title="Restore from trash"
                         data-action-button
                         onClick={() => handleRestoreFromTrash(selectedItems)}
                       >
-                        <History className="h-5 w-5 text-gray-600" />
+                        <History className="h-5 w-5 text-muted-foreground" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>Restore from trash</TooltipContent>
@@ -402,12 +402,12 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        className="p-1.5 rounded-full hover:bg-gray-200"
+                        className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
                         title="Permanently delete"
                         data-action-button
                         onClick={() => handlePermanentDelete(selectedItems)}
                       >
-                        <Trash2 className="h-5 w-5 text-gray-600" />
+                        <Trash2 className="h-5 w-5 text-muted-foreground" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>Permanently delete</TooltipContent>
@@ -421,11 +421,11 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        className="p-1.5 rounded-full hover:bg-gray-200"
+                        className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
                         title="Share"
                         data-action-button
                       >
-                        <UserPlus className="h-5 w-5 text-gray-600" />
+                        <UserPlus className="h-5 w-5 text-muted-foreground" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>Share with others</TooltipContent>
@@ -448,12 +448,12 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        className="p-1.5 rounded-full hover:bg-gray-200"
+                        className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
                         title="Move"
                         data-action-button
                         onClick={handleOpenMoveDialog}
                       >
-                        <FolderInput className="h-5 w-5 text-gray-600" />
+                        <FolderInput className="h-5 w-5 text-muted-foreground" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -466,12 +466,12 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        className="p-1.5 rounded-full hover:bg-gray-200"
+                        className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
                         title="Delete"
                         data-action-button
                         onClick={() => handleDeleteItems(selectedItems)}
                       >
-                        <Trash2 className="h-5 w-5 text-gray-600" />
+                        <Trash2 className="h-5 w-5 text-muted-foreground" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>Move to trash</TooltipContent>
@@ -488,7 +488,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
               <div className="relative ml-2 mr-2 h-12" ref={filterDropdownRef}>
                 {/* Main filter button styled like the image */}
                 <button
-                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-white border border-gray-300 text-sky-700 hover:bg-gray-50 h-10"
+                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-background border border-border text-primary hover:bg-accent hover:text-accent-foreground h-10 transition-colors"
                   onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
                 >
                   <SlidersHorizontal className="h-5 w-5" />
@@ -497,8 +497,8 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
 
                 {/* Filter dropdown with checkboxes */}
                 {filterDropdownOpen && (
-                  <div className="absolute top-full left-0 mt-1 w-72 rounded-md bg-white border border-gray-200 shadow-sm z-10 p-5">
-                    <h3 className="text-base font-medium text-gray-900 mb-4">
+                  <div className="absolute top-full left-0 mt-1 w-72 rounded-md bg-popover border border-border shadow-sm z-10 p-5">
+                    <h3 className="text-base font-medium text-popover-foreground mb-4">
                       Filters
                     </h3>
                     <div className="space-y-5">

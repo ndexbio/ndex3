@@ -141,7 +141,7 @@ const GridFolderItem = ({
       <div className="flex items-center gap-3 overflow-hidden">
         <div className="flex-shrink-0">
           {folder.type === FileType.FOLDER ? (
-            <Folder className="h-5 w-5 text-gray-600" />
+            <Folder className="h-5 w-5 text-muted-foreground" />
           ) : (
             <Folder className="h-5 w-5 text-green-600" />
           )}
@@ -150,14 +150,14 @@ const GridFolderItem = ({
       </div>
       <div className="flex items-center gap-4">
         <button
-          className="p-1 rounded-full hover:bg-gray-200"
+          className="p-1 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
           onClick={(e) =>
             onDropdownToggle && onDropdownToggle(e, folder.uuid, folder.type)
           }
           data-dropdown-trigger
           data-dropdown-id={folder.uuid}
         >
-          <MoreVertical className="h-4 w-4 text-gray-500" />
+          <MoreVertical className="h-4 w-4 text-muted-foreground" />
         </button>
       </div>
     </div>
@@ -240,7 +240,7 @@ const ListFolderItem = ({
         <div className="flex items-center w-full">
           <div className="flex-shrink-0 mr-3">
             {folder.type === FileType.FOLDER ? (
-              <Folder className="h-5 w-5 text-gray-600" />
+              <Folder className="h-5 w-5 text-muted-foreground" />
             ) : (
               <Folder className="h-5 w-5 text-green-600" />
             )}
@@ -253,14 +253,14 @@ const ListFolderItem = ({
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-center">
-        <div className="flex items-center justify-center w-full text-sm text-gray-500">
-          <User className="h-4 w-4 mr-1 text-gray-400" />
+        <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
+          <User className="h-4 w-4 mr-1 text-muted-foreground" />
           <span className="truncate">{folder.attributes?.owner || 'Me'}</span>
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-center">
-        <div className="flex items-center justify-center w-full text-sm text-gray-500">
-          <Clock className="h-4 w-4 mr-1 text-gray-400" />
+        <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
+          <Clock className="h-4 w-4 mr-1 text-muted-foreground" />
           <span className="truncate">
             {formatDate(folder.modificationTime)}
           </span>
@@ -268,14 +268,14 @@ const ListFolderItem = ({
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-center">
         <button
-          className="p-1 rounded-full hover:bg-gray-200 inline-flex"
+          className="p-1 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors inline-flex"
           onClick={(e) =>
             onDropdownToggle && onDropdownToggle(e, folder.uuid, folder.type)
           }
           data-dropdown-trigger
           data-dropdown-id={folder.uuid}
         >
-          <MoreVertical className="h-4 w-4 text-gray-500" />
+          <MoreVertical className="h-4 w-4 text-muted-foreground" />
         </button>
       </td>
     </tr>
@@ -431,7 +431,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
 
   return (
     <div className="mb-8">
-      <h2 className="text-sm font-medium text-gray-500 mb-2">Folders</h2>
+      <h2 className="text-sm font-medium text-foreground mb-2">Folders</h2>
 
       {viewMode === 'grid' ? (
         // Grid View
