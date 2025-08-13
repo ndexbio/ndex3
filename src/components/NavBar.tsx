@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { User } from 'lucide-react'
 import { UserAvatar } from './user/UserAvatar'
 import { withBasePath } from '@/lib/utils/path-utils'
+import { ModeToggle } from './mode-toggle'
 
 export function NavBar() {
   const { isAuthenticated, login } = useAuth()
@@ -41,44 +42,47 @@ export function NavBar() {
           <nav className="hidden md:flex items-center gap-4 ml-6">
             <Link
               href="https://home.ndexbio.org/about-ndex/"
-              className="text-m font-medium px-2.5 py-1.5 rounded hover:bg-gray-100"
+              className="text-m font-medium px-2.5 py-1.5 rounded hover:bg-muted"
             >
               About
             </Link>
             <Link
               href="https://home.ndexbio.org/quick-start/"
-              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-gray-100"
+              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-muted"
             >
               Docs
             </Link>
             <Link
               href="https://home.ndexbio.org/report-a-bug/"
-              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-gray-100"
+              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-muted"
             >
               Report Bug
             </Link>
             <Link
               href="https://home.ndexbio.org/contact-us/"
-              className="text-m font-medium px-2.5 py-1.5 rounded hover:bg-gray-100"
+              className="text-m font-medium px-2.5 py-1.5 rounded hover:bg-muted"
             >
               Contact Us
             </Link>
             <Link
               href="https://home.ndexbio.org/about-ndex/#cite_NDEx"
-              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-gray-100"
+              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-muted"
             >
               Cite Us
             </Link>
             <Link
               href="https://home.ndexbio.org/faq/"
-              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-gray-100"
+              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-muted"
             >
               FAQ
             </Link>
           </nav>
         </div>
         {isAuthenticated ? (
-          <UserAvatar />
+          <div className="flex items-center gap-2">
+            <ModeToggle />
+            <UserAvatar />
+          </div>
         ) : (
           <Button
             size="sm"

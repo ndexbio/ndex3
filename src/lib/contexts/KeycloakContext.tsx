@@ -68,14 +68,20 @@ export const KeycloakProvider = ({
       setDiskQuota(userInfo.diskQuota)
       // If it succeeds, user is verified
       setEmailUnverified(false)
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (
-        e.status === 401 &&
-        e.response?.data?.errorCode === 'NDEx_User_Account_Not_Verified'
+        typeof e === 'object' &&
+        e !== null &&
+        'status' in e &&
+        (e as { status: number }).status === 401 &&
+        'response' in e &&
+        typeof (e as { response?: unknown }).response === 'object' &&
+        (e as { response?: { data?: { errorCode?: string; message?: string } } }).response?.data?.errorCode === 'NDEx_User_Account_Not_Verified'
       ) {
         // Extract name/email from NDEx's error message
         const pattern = /NDEx user account ([\w.]+) <([\w.]+@[\w.]+)>/
-        const match = e.response?.data?.message?.match(pattern)
+        const message = (e as { response?: { data?: { message?: string } } }).response?.data?.message
+        const match = typeof message === 'string' ? message.match(pattern) : null
         if (match) {
           setUserName(match[1])
           setUserEmail(match[2])

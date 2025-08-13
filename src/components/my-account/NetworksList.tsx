@@ -112,13 +112,13 @@ const GridNetworkItem = ({
       data-item
       ref={dragRef}
       className={`
-        rounded-md border border-gray-200 cursor-pointer select-none
+        rounded-md border border-border cursor-pointer select-none
         p-2 flex items-center justify-between
         ${isDragging ? 'opacity-50' : 'opacity-100'}
         ${
           selectedItems.includes(network.uuid)
-            ? 'bg-sky-100'
-            : 'hover:bg-gray-50'
+            ? 'bg-accent'
+            : 'hover:bg-muted'
         }
       `}
       onClick={(e) => onSelect(e, network.uuid, index, 'NETWORK', [])}
@@ -207,7 +207,7 @@ const ListNetworkItem = ({
       data-item
       ref={dragRef}
       className={`cursor-pointer ${isDragging ? 'opacity-50' : 'opacity-100'} ${
-        selectedItems.includes(network.uuid) ? 'bg-sky-100' : 'hover:bg-gray-50'
+        selectedItems.includes(network.uuid) ? 'bg-accent' : 'hover:bg-muted'
       }`}
       onClick={(e) => onSelect(e, network.uuid, index, 'NETWORK', [])}
       onDoubleClick={(e) => onDoubleClick(e, network.uuid)}
@@ -222,7 +222,7 @@ const ListNetworkItem = ({
             )}
           </div>
           <div className="overflow-hidden">
-            <div className="text-sm font-medium text-black truncate max-w-[250px]">
+            <div className="text-sm font-medium text-foreground truncate max-w-[250px]">
               {network.name || 'Untitled Network'}
             </div>
           </div>
@@ -394,14 +394,14 @@ const NetworksList: React.FC<NetworksListProps> = ({
     if (sortField === field) {
       // Show prominent icon based on direction
       if (sortDirection === 'asc') {
-        return <ArrowUp className="h-3 w-3 ml-1 inline-block text-gray-800" />
+        return <ArrowUp className="h-3 w-3 ml-1 inline-block text-foreground" />
       } else if (sortDirection === 'desc') {
-        return <ArrowDown className="h-3 w-3 ml-1 inline-block text-gray-800" />
+        return <ArrowDown className="h-3 w-3 ml-1 inline-block text-foreground" />
       }
     }
 
     // Show a subtle icon by default (not actively sorted)
-    return <ArrowUpDown className="h-3 w-3 ml-1 inline-block text-gray-500" />
+    return <ArrowUpDown className="h-3 w-3 ml-1 inline-block text-muted-foreground" />
   }
 
   if (items.length === 0) {
@@ -436,13 +436,13 @@ const NetworksList: React.FC<NetworksListProps> = ({
         </div>
       ) : (
         // List View - Enhanced with table layout
-        <div className="overflow-x-auto border border-gray-200 rounded-md">
-          <table className="min-w-full divide-y divide-gray-200 table-fixed">
-            <thead className="bg-gray-50">
+        <div className="overflow-x-auto border border-border rounded-md">
+          <table className="min-w-full divide-y divide-border table-fixed">
+            <thead className="bg-muted/50">
               <tr>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3"
+                  className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/3"
                 >
                   <button
                     className="flex items-center focus:outline-none"
@@ -455,20 +455,20 @@ const NetworksList: React.FC<NetworksListProps> = ({
                 {tabState === MyAccountTabType.SHARED && (
                   <th
                     scope="col"
-                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
+                    className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/6"
                   >
                     Owner
                   </th>
                 )}
                 <th
                   scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
+                  className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/6"
                 >
                   Edges
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
+                  className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/6"
                 >
                   <button
                     className="flex items-center justify-center mx-auto focus:outline-none"
@@ -480,19 +480,19 @@ const NetworksList: React.FC<NetworksListProps> = ({
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
+                  className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/6"
                 >
                   Visibility
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
+                  className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/6"
                 >
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-background divide-y divide-border">
               {sortedNetworkItems.map((network, index) => (
                 <ListNetworkItem
                   key={network.uuid}

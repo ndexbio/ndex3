@@ -40,7 +40,7 @@ export default function DetailsPanel({
       <div className="p-4 border-b border-gray-200 flex items-center justify-between shrink-0">
         <h3 className="font-medium">Details</h3>
         <button
-          className="p-1 rounded-full hover:bg-gray-100"
+          className="p-1 rounded-full hover:bg-muted"
           onClick={onClose}
         >
           <X className="h-4 w-4" />
@@ -81,7 +81,7 @@ export default function DetailsPanel({
       {/* Show item details when one item is selected */}
       {selectedItems.length === 1 && (
         <div className="p-4">
-          <div className="flex items-center justify-center h-40 w-full bg-gray-100 rounded mb-4">
+          <div className="flex items-center justify-center h-40 w-full bg-muted rounded mb-4">
             {getItemIcon(
               allItems.find((item) => item.uuid === selectedItems[0])?.type ||
                 'file',
