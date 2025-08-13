@@ -65,10 +65,6 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
         if (response.ok) {
           const data = await response.json()
           setConfig(data)
-          // Store the base path for future use by withBasePath utility
-          if (typeof window !== 'undefined' && data.urlBaseName) {
-            (window as { __APP_BASE_PATH__?: string }).__APP_BASE_PATH__ = data.urlBaseName
-          }
           setIsLoading(false)
         } else {
           throw new Error(`Failed to load configuration file. HTTP ${response.status}: ${response.statusText}. Last attempted URL: ${lastAttemptedUrl}`)

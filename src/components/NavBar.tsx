@@ -9,9 +9,11 @@ import { User } from 'lucide-react'
 import { UserAvatar } from './user/UserAvatar'
 import { withBasePath } from '@/lib/utils/path-utils'
 import { ModeToggle } from './mode-toggle'
+import { useBasePath } from '@/lib/contexts/ConfigContext'
 
 export function NavBar() {
   const { isAuthenticated, login } = useAuth()
+  const basePath = useBasePath()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background shadow-sm">
@@ -25,7 +27,7 @@ export function NavBar() {
           >
             <div className="relative w-20 h-6">
               <Image
-                src={withBasePath("/ndex-logo.svg")}
+                src={withBasePath("/ndex-logo.svg", basePath)}
                 alt="NDEx Logo"
                 fill
                 sizes="80px"

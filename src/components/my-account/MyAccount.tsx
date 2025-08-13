@@ -443,29 +443,23 @@ function MyAccountContent({
     }
   }
 
-  // Redirect if not authenticated - but be smarter about timing and route context
+  // Redirect if not authenticated - optimized for better UX
   useEffect(() => {
     // Don't redirect while Keycloak is still initializing
     if (isInitializing) {
       return
     }
 
-    // Don't redirect immediately during navigation - give auth state time to stabilize
-    // Also check if we're loading data, which indicates the page is working properly
-    const redirectTimer = setTimeout(() => {
-      // Only redirect if we're sure auth has failed and we're not actively loading data
-      if (!isAuthenticated || !token) {
-        // Additional safety: don't redirect if we're currently loading data
-        // This prevents redirects when the page is working correctly but auth state is temporarily unstable
-        if (!currentLoading) {
-          console.log('Authentication check failed after delay, redirecting to home')
-          router.push('/')
-        }
-      }
-    }, 1000) // Longer delay for production stability
+    // Don't redirect if we're actively loading data (indicates page is working)
+    if (currentLoading) {
+      return
+    }
 
-    // Clean up the timer
-    return () => clearTimeout(redirectTimer)
+    // Only redirect if authentication has clearly failed and we're not loading
+    if (!isAuthenticated || !token) {
+      console.log('Authentication check failed, redirecting to home')
+      router.push('/')
+    }
   }, [isAuthenticated, token, router, isInitializing, currentLoading])
 
   // Handle clicking a breadcrumb
