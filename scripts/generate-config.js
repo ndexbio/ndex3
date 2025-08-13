@@ -30,7 +30,6 @@ const nextConfig: NextConfig = {
   /* config options here */
   basePath: BASE_PATH,
   assetPrefix: BASE_PATH,
-  ...(process.env.NODE_ENV === 'production' && { output: 'export' }),
   trailingSlash: true,
   eslint: {
     // Warning: This allows production builds to successfully complete even if

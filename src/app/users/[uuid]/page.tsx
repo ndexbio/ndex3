@@ -3,6 +3,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import UserProfile from '@/components/user/UserProfile'
 
+/**
+ * Generate static params for static export
+ * Returns empty array as this route is dynamic and should be generated at runtime
+ */
+export function generateStaticParams() {
+  return []
+}
+
 export default function UserPage({ params }: { params: { uuid: string } }) {
   return (
     <div className="container mx-auto p-4">

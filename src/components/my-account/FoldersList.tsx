@@ -131,8 +131,8 @@ const GridFolderItem = ({
         ${isDragging ? 'opacity-50' : 'opacity-100'}
         ${
           selectedItems.includes(folder.uuid)
-            ? 'bg-blue-100'
-            : 'hover:bg-gray-50'
+            ? 'bg-accent'
+            : 'hover:bg-muted'
         }
       `}
       onClick={(e) => onSelect(e, folder.uuid, index, 'FOLDER', [])}
@@ -226,8 +226,8 @@ const ListFolderItem = ({
         ${isDragging ? 'opacity-50' : 'opacity-100'} 
         ${
           selectedItems.includes(folder.uuid)
-            ? 'bg-blue-100'
-            : 'hover:bg-gray-50'
+            ? 'bg-accent'
+            : 'hover:bg-muted'
         }
       `}
       onClick={(e) => onSelect(e, folder.uuid, index, 'FOLDER', [])}

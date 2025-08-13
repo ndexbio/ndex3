@@ -117,8 +117,8 @@ const GridNetworkItem = ({
         ${isDragging ? 'opacity-50' : 'opacity-100'}
         ${
           selectedItems.includes(network.uuid)
-            ? 'bg-sky-100'
-            : 'hover:bg-gray-50'
+            ? 'bg-accent'
+            : 'hover:bg-muted'
         }
       `}
       onClick={(e) => onSelect(e, network.uuid, index, 'NETWORK', [])}
@@ -207,7 +207,7 @@ const ListNetworkItem = ({
       data-item
       ref={dragRef}
       className={`cursor-pointer ${isDragging ? 'opacity-50' : 'opacity-100'} ${
-        selectedItems.includes(network.uuid) ? 'bg-sky-100' : 'hover:bg-gray-50'
+        selectedItems.includes(network.uuid) ? 'bg-accent' : 'hover:bg-muted'
       }`}
       onClick={(e) => onSelect(e, network.uuid, index, 'NETWORK', [])}
       onDoubleClick={(e) => onDoubleClick(e, network.uuid)}
