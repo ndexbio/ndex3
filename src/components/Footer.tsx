@@ -4,8 +4,10 @@ import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { withBasePath } from '../lib/utils/path-utils'
+import { useBasePath } from '../lib/contexts/ConfigContext'
 
 export function Footer() {
+  const basePath = useBasePath()
   return (
     <footer className="w-full py-4 bg-muted flex-grow-1">
       <div className="mx-auto max-w-7xl px-4 md:flex md:justify-between md:items-start text-sm">
@@ -44,7 +46,7 @@ export function Footer() {
             >
               <div className="relative w-8 h-8">
                 <Image
-                  src={withBasePath("/youtube_mono.svg")}
+                  src={withBasePath("/youtube_mono.svg", basePath)}
                   alt="YouTube"
                   fill
                   sizes="32px"
