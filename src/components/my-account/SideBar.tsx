@@ -225,12 +225,12 @@ export default function SideBar({
     <nav
       className={`${
         collapsed ? 'w-16' : 'w-60'
-      } h-full bg-white border border-gray-200 p-4 flex flex-col transition-all duration-300 relative rounded-md`}
+      } h-full bg-card border border-border p-4 flex flex-col transition-all duration-300 relative rounded-md`}
     >
       <div className="absolute -right-3 top-15 z-10">
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="rounded-full bg-white p-1 border border-gray-200 shadow-sm"
+          className="rounded-full bg-card p-1 border border-border shadow-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
@@ -245,7 +245,7 @@ export default function SideBar({
           onClick={toggleNewOptions}
           className={`flex items-center gap-2 py-2 ${
             collapsed ? 'px-3' : 'px-6'
-          } bg-gray-100 rounded-full shadow-sm hover:bg-gray-200 transition-colors`}
+          } bg-muted text-foreground rounded-full shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors`}
         >
           <Plus className="h-5 w-5" />
           {!collapsed && <span className="font-medium">New</span>}
@@ -256,11 +256,11 @@ export default function SideBar({
             ref={dropdownRef}
             className={`absolute ${
               collapsed ? 'left-16' : 'left-0'
-            } mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200`}
+            } mt-2 w-48 bg-popover rounded-md shadow-lg z-10 border border-border`}
           >
             <div className="py-1">
               <button
-                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground w-full text-left transition-colors"
                 onClick={() => {
                   setShowImportDialog(true)
                   setShowNewOptions(false)
@@ -270,7 +270,7 @@ export default function SideBar({
                 Upload Networks
               </button>
               <button
-                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground w-full text-left transition-colors"
                 onClick={() => {
                   setShowFolderDialog(true)
                   setShowNewOptions(false)
@@ -294,10 +294,10 @@ export default function SideBar({
             href="/my-account"
             className={`flex items-center ${
               collapsed ? 'justify-center' : 'gap-3'
-            } p-2 rounded-md ${
+            } p-2 rounded-md transition-colors ${
               activeView === MyAccountTabType.MYNETWORKS
-                ? 'bg-blue-50 text-sky-700'
-                : 'hover:bg-gray-100 text-gray-700'
+                ? 'bg-accent text-accent-foreground'
+                : 'hover:bg-accent hover:text-accent-foreground text-muted-foreground'
             }`}
           >
             <Folder className="h-5 w-5" />
@@ -314,10 +314,10 @@ export default function SideBar({
             href="/shared-with-me"
             className={`flex items-center ${
               collapsed ? 'justify-center' : 'gap-3'
-            } p-2 rounded-md ${
+            } p-2 rounded-md transition-colors ${
               activeView === MyAccountTabType.SHARED
-                ? 'bg-blue-50 text-sky-700'
-                : 'hover:bg-gray-100 text-gray-700'
+                ? 'bg-accent text-accent-foreground'
+                : 'hover:bg-accent hover:text-accent-foreground text-muted-foreground'
             }`}
           >
             <Users className="h-5 w-5" />
@@ -329,10 +329,10 @@ export default function SideBar({
             href="/trash"
             className={`flex items-center ${
               collapsed ? 'justify-center' : 'gap-3'
-            } p-2 rounded-md ${
+            } p-2 rounded-md transition-colors ${
               activeView === MyAccountTabType.TRASH
-                ? 'bg-blue-50 text-sky-700'
-                : 'hover:bg-gray-100 text-gray-700'
+                ? 'bg-accent text-accent-foreground'
+                : 'hover:bg-accent hover:text-accent-foreground text-muted-foreground'
             }`}
           >
             <Trash className="h-5 w-5" />
@@ -344,16 +344,16 @@ export default function SideBar({
       {/* Storage indicator */}
       {!collapsed && (
         <div className="mt-auto pt-4">
-          <div className="flex items-center text-sm text-gray-700 mb-1">
+          <div className="flex items-center text-sm text-foreground mb-1">
             <span>Storage ({storageInfo.percentageUsed}% full)</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+          <div className="w-full bg-muted rounded-full h-2 mb-1">
             <div
               className={`${storageInfo.progressBarColorClass} h-2 rounded-full`}
               style={{ width: `${storageInfo.percentageUsed}%` }}
             />
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-muted-foreground">
             {storageInfo.formattedString}
           </div>
         </div>
@@ -364,15 +364,15 @@ export default function SideBar({
           <div
             className={`rounded-xl ${
               storageInfo.percentageUsed > 75
-                ? 'bg-red-100'
+                ? 'bg-red-100 dark:bg-red-900/20'
                 : storageInfo.percentageUsed > 50
-                ? 'bg-amber-100'
+                ? 'bg-amber-100 dark:bg-amber-900/20'
                 : storageInfo.percentageUsed > 25
-                ? 'bg-sky-100'
-                : 'bg-emerald-100'
+                ? 'bg-sky-100 dark:bg-sky-900/20'
+                : 'bg-emerald-100 dark:bg-emerald-900/20'
             } p-1 pb-2`}
           >
-            <span className="text-xs text-black">
+            <span className="text-xs text-foreground">
               {storageInfo.percentageUsed}%
             </span>
           </div>

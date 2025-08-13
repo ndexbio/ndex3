@@ -125,14 +125,14 @@ const GridFolderItem = ({
       data-item
       ref={ref}
       className={`
-        rounded-md border border-gray-200 cursor-pointer select-none
+        rounded-md border border-border cursor-pointer select-none
         p-2 flex items-center justify-between
-        ${isOver ? 'bg-blue-50 border-blue-300' : ''}
+        ${isOver ? 'bg-accent/50 border-accent' : ''}
         ${isDragging ? 'opacity-50' : 'opacity-100'}
         ${
           selectedItems.includes(folder.uuid)
-            ? 'bg-blue-100'
-            : 'hover:bg-gray-50'
+            ? 'bg-accent'
+            : 'hover:bg-muted'
         }
       `}
       onClick={(e) => onSelect(e, folder.uuid, index, 'FOLDER', [])}
@@ -141,7 +141,7 @@ const GridFolderItem = ({
       <div className="flex items-center gap-3 overflow-hidden">
         <div className="flex-shrink-0">
           {folder.type === FileType.FOLDER ? (
-            <Folder className="h-5 w-5 text-gray-600" />
+            <Folder className="h-5 w-5 text-muted-foreground" />
           ) : (
             <Folder className="h-5 w-5 text-green-600" />
           )}
@@ -150,14 +150,14 @@ const GridFolderItem = ({
       </div>
       <div className="flex items-center gap-4">
         <button
-          className="p-1 rounded-full hover:bg-gray-200"
+          className="p-1 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
           onClick={(e) =>
             onDropdownToggle && onDropdownToggle(e, folder.uuid, folder.type)
           }
           data-dropdown-trigger
           data-dropdown-id={folder.uuid}
         >
-          <MoreVertical className="h-4 w-4 text-gray-500" />
+          <MoreVertical className="h-4 w-4 text-muted-foreground" />
         </button>
       </div>
     </div>
@@ -226,8 +226,8 @@ const ListFolderItem = ({
         ${isDragging ? 'opacity-50' : 'opacity-100'} 
         ${
           selectedItems.includes(folder.uuid)
-            ? 'bg-blue-100'
-            : 'hover:bg-gray-50'
+            ? 'bg-accent'
+            : 'hover:bg-muted'
         }
       `}
       onClick={(e) => onSelect(e, folder.uuid, index, 'FOLDER', [])}
@@ -235,32 +235,32 @@ const ListFolderItem = ({
       ref={ref}
     >
       <td
-        className={`px-6 py-4 whitespace-nowrap ${isOver ? 'bg-blue-50' : ''}`}
+        className={`px-6 py-4 whitespace-nowrap ${isOver ? 'bg-accent/50' : ''}`}
       >
         <div className="flex items-center w-full">
           <div className="flex-shrink-0 mr-3">
             {folder.type === FileType.FOLDER ? (
-              <Folder className="h-5 w-5 text-gray-600" />
+              <Folder className="h-5 w-5 text-muted-foreground" />
             ) : (
               <Folder className="h-5 w-5 text-green-600" />
             )}
           </div>
           <div className="overflow-hidden">
-            <div className="text-sm font-medium text-gray-900 truncate max-w-[250px]">
+            <div className="text-sm font-medium text-foreground truncate max-w-[250px]">
               {folder.name}
             </div>
           </div>
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-center">
-        <div className="flex items-center justify-center w-full text-sm text-gray-500">
-          <User className="h-4 w-4 mr-1 text-gray-400" />
+        <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
+          <User className="h-4 w-4 mr-1 text-muted-foreground" />
           <span className="truncate">{folder.attributes?.owner || 'Me'}</span>
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-center">
-        <div className="flex items-center justify-center w-full text-sm text-gray-500">
-          <Clock className="h-4 w-4 mr-1 text-gray-400" />
+        <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
+          <Clock className="h-4 w-4 mr-1 text-muted-foreground" />
           <span className="truncate">
             {formatDate(folder.modificationTime)}
           </span>
@@ -268,14 +268,14 @@ const ListFolderItem = ({
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-center">
         <button
-          className="p-1 rounded-full hover:bg-gray-200 inline-flex"
+          className="p-1 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors inline-flex"
           onClick={(e) =>
             onDropdownToggle && onDropdownToggle(e, folder.uuid, folder.type)
           }
           data-dropdown-trigger
           data-dropdown-id={folder.uuid}
         >
-          <MoreVertical className="h-4 w-4 text-gray-500" />
+          <MoreVertical className="h-4 w-4 text-muted-foreground" />
         </button>
       </td>
     </tr>
@@ -322,7 +322,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
 
             // Check if the target is a folder, if so navigate to it
             if (shortcut && shortcut.target) {
-              router.push(`/folder/${shortcut.target}`)
+              router.push(`/folders/${shortcut.target}`)
               return
             }
           } catch (error) {
@@ -332,7 +332,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
       }
 
       // Default behavior - navigate to the folder directly
-      router.push(`/folder/${folderId}`)
+      router.push(`/folders/${folderId}`)
     }
   }
 
@@ -405,8 +405,8 @@ const FoldersList: React.FC<FoldersListProps> = ({
   if (folders.length === 0) {
     return (
       <div className="mb-8">
-        <h2 className="text-sm font-medium text-gray-500 mb-2">Folders</h2>
-        <div ref={drop as any} className="text-sm text-gray-500">
+        <h2 className="text-sm font-medium text-muted-foreground mb-2">Folders</h2>
+        <div ref={drop as any} className="text-sm text-muted-foreground">
           No folders found
         </div>
       </div>
@@ -419,19 +419,19 @@ const FoldersList: React.FC<FoldersListProps> = ({
     if (sortField === field) {
       // Show prominent icon based on direction
       if (sortDirection === 'asc') {
-        return <ArrowUp className="h-3 w-3 ml-1 inline-block text-gray-800" />
+        return <ArrowUp className="h-3 w-3 ml-1 inline-block text-foreground" />
       } else if (sortDirection === 'desc') {
-        return <ArrowDown className="h-3 w-3 ml-1 inline-block text-gray-800" />
+        return <ArrowDown className="h-3 w-3 ml-1 inline-block text-foreground" />
       }
     }
 
     // Show a subtle icon by default (not actively sorted)
-    return <ArrowUpDown className="h-3 w-3 ml-1 inline-block text-gray-400" />
+    return <ArrowUpDown className="h-3 w-3 ml-1 inline-block text-muted-foreground" />
   }
 
   return (
     <div className="mb-8">
-      <h2 className="text-sm font-medium text-gray-500 mb-2">Folders</h2>
+      <h2 className="text-sm font-medium text-foreground mb-2">Folders</h2>
 
       {viewMode === 'grid' ? (
         // Grid View
@@ -453,13 +453,13 @@ const FoldersList: React.FC<FoldersListProps> = ({
         </div>
       ) : (
         // List View - Enhanced with table layout
-        <div className="overflow-x-auto border border-gray-200 rounded-md">
-          <table className="min-w-full divide-y divide-gray-200 table-fixed">
-            <thead className="bg-gray-50">
+        <div className="overflow-x-auto border border-border rounded-md">
+          <table className="min-w-full divide-y divide-border table-fixed">
+            <thead className="bg-muted/50">
               <tr>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5"
+                  className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-2/5"
                 >
                   <button
                     className="flex items-center focus:outline-none"
@@ -471,13 +471,13 @@ const FoldersList: React.FC<FoldersListProps> = ({
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5"
+                  className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/5"
                 >
                   Owner
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5"
+                  className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/5"
                 >
                   <button
                     className="flex items-center justify-center mx-auto focus:outline-none"
@@ -489,13 +489,13 @@ const FoldersList: React.FC<FoldersListProps> = ({
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
+                  className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-24"
                 >
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-background divide-y divide-border">
               {sortedFolderItems.map((folder, index) => (
                 <ListFolderItem
                   key={folder.uuid}

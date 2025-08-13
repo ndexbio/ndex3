@@ -7,6 +7,7 @@ import { NavBar } from '@/components/NavBar'
 import { MainPanel } from '@/components/MainPanel'
 import { Footer } from '@/components/Footer'
 import { ToastContextProvider } from '@/lib/contexts/ToastContext'
+import { BASE_PATH } from '../../next.config'
 
 export const metadata: Metadata = {
   title: 'NDEx 3',
@@ -20,7 +21,8 @@ export const metadata: Metadata = {
 }
 
 function DynamicFavicon() {
-  return <link rel="icon" type="image/svg+xml" href={'/ndex-logo.svg'} />
+  const faviconPath = `${BASE_PATH || ''}/ndex-logo.svg`
+  return <link rel="icon" type="image/svg+xml" href={faviconPath} />
 }
 
 /**
@@ -50,7 +52,7 @@ export default function RootLayout({
       <head>
         <DynamicFavicon />
       </head>
-      <body className={`antialiased min-h-screen bg-gray-100`}>
+      <body className={`antialiased min-h-screen bg-background text-foreground`}>
         <ConfigProvider>
           <KeycloakProvider>
             <ToastContextProvider>

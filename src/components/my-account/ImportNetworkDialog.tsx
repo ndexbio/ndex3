@@ -72,25 +72,25 @@ const ImportNetworkDialog: React.FC<ImportNetworkDialogProps> = ({
     >
       {/* Background overlay */}
       <div
-        className="fixed inset-0 bg-gray-300 opacity-50"
+        className="fixed inset-0 bg-black/50 dark:bg-black/70"
         onClick={onClose}
       ></div>
 
       {/* Dialog box */}
-      <div className="bg-white rounded-lg shadow-xl w-[500px] max-w-full z-10">
+      <div className="bg-card border border-border rounded-lg shadow-xl w-[500px] max-w-full z-10">
         <div className="px-6 py-5">
-          <h2 className="text-xl font-normal mb-5">Import CX2 Network</h2>
+          <h2 className="text-xl font-normal mb-5 text-foreground">Import CX2 Network</h2>
 
           <div className="mb-4">
             <div className="flex flex-col gap-3">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-foreground">
                 Select CX2 File
               </label>
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                className="w-full text-sm cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+                className="w-full text-sm cursor-pointer text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-accent file:text-accent-foreground hover:file:bg-accent/80 file:transition-colors"
                 accept=".json,.cx2,.cx"
                 disabled={isSubmitting}
               />
@@ -98,12 +98,12 @@ const ImportNetworkDialog: React.FC<ImportNetworkDialogProps> = ({
           </div>
 
           <div className="mb-5">
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
-                className="h-4 w-4 text-sky-800 focus:ring-sky-800 border-gray-300 rounded"
+                className="h-4 w-4 text-primary focus:ring-primary border-border rounded bg-background"
                 disabled={isSubmitting}
               />
               <span>Make network public</span>
@@ -111,7 +111,7 @@ const ImportNetworkDialog: React.FC<ImportNetworkDialogProps> = ({
           </div>
 
           {errorMessage && (
-            <div className="p-3 mb-4 bg-red-50 text-red-600 rounded-md text-sm">
+            <div className="p-3 mb-4 bg-destructive/10 text-destructive rounded-md text-sm border border-destructive/20">
               {errorMessage}
             </div>
           )}
@@ -119,14 +119,14 @@ const ImportNetworkDialog: React.FC<ImportNetworkDialogProps> = ({
           <div className="flex justify-end gap-4 mt-5">
             <button
               onClick={onClose}
-              className="px-4 py-1.5 text-sky-700 hover:bg-gray-50 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-1.5 text-primary hover:bg-accent hover:text-accent-foreground text-sm disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
               disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               onClick={handleImportNetwork}
-              className="px-4 py-1.5 bg-sky-700 text-white hover:bg-sky-800 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               disabled={isSubmitting || !selectedFile}
             >
               {isSubmitting ? 'Importing...' : 'Import Network'}

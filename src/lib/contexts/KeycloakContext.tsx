@@ -10,9 +10,9 @@ import React, {
 import Keycloak, { KeycloakTokenParsed } from 'keycloak-js'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { EmailVerificationDialog } from '@/components/EmailVerificationDialog'
-// @ts-expect-error-next-line
-import { NDEx } from '@js4cytoscape/ndex-client'
+//import { NDEx } from '@js4cytoscape/ndex-client'
 import { getNdexClient } from '../api/ndex-client-manager'
+import { withBasePath } from '@/lib/utils/path-utils'
 
 type AuthContextType = {
   keycloak: Keycloak | null
@@ -68,14 +68,20 @@ export const KeycloakProvider = ({
       setDiskQuota(userInfo.diskQuota)
       // If it succeeds, user is verified
       setEmailUnverified(false)
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (
-        e.status === 401 &&
-        e.response?.data?.errorCode === 'NDEx_User_Account_Not_Verified'
+        typeof e === 'object' &&
+        e !== null &&
+        'status' in e &&
+        (e as { status: number }).status === 401 &&
+        'response' in e &&
+        typeof (e as { response?: unknown }).response === 'object' &&
+        (e as { response?: { data?: { errorCode?: string; message?: string } } }).response?.data?.errorCode === 'NDEx_User_Account_Not_Verified'
       ) {
         // Extract name/email from NDEx's error message
         const pattern = /NDEx user account ([\w.]+) <([\w.]+@[\w.]+)>/
-        const match = e.response?.data?.message?.match(pattern)
+        const message = (e as { response?: { data?: { message?: string } } }).response?.data?.message
+        const match = typeof message === 'string' ? message.match(pattern) : null
         if (match) {
           setUserName(match[1])
           setUserEmail(match[2])
@@ -119,7 +125,7 @@ export const KeycloakProvider = ({
       onLoad: 'check-sso',
       checkLoginIframe: false,
       silentCheckSsoRedirectUri:
-        window.location.origin + config.urlBaseName + 'silent-check-sso.html',
+        window.location.origin + withBasePath('/silent-check-sso.html'),
     })
       .then(async (authenticated) => {
         setIsAuthenticated(authenticated)
