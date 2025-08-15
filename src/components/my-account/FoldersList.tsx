@@ -6,7 +6,7 @@ import {
   MoreVertical,
   Clock,
   User,
-  ArrowRight,
+  //ArrowRight,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
@@ -17,7 +17,7 @@ import { FileItemBase } from '@/types/api/ndex/File'
 import { ItemTypes } from '@/types/dnd/DndTypes'
 import { FileType } from '@/types/api/ndex'
 import { useConfig } from '@/lib/contexts/ConfigContext'
-import { useShortcut } from '@/hooks/use-shortcut'
+//import { useShortcut } from '@/hooks/use-shortcut'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { MyAccountTabType } from '@/types/ui/myAccount'
@@ -60,10 +60,10 @@ const formatDate = (dateStr?: string | Date) => {
 }
 
 // Format count with commas for readability
-const formatCount = (count?: number) => {
+/*const formatCount = (count?: number) => {
   if (count === undefined || count === null) return 'N/A'
   return count.toLocaleString()
-}
+}*/
 
 // Single folder grid item component
 const GridFolderItem = ({
@@ -288,7 +288,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
   tabState,
   selectedItems,
   onSelect,
-  currentFolderId,
+  //currentFolderId,
   onDrop,
   onDropdownToggle,
 }) => {
