@@ -1,89 +1,215 @@
-# ndex3: Modernized frontend for NDEx v3
+# NDEx3: New Frontend for NDEx (Version 3)
 
-Prototype for next API
+A new Next.js-based frontend for the Network Data Exchange (NDEx) platform, providing a user-friendly interface for network biology data management, sharing, and visualization.
 
-(TBD)
+## Overview
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+NDEx3 is a complete rewrite of the NDEx frontend using web technologies including Next.js, TypeScript, and Tailwind CSS. It provides users with tools to manage, share, and explore biological network data through an intuitive web interface.
+
+## Key Features
+
+- 🔐 **Keycloak Authentication** - Secure user authentication and authorization
+- 🌐 **Network Management** - Upload, organize, and manage biological networks
+- 📁 **Folder Organization** - Hierarchical organization of networks and data
+- 🔍 **Advanced Search** - Search networks and users across the platform  
+- 🎨 **Modern UI** - Responsive design with dark/light theme support
+- 📊 **Dynamic Content** - Configurable home page content from external sources
+- 🚀 **Performance Optimized** - Built with Next.js App Router for optimal performance
+
+## Content System
+
+NDEx3 features a dynamic content configuration system that allows updating home page content without code deployments:
+
+- **Remote Configuration**: Content fetched from external JSON files
+- **Direct Browser Fetching**: No server-side proxies needed
+- **Four Content Types**: Featured content carousel, featured networks, blog content, and logo carousel
+- **Error Handling**: Comprehensive fallback states for content loading failures
+
+See [`CONTENT_SYSTEM_README.md`](./docs/CONTENT_SYSTEM_README.md) and [`CONTENT_CONFIGURATION.md`](./docs/CONTENT_CONFIGURATION.md) for detailed documentation.
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+ 
+- npm, yarn, pnpm, or bun
+
+### Development
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/ndexbio/ndex3.git
+   cd ndex3
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure the application**
+   
+   Copy and customize the configuration:
+   ```bash
+   cp public/config-example-root.json public/config.json
+   ```
+   
+   Edit `public/config.json` with your settings:
+   ```json
+   {
+     "ndexBaseUrl": "your-ndex-server.com",
+     "keycloakConfig": {
+       "url": "https://your-keycloak-server/auth",
+       "clientId": "your-client-id", 
+       "realm": "your-realm"
+     },
+     "uiContent": {
+       "contentRootPath": "https://your-content-server.com/content/v1",
+       "featuredContent": "featured_content.json",
+       "featuredNetwork": "featured_networks.json",
+       "mainContent": "main.json",
+       "logos": "logos.json"
+     }
+   }
+   ```
+
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Open your browser**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## Project Structure
+
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-# Project Structure
-
-```
-public/                  # Directory for config and resource files
-├── config.json          # Basic application config
-└── contents             # Directory for contents for thetop page
+public/                      # Static assets and configuration
+├── config.json              # Application configuration
+├── config-example-root.json # Configuration template
+└── ndex-logo.svg            # Application logo
 
 src/
-├── app/                     # Core application directory for App Router
-│   ├── layout.tsx           # Root layout definition
-│   ├── page.tsx             # Home page component
-│   └── providers.tsx        # Global providers (SWR Config, etc.)
+├── app/                     # Next.js App Router pages
+│   ├── layout.tsx           # Root layout with providers
+│   ├── page.tsx             # Home page
+│   ├── my-account/          # User account management
+│   ├── search/              # Network and user search  
+│   ├── folders/[uuid]/      # Folder management
+│   └── users/[uuid]/        # User profiles
 │
-├── components/              # Reusable component library
-│   ├── ui/                  # Basic UI components
-│   │   ├── button.tsx       # Atomic button component
-│   │   └── input.tsx        # Form input elements
-│   └── features/            # Feature-specific components
-│       └── auth/            # Authentication related components
-│           ├── login-form.tsx
-│           └── register-form.tsx
+├── components/              # React components
+│   ├── ui/                  # Base UI components (shadcn/ui)
+│   ├── home/                # Home page components
+│   │   ├── FeaturedContentCarousel.tsx
+│   │   ├── BlogContent.tsx
+│   │   └── LogoCarousel.tsx
+│   ├── my-account/          # Account management components
+│   ├── search/              # Search interface components
+│   └── user/                # User-related components
 │
 ├── hooks/                   # Custom React hooks
-│   ├── use-auth.ts          # Authentication hooks
-│   └── use-form.ts          # Form handling hooks
+│   ├── use-content-service.ts  # Content fetching hooks
+│   ├── use-network-search.ts   # Network search functionality
+│   └── use-folder.ts           # Folder operations
 │
-├── lib/                    # Utility functions and configurations
-│   ├── api/               # API client setup
-│   │   └── client.ts      # Axios/fetch instance configuration
-│   └── utils/             # Utility functions
-│       └── format.ts      # Date formatting, string manipulation, etc.
+├── lib/                     # Utilities and configurations
+│   ├── api/                 # API clients and services
+│   │   ├── content-service.ts  # Content fetching service
+│   │   └── ndex-client-manager.ts # NDEx API client
+│   ├── contexts/            # React contexts
+│   │   ├── ConfigContext.tsx   # App configuration
+│   │   └── KeycloakContext.tsx # Authentication
+│   └── utils/               # Utility functions
 │
-├── services/              # Business logic and API calls
-│   ├── auth.ts           # Authentication service
-│   └── user.ts           # User management service
+├── stores/                  # State management
+│   └── search-store.tsx     # Search state management
 │
-└── types/                # TypeScript type definitions
-    ├── api/              # API-related types
-    │   ├── requests.ts   # Request type definitions
-    │   └── responses.ts  # Response type definitions
-    ├── entities/         # Domain entity types
-    │   ├── user.ts      # User entity definition
-    │   └── post.ts      # Post entity definition
-    └── index.ts         # Common type definitions and exports
+└── types/                   # TypeScript type definitions
+    ├── entities/            # Domain entities
+    │   └── AppConfig.ts     # Application configuration types
+    ├── api/                 # API response types
+    └── ui/                  # UI component types
 ```
-# Project Overview
+
+## Configuration
+
+### Application Config (`public/config.json`)
+
+The main configuration file defines:
+
+- **ndexBaseUrl**: NDEx server URL
+- **keycloakConfig**: Authentication server settings  
+- **uiContent**: Dynamic content configuration
+- **urlBaseName**: Optional URL base path
+
+### Content Configuration
+
+Content is fetched from external JSON files defined in the `uiContent` configuration:
+
+- **contentRootPath**: Base URL for all content files
+- Content files: `featured_content.json`, `featured_networks.json`, `main.json`, `logos.json`
+
+## Deployment
+
+### Static Export
+
+Build and export the application for static hosting:
+
+```bash
+npm run build
+```
+
+The exported files will be in the `out/` directory.
+
+### Apache Configuration
+
+For Apache deployments, see [`APACHE_STATIC_DEPLOYMENT.md`](./APACHE_STATIC_DEPLOYMENT.md) for detailed configuration instructions.
+
+## Development
+
+### Key Technologies
+
+- **Next.js 15** - React framework with App Router
+- **TypeScript** - Type-safe development
+- **Tailwind CSS** - Utility-first CSS framework  
+- **shadcn/ui** - Modern UI component library
+- **SWR** - Data fetching with caching
+- **Keycloak** - Authentication and authorization
+- **Zustand** - Lightweight state management
+
+### Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production  
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run type-check` - Run TypeScript checks
+
+## Authentication
+
+NDEx3 uses Keycloak for authentication. Configure your Keycloak server details in the `keycloakConfig` section of `public/config.json`.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Documentation
+
+- [`CONTENT_SYSTEM_README.md`](./CONTENT_SYSTEM_README.md) - Content system overview
+- [`CONTENT_CONFIGURATION.md`](./CONTENT_CONFIGURATION.md) - Detailed content configuration
+- [`APACHE_STATIC_DEPLOYMENT.md`](./APACHE_STATIC_DEPLOYMENT.md) - Apache deployment guide
+- [`ROUTING_REFACTOR_PLAN.md`](./ROUTING_REFACTOR_PLAN.md) - Application routing documentation
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support and questions, please contact the NDEx team or create an issue in the GitHub repository.

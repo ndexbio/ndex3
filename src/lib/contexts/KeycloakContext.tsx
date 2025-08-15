@@ -8,6 +8,7 @@ import React, {
   useContext,
 } from 'react'
 import Keycloak, { KeycloakTokenParsed } from 'keycloak-js'
+import { useRouter } from 'next/navigation'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { EmailVerificationDialog } from '@/components/EmailVerificationDialog'
 //import { NDEx } from '@js4cytoscape/ndex-client'
@@ -41,6 +42,7 @@ export const KeycloakProvider = ({
   children: React.ReactNode
 }) => {
   const config = useConfig()
+  const router = useRouter()
   const keycloakRef = useRef<Keycloak | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [token, setToken] = useState('')
@@ -159,6 +161,16 @@ export const KeycloakProvider = ({
         setIsInitializing(false)
       })
   }, [config])
+
+  // Redirect to my-account page after successful sign-in
+  useEffect(() => {
+    if (isAuthenticated && !isInitializing && !emailUnverified) {
+      // Only redirect if user is on the home page to avoid disrupting navigation
+      if (window.location.pathname === withBasePath('/') || window.location.pathname === '/') {
+        router.push(withBasePath('/my-account'))
+      }
+    }
+  }, [isAuthenticated, isInitializing, emailUnverified, router])
 
   return (
     <AuthContext.Provider

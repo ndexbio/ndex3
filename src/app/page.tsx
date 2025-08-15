@@ -30,11 +30,14 @@ export default function HomePage() {
   
   console.log('HomePage rendering with pathname:', pathname)
   
-  // Check if this is a folder route
+  // Check if this is a folder route (current) or legacy networkset route
   const folderMatch = pathname?.match(/^\/folders\/([^\/]+)$/)
-  if (folderMatch) {
-    const uuid = folderMatch[1]
-    console.log('Rendering folder page for UUID:', uuid)
+  const networksetMatch = pathname?.match(/^\/networkset\/([^\/]+)$/)
+  
+  if (folderMatch || networksetMatch) {
+    const uuid = folderMatch?.[1] || networksetMatch?.[1]
+    const routeType = folderMatch ? 'folders' : 'networkset (legacy)'
+    console.log(`Rendering ${routeType} page for UUID:`, uuid)
     
     return (
       <MyAccount 

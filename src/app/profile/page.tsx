@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
-import Keycloak, { KeycloakTokenParsed } from 'keycloak-js'
+//import Keycloak, { KeycloakTokenParsed } from 'keycloak-js'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { LogOut } from 'lucide-react'
