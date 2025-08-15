@@ -8,19 +8,17 @@ import React, {
   useContext,
 } from 'react'
 import Keycloak, { KeycloakTokenParsed } from 'keycloak-js'
-import { useRouter } from 'next/navigation'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { EmailVerificationDialog } from '@/components/EmailVerificationDialog'
 //import { NDEx } from '@js4cytoscape/ndex-client'
 import { getNdexClient } from '../api/ndex-client-manager'
-import { withBasePath } from '@/lib/utils/path-utils'
 
 type AuthContextType = {
   keycloak: Keycloak | null
   isAuthenticated: boolean
   token: string
   tokenParsed?: KeycloakTokenParsed
-  login: () => void
+  login: (fromHomePage?: boolean) => void
   logout: () => void
   isInitializing: boolean
   diskUsed: number
@@ -42,7 +40,6 @@ export const KeycloakProvider = ({
   children: React.ReactNode
 }) => {
   const config = useConfig()
-  const router = useRouter()
   const keycloakRef = useRef<Keycloak | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [token, setToken] = useState('')
@@ -123,11 +120,16 @@ export const KeycloakProvider = ({
 
     keycloakRef.current = kc
 
+    // Manually construct the silent SSO URI with base path
+    const baseName = config.urlBaseName || ''
+    const silentCheckUri = window.location.origin + (baseName ? `/${baseName}` : '') + '/silent-check-sso.html'
+    console.log('🔍 Keycloak silent SSO URI:', silentCheckUri)
+    console.log('🔍 Config urlBaseName:', baseName)
+    
     kc.init({
       onLoad: 'check-sso',
       checkLoginIframe: false,
-      silentCheckSsoRedirectUri:
-        window.location.origin + withBasePath('/silent-check-sso.html'),
+      silentCheckSsoRedirectUri: silentCheckUri,
     })
       .then(async (authenticated) => {
         setIsAuthenticated(authenticated)
@@ -162,15 +164,7 @@ export const KeycloakProvider = ({
       })
   }, [config])
 
-  // Redirect to my-account page after successful sign-in
-  useEffect(() => {
-    if (isAuthenticated && !isInitializing && !emailUnverified) {
-      // Only redirect if user is on the home page to avoid disrupting navigation
-      if (window.location.pathname === withBasePath('/') || window.location.pathname === '/') {
-        router.push(withBasePath('/my-account'))
-      }
-    }
-  }, [isAuthenticated, isInitializing, emailUnverified, router])
+  // No complex redirect logic needed - Keycloak handles this with redirectUri
 
   return (
     <AuthContext.Provider
@@ -179,7 +173,25 @@ export const KeycloakProvider = ({
         isAuthenticated,
         token,
         tokenParsed,
-        login: () => keycloakRef.current?.login(),
+        login: (fromHomePage?: boolean) => {
+          console.log('🚀 Login initiated, fromHomePage:', fromHomePage)
+          
+          if (fromHomePage) {
+            // Use redirectUri to go directly to my-account after successful login
+            // The redirectUri should match the full URL as seen by the browser
+            const myAccountUri = window.location.origin + window.location.pathname.replace(/\/$/, '') + '/my-account'
+            console.log('🎯 Redirecting to my-account after login:', myAccountUri)
+            console.log('🔍 Current location details:', { 
+              origin: window.location.origin,
+              pathname: window.location.pathname,
+              href: window.location.href 
+            })
+            keycloakRef.current?.login({ redirectUri: myAccountUri })
+          } else {
+            // Normal login - stay on current page
+            keycloakRef.current?.login()
+          }
+        },
         logout: () => keycloakRef.current?.logout(),
         isInitializing,
         diskUsed,

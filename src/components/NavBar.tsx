@@ -10,10 +10,31 @@ import { UserAvatar } from './user/UserAvatar'
 import { withBasePath } from '@/lib/utils/path-utils'
 import { ModeToggle } from './mode-toggle'
 import { useBasePath } from '@/lib/contexts/ConfigContext'
+import { usePathname } from 'next/navigation'
 
 export function NavBar() {
   const { isAuthenticated, login } = useAuth()
   const basePath = useBasePath()
+  const pathname = usePathname()
+  
+  const handleLogin = () => {
+    // Check if user is on home page
+    // Since Next.js normalizes paths, when on /ndex3/ the pathname is just '/'
+    // So if we have a basePath, we should treat '/' as the home page
+    const hasBasePath = Boolean(basePath)
+    const isOnHomePage = pathname === '/' || 
+                        (hasBasePath && pathname === `/${basePath}/`) ||
+                        (hasBasePath && pathname === `/${basePath}`)
+    
+    console.log('🏠 NavBar login check:', { 
+      pathname, 
+      basePath, 
+      hasBasePath,
+      isOnHomePage,
+      'Current URL': window.location.href 
+    })
+    login(isOnHomePage)
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background shadow-sm">
@@ -89,7 +110,7 @@ export function NavBar() {
           <Button
             size="sm"
             className="bg-ndex hover:bg-[#2c70ac] mr-3"
-            onClick={login}
+            onClick={handleLogin}
           >
             <User className="h-4 w-4 mr-2" />
             Login

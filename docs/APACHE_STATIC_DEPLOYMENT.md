@@ -4,13 +4,7 @@
 
 The Next.js application has been successfully configured for static export and can now be deployed under Apache as static files. The build generates an `out/` directory containing all static assets.
 
-## What Was Changed
-
-1. **Simplified content service** - Now fetches directly from URLs in config.json
-2. **Removed API proxy routes** - No longer needed, frontend calls external URLs directly
-3. **Updated TypeScript interfaces** - Match the actual config.json structure with direct URLs
-4. **Enabled static export** - Added `output: 'export'` to Next.js config
-5. **Removed dynamic user/folder routes** - These required server-side rendering
+This example below assume the app is deployed under the /ndex3/ path.
 
 ## Build Process
 
