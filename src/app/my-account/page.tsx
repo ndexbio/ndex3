@@ -1,4 +1,4 @@
-import MyAccount from '@/components/my-account/MyAccount'
+import MyAccount from './_components/MyAccount'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 /**
  * My Account Page

@@ -1,9 +1,9 @@
 'use client'
 
 import React, { createContext, useContext, useState } from 'react'
-import RenameFolderDialog from '../../components/my-account/RenameFolderDialog'
-import MoveFolderDialog from '../../components/my-account/MoveFolderDialog'
-import EditNetworkPropertiesDialog from '../../components/my-account/EditNetworkPropertiesDialog'
+import RenameFolderDialog from '@/app/my-account/_components/RenameFolderDialog'
+import MoveFolderDialog from '@/app/my-account/_components/MoveFolderDialog'
+import EditNetworkPropertiesDialog from '@/app/my-account/_components/EditNetworkPropertiesDialog'
 import { FileType } from '@/types/api/ndex/File'
 import { useFolderContents } from '@/hooks/use-folder'
 import { useNetworkOperation } from '@/hooks/use-network-operation'

@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { useSearchStore } from '../../stores/search-store'
+import { useSearchStore } from '@/stores/search-store'
 
 type SortField = 'nodeCount' | 'edgeCount'
 type SortDirection = 'asc' | 'desc'

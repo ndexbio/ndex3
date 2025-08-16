@@ -2,17 +2,17 @@
 
 import { Button } from '@/components/ui/button'
 import { Info } from 'lucide-react'
-import { FeaturedNetworksButton } from '@/components/home/FeaturedNetworksButton'
-import { SearchExamplesButton } from '@/components/home/SearchExamplesButton'
+import { FeaturedNetworksButton } from '@/app/search/_components/FeaturedNetworksButton'
+import { SearchExamplesButton } from './SearchExamplesButton'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { FeaturedContentCarousel } from '@/components/home/FeaturedContentCarousel'
-import { BlogContent } from '@/components/home/BlogContent'
-import { LogoCarousel } from '@/components/home/LogoCarousel'
-import { SearchBox } from '@/components/search/SearchBox'
+import { FeaturedContentCarousel } from './FeaturedContentCarousel'
+import { BlogContent } from './BlogContent'
+import { LogoCarousel } from './LogoCarousel'
+import { SearchBox } from '@/components/SearchBox'
 
 export default function OldHome() {
   return (

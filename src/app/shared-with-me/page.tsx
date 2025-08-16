@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import MyAccount from '@/components/my-account/MyAccount'
+import MyAccount from '@/app/my-account/_components/MyAccount'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 /**
  * Shared With Me Page
