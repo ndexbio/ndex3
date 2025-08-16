@@ -1,8 +1,8 @@
 'use client'
 
-import { FeaturedContentCarousel } from '@/components/home/FeaturedContentCarousel'
-import { BlogContent } from '@/components/home/BlogContent'
-import { LogoCarousel } from '@/components/home/LogoCarousel'
+import { FeaturedContentCarousel } from './FeaturedContentCarousel'
+import { BlogContent } from './BlogContent'
+import { LogoCarousel } from './LogoCarousel'
 
 export default function Home() {
   return (

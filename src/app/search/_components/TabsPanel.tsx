@@ -5,7 +5,7 @@ import { NetworkTable } from './NetworkTable'
 import { useNetworkSearch } from '@/hooks/use-network-search'
 import { useSearchStore } from '@/stores/search-store'
 import { useEffect } from 'react'
-import { useUserSearch } from '../../hooks/use-user-search'
+import { useUserSearch } from '@/hooks/use-user-search'
 import { UserTable } from './UserTable'
 // import { SidebarTrigger } from '@/components/ui/sidebar'
 

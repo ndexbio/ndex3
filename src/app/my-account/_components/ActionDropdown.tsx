@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 import { FileItemBase, FileType } from '@/types/api/ndex/File'
-import { useDialogs } from '../../lib/contexts/DialogContext'
+import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
 
 // Add a dropdown menu for download formats

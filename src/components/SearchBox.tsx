@@ -7,7 +7,7 @@ import { SearchIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSearchStore } from '@/stores/search-store'
-import { FeaturedNetworksButton } from '@/components/search/FeaturedNetworksButton'
+import { FeaturedNetworksButton } from '@/app/search/_components/FeaturedNetworksButton'
 
 export function SearchBox() {
   const { setQuery } = useSearchStore()

@@ -37,7 +37,7 @@ import FileRenderer from './FileRenderer'
 import { useTrash } from '@/hooks/use-trash' // Import the useTrash hook
 import { useNetworkOperation } from '@/hooks/use-network-operation'
 import ActionDropdown from './ActionDropdown' // Import the new ActionDropdown component
-import { DialogProvider } from '../../lib/contexts/DialogContext' // Import DialogProvider
+import { DialogProvider } from '@/lib/contexts/DialogContext' // Import DialogProvider
 
 // Define the props for MyAccount component
 interface MyAccountProps {

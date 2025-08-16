@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardHeader, CardContent } from '@/components/ui/card'
-import UserProfile from '@/components/user/UserProfile'
+import UserProfile from '../_components/UserProfile'
 
 /**
  * Generate static params for static export

@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/tooltip'
 import { MyAccountTabType, FilterOptionType } from '@/types/ui/myAccount'
 import { useTrash } from '@/hooks/use-trash'
-import { useDialogs } from '../../lib/contexts/DialogContext'
+import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
 import { FileType } from '@/types/api/ndex/File'
 
