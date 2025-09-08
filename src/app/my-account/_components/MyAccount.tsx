@@ -360,7 +360,7 @@ function MyAccountContent({
       if (folderId) {
         try {
           const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-          const folderInfo = await ndexClient.getFolder(folderId)
+          const folderInfo = await ndexClient.files.getFolder(folderId)
           setCurrentFolderInfo(folderInfo)
 
           // After setting current folder info, build the breadcrumb path
@@ -772,6 +772,9 @@ function MyAccountContent({
           await deleteNetwork(item.uuid)
         }
       }
+
+      // Clear selection after successful deletion
+      setSelectedItems([])
 
       if (tabState === MyAccountTabType.SHARED) {
         await refreshSharedFiles()

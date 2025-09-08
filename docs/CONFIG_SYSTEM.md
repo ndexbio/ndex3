@@ -1,108 +1,79 @@
-# Configuration System - Single Source of Truth
+# Configuration System
 
 ## Overview
 
-The application now uses `public/config.json` as the **single source of truth** for all configuration values, including the `urlBaseName` which determines the base path where the app is served.
+The application's configuration is managed through a **single source of truth** (`public/config.json`) and a build-time script (`scripts/generate-config.js`) that ensures consistency between the runtime configuration and Next.js build settings.
 
-## Key Changes
+## Core Components
 
-### 1. Eliminated `generate-config.js`
-- **Before**: Had to run `npm run generate-config` to sync base path from `next.config.ts` to `config.json`
-- **After**: `next.config.ts` reads directly from `config.json` at build time
-
-### 2. Single Source of Truth
-- **Configuration File**: `public/config.json`
-- **Base Path Control**: The `urlBaseName` field in config.json controls where the app is served
-- **Fallback Behavior**: If `urlBaseName` is missing or empty, the app runs under root path "/"
-
-### 3. Build Process Simplified
-- **Before**: `npm run build` → `npm run generate-config && next build`
-- **After**: `npm run build` → `next build` (reads config.json directly)
-
-## Configuration Structure
+### 1. `public/config.json` (Single Source of Truth)
+This file is the master configuration for the application. It defines all runtime parameters, including the `urlBaseName` which controls the application's base path.
 
 ```json
 {
-  "ndexBaseUrl": "dev1.ndexbio.org",
-  "keycloakConfig": {
-    "url": "https://dev1.ndexbio.org/auth2",
-    "clientId": "cytoscapendex",
-    "realm": "ndex"
-  },
-  "urlBaseName": "/ndex3",  // Controls app base path - can be empty for root "/"
-  "uiContent": {
-    "contentRootPath": "https://home.ndexbio.org/landing_page_content/v2_4_2",
-    "featuredContent": "featured_content.json",
-    "featuredNetwork": "featured_networks.json", 
-    "mainContent": "main.json",
-    "logos": "logos.json"
-  }
+  "urlBaseName": "/ndex3",
+  // ... other settings
 }
 ```
+
+### 2. `scripts/generate-config.js` (Build-Time Script)
+This script is a critical part of the build process. It reads `public/config.json` and performs two key actions:
+
+1. **Generates `next.config.ts`**: It creates the Next.js configuration file with the `basePath` and `assetPrefix` set to the `urlBaseName` from `config.json`.
+2. **Copies `config.json`**: For deployments with a base path, it copies `config.json` to the appropriate subdirectory (e.g., `public/ndex3/config.json`) so the application can fetch it at runtime.
+
+### 3. `next.config.ts` (Generated File)
+This file is **generated automatically** by `scripts/generate-config.js` and should not be edited manually. It contains the Next.js build configuration derived from `public/config.json`.
 
 ## How It Works
 
-### Build Time
-1. `next.config.ts` reads `public/config.json`
-2. Extracts `urlBaseName` value (or defaults to empty string)
-3. Sets Next.js `basePath` and `assetPrefix` accordingly
+### Build Process (`npm run build`)
+The build process is orchestrated through the `generate-config` script:
+
+1. **`npm run build`** triggers **`npm run generate-config && next build`**.
+2. **`generate-config` script runs**:
+   - Reads `public/config.json`.
+   - Generates `next.config.ts` with the correct `basePath`.
+   - Copies `config.json` to `public/ndex3/config.json` (if `urlBaseName` is `/ndex3`).
+3. **`next build` runs** using the generated `next.config.ts`.
 
 ### Runtime
-1. `ConfigProvider` loads config.json via fetch
-2. Makes configuration available throughout the app via `useConfig()` hook
-3. `useBasePath()` hook provides easy access to the base path value
+1. The `ConfigProvider` fetches the configuration from the base path URL (e.g., `/ndex3/config.json`).
+2. The configuration is made available throughout the app via the `useConfig()` hook.
 
-## Usage Examples
+## Usage
 
-### Changing Base Path
-To serve the app under `/myapp` instead of `/ndex3`:
+### Changing the Base Path
+To change the application's base path from `/ndex3` to `/myapp`:
 
-```json
-{
-  "urlBaseName": "/myapp",
-  // ... rest of config
-}
-```
+1. **Edit `public/config.json`**:
+   ```json
+   {
+     "urlBaseName": "/myapp",
+     // ... rest of config
+   }
+   ```
+2. **Re-run the build**:
+   ```bash
+   npm run build
+   ```
+   The `generate-config.js` script will automatically update `next.config.ts` and copy the config file to `public/myapp/config.json`.
 
-### Serving at Root
-To serve the app at the root path:
+### Serving at the Root
+To serve the app at the root path (`/`):
 
-```json
-{
-  "urlBaseName": "",
-  // ... rest of config
-}
-```
-
-Or simply omit the `urlBaseName` field entirely.
-
-### Using Configuration in Components
-
-```typescript
-import { useConfig, useBasePath } from '@/lib/contexts/ConfigContext'
-
-function MyComponent() {
-  const config = useConfig()
-  const basePath = useBasePath()
-  
-  console.log('NDEx Base URL:', config.ndexBaseUrl)
-  console.log('App Base Path:', basePath)
-  
-  return <div>...</div>
-}
-```
+1. **Edit `public/config.json`**:
+   ```json
+   {
+     "urlBaseName": "",
+     // ... rest of config
+   }
+   ```
+2. **Re-run the build**.
 
 ## Benefits
 
-1. **Single Source of Truth**: All configuration in one place
-2. **No Build Script Dependencies**: Eliminated need for `generate-config.js`
-3. **Flexible Deployment**: Easy to change base path without code changes
-4. **Type Safety**: Full TypeScript support with `AppConfig` interface
-5. **Runtime Access**: Configuration available throughout the app via React context
-
-## Migration Notes
-
-- The `generate-config.js` script has been removed
-- The `generate-config` npm script has been removed from `package.json`
-- `urlBaseName` is now optional in the `AppConfig` TypeScript interface
-- Path utilities automatically handle missing or empty base paths
+- **Single Source of Truth**: All configuration is managed in `public/config.json`.
+- **Consistency**: The build script ensures the Next.js `basePath` and runtime configuration are always in sync.
+- **Flexible Deployment**: Easily change the base path without manual code changes.
+- **Type Safety**: Full TypeScript support with the `AppConfig` interface.

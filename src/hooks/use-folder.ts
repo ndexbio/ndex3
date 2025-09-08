@@ -44,10 +44,10 @@ export const useFolderContents = (
 
       if (folderId === null) {
         // Get home folder contents
-        items = await ndexClient.getFolderList('home', undefined, 'compact')
+        items = await ndexClient.files.getFolderList('home', undefined, 'compact')
       } else {
         // Get specific folder contents
-        items = await ndexClient.getFolderList(folderId, undefined, 'compact')
+        items = await ndexClient.files.getFolderList(folderId, undefined, 'compact')
       }
 
       return items || []
@@ -109,7 +109,7 @@ export const useFolder = (
     
     try {
       if (folderId) {
-        return await ndexClient.getFolder(folderId, accessKey)
+        return await ndexClient.files.getFolder(folderId, accessKey)
       }
       return null
     } catch (error) {
@@ -151,7 +151,7 @@ export const useFolder = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const result = await ndexClient.createFolder(name, parentFolderId)
+      const result = await ndexClient.files.createFolder(name, parentFolderId)
       
       // Refresh parent folder contents if it's being viewed
       globalMutate((key) => 
@@ -185,7 +185,7 @@ export const useFolder = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const result = await ndexClient.updateFolder(
+      const result = await ndexClient.files.updateFolder(
         folderIdToUpdate,
         name,
         parentFolderId
@@ -229,12 +229,12 @@ export const useFolder = (
       if (folderId === folderIdToDelete && data) {
         parentFolderId = data.parent
       } else {
-        const folderData = await ndexClient.getFolder(folderIdToDelete)
+        const folderData = await ndexClient.files.getFolder(folderIdToDelete)
         parentFolderId = folderData.parent
       }
 
       // Delete the folder
-      await ndexClient.deleteFolder(folderIdToDelete)
+      await ndexClient.files.deleteFolder(folderIdToDelete)
       
       // Refresh parent folder contents if it's being viewed
       globalMutate((key) => 
@@ -279,7 +279,7 @@ export const fetchFolderContents = async (
     return ndexClient._httpGetV3ProtectedObj('files/folders/home/list')
   } else {
     // Get specific folder contents
-    return ndexClient.getFolderList(folderId)
+    return ndexClient.files.getFolderList(folderId)
   }
 }
 
@@ -298,5 +298,5 @@ export const fetchFolder = async (
   accessKey?: string
 ): Promise<Folder> => {
   const ndexClient = getNdexClient(ndexBaseUrl, token)
-  return ndexClient.getFolder(folderId, accessKey)
+  return ndexClient.files.getFolder(folderId, accessKey)
 }

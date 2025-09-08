@@ -180,7 +180,7 @@ src/
 ├── types/entities/AppConfig.ts          # Type definitions
 ├── lib/api/content-service.ts           # Content fetching functions
 ├── hooks/use-content-service.ts         # React hooks for content
-└── components/home/
+└── app/_components/                     # Home page components (co-located)
     ├── LogoCarousel.tsx                 # Logo carousel component
     ├── BlogContent.tsx                  # Blog content component
     └── FeaturedContentCarousel.tsx      # Featured content component

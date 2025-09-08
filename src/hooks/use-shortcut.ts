@@ -88,7 +88,7 @@ export const useShortcut = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const result = await ndexClient.createShortcut(name, parentFolderId, targetId, targetType )
+      const result = await ndexClient.files.createShortcut(name, parentFolderId, targetId, targetType )
       
       // Refresh parent folder contents if it's being viewed
       globalMutate((key) => 
@@ -124,7 +124,7 @@ export const useShortcut = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const result = await ndexClient.updateShortcut(
+      const result = await ndexClient.files.updateShortcut(
         shortcutIdToUpdate,
         name,
         parentFolderId,
@@ -169,12 +169,12 @@ export const useShortcut = (
       if (shortcutId === shortcutIdToDelete && data) {
         parentFolderId = data.parent
       } else {
-        const shortcutData = await ndexClient.getShortcut(shortcutIdToDelete)
+        const shortcutData = await ndexClient.files.getShortcut(shortcutIdToDelete)
         parentFolderId = shortcutData.parent
       }
       
       // Delete the shortcut
-      await ndexClient.delteShortcut(shortcutIdToDelete)
+      await ndexClient.files.deleteShortcut(shortcutIdToDelete)
       
       // Refresh parent folder contents if it's being viewed
       globalMutate((key) => 

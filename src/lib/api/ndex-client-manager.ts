@@ -1,18 +1,23 @@
-// @ts-expect-error-next-line
-import { NDEx } from '@js4cytoscape/ndex-client'
+import { NDExClient } from '@js4cytoscape/ndex-client'
 
-const DEF_URL = 'ndexbio.org'
-let ndexClient: NDEx = new NDEx(DEF_URL)
+const DEF_URL = 'https://ndexbio.org'
+let ndexClient: NDExClient = new NDExClient({ baseURL: DEF_URL })
 
-export const getNdexClient = (url: string, accessToken?: string): NDEx => {
-  if (url === undefined || url === '') {
-    ndexClient = new NDEx(DEF_URL)
-  } else if (url !== ndexClient.host) {
-    ndexClient = new NDEx(url)
+export const getNdexClient = (url: string, accessToken?: string): NDExClient => {
+  // Ensure URL has protocol
+  const fullUrl = url && url.startsWith('http') ? url : `https://${url || 'ndexbio.org'}`
+  
+  if (!url || url === '') {
+    ndexClient = new NDExClient({ baseURL: DEF_URL })
+  } else if (fullUrl !== ndexClient.getConfig().baseURL) {
+    ndexClient = new NDExClient({ baseURL: fullUrl })
   }
 
-  if (accessToken !== undefined && accessToken !== '') {
-    ndexClient.setAuthToken(accessToken)
+  if (accessToken) {
+    ndexClient.updateConfig({
+      auth: { type: 'oauth', idToken: accessToken }
+    })
   }
+  
   return ndexClient
 }

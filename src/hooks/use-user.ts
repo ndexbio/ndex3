@@ -1,6 +1,6 @@
 import useSWR from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
-import { User } from '@/types/api/ndex/User'
+import { NDExUser } from '@js4cytoscape/ndex-client'
 import { getNdexClient } from '../lib/api/ndex-client-manager'
 
 export function useUser(uuid: string) {
@@ -8,9 +8,9 @@ export function useUser(uuid: string) {
   const { ndexBaseUrl } = config
   const ndexClient = getNdexClient(ndexBaseUrl)
 
-  // Use uuid as the key and ndexClient.getUserProfile as fetcher.
-  const { data, error, isLoading } = useSWR<User>(uuid, () =>
-    ndexClient.getUser(uuid),
+  // Use uuid as the key and ndexClient.user.getUser as fetcher.
+  const { data, error, isLoading } = useSWR<NDExUser>(uuid, () =>
+    ndexClient.user.getUser(uuid),
   )
 
   return {

@@ -33,7 +33,7 @@ export const useSharedFiles = (): SharedContents => {
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
       // Get items shared with the current user
-      const items = await ndexClient.listShares()
+      const items = await ndexClient.files.listShares()
       return items || []
     } catch (error) {
       console.error('Error fetching shared items:', error)

@@ -82,56 +82,73 @@ See [`CONTENT_SYSTEM_README.md`](./docs/CONTENT_SYSTEM_README.md) and [`CONTENT_
    
    Navigate to [http://localhost:3000](http://localhost:3000)
 
-## Project Structure
+## Architecture
+
+NDEx3 follows a modern Next.js App Router architecture with a focus on **feature-based colocation**, **server components**, and **static export compatibility**.
+
+### Project Structure
 
 ```
 public/                      # Static assets and configuration
 ├── config.json              # Application configuration
-├── config-example-root.json # Configuration template
-└── ndex-logo.svg            # Application logo
+└── config-example-root.json # Configuration template
 
 src/
-├── app/                     # Next.js App Router pages
+├── app/                     # Next.js App Router
 │   ├── layout.tsx           # Root layout with providers
-│   ├── page.tsx             # Home page
-│   ├── my-account/          # User account management
-│   ├── search/              # Network and user search  
-│   ├── folders/[uuid]/      # Folder management
-│   └── users/[uuid]/        # User profiles
+│   ├── page.tsx             # Root page (home + client-side routing)
+│   ├── loading.tsx          # Global loading UI
+│   ├── error.tsx            # Global error boundary
+│   │
+│   ├── _components/         # Home page components (feature-based)
+│   │
+│   ├── search/              # Search feature
+│   │   ├── page.tsx
+│   │   ├── loading.tsx
+│   │   ├── error.tsx
+│   │   └── _components/     # Search-specific components
+│   │
+│   ├── my-account/          # Account management feature
+│   │   ├── page.tsx
+│   │   ├── loading.tsx
+│   │   ├── error.tsx
+│   │   └── _components/     # Account-specific components
+│   │
+│   ├── folders/[uuid]/      # Dynamic folder feature
+│   │   ├── page.tsx
+│   │   ├── loading.tsx
+│   │   └── error.tsx
+│   │
+│   └── (other features...)
 │
-├── components/              # React components
+├── components/              # Shared React components
 │   ├── ui/                  # Base UI components (shadcn/ui)
-│   ├── home/                # Home page components
-│   │   ├── FeaturedContentCarousel.tsx
-│   │   ├── BlogContent.tsx
-│   │   └── LogoCarousel.tsx
-│   ├── my-account/          # Account management components
-│   ├── search/              # Search interface components
-│   └── user/                # User-related components
+│   ├── SearchBox.tsx        # Example shared component
+│   └── UserAvatar.tsx       # Example shared component
 │
-├── hooks/                   # Custom React hooks
-│   ├── use-content-service.ts  # Content fetching hooks
-│   ├── use-network-search.ts   # Network search functionality
-│   └── use-folder.ts           # Folder operations
+├── hooks/                   # Custom React hooks (e.g., use-network-search)
 │
-├── lib/                     # Utilities and configurations
-│   ├── api/                 # API clients and services
-│   │   ├── content-service.ts  # Content fetching service
-│   │   └── ndex-client-manager.ts # NDEx API client
-│   ├── contexts/            # React contexts
-│   │   ├── ConfigContext.tsx   # App configuration
-│   │   └── KeycloakContext.tsx # Authentication
+├── lib/                     # Utilities, API clients, and contexts
+│   ├── api/                 # API clients (NDEx, content service)
+│   ├── contexts/            # React contexts (Config, Keycloak)
 │   └── utils/               # Utility functions
 │
-├── stores/                  # State management
-│   └── search-store.tsx     # Search state management
+├── stores/                  # State management (Zustand)
 │
 └── types/                   # TypeScript type definitions
-    ├── entities/            # Domain entities
-    │   └── AppConfig.ts     # Application configuration types
-    ├── api/                 # API response types
-    └── ui/                  # UI component types
 ```
+
+### Key Architectural Concepts
+
+- **Feature-Based Colocation**: Components are located with the features that use them (`src/app/[feature]/_components/`), improving maintainability.
+- **Shared Components**: Truly shared components reside in `src/components/`.
+- **Hybrid Routing**: Due to `output: 'export'` for static deployment, the app uses a hybrid routing strategy:
+  - **File-System Routing**: For all static routes (`/search`, `/my-account`).
+  - **Client-Side Routing**: The root `page.tsx` handles dynamic routes with unlimited UUIDs (`/folders/[uuid]`) that cannot be pre-generated.
+- **Loading & Error Boundaries**: Each route has its own `loading.tsx` and `error.tsx` for a resilient and user-friendly experience, leveraging React Suspense and Error Boundaries automatically.
+- **Static Export**: The application is optimized for static hosting, with `output: 'export'` configured in `next.config.ts`.
+
+See [`ROUTING_REFACTOR_PLAN.md`](./ROUTING_REFACTOR_PLAN.md) for a detailed breakdown of the routing architecture.
 
 ## Configuration
 

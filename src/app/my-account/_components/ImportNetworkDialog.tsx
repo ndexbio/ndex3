@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect } from 'react'
 interface ImportNetworkDialogProps {
   isOpen: boolean
   onClose: () => void
-  onImportNetwork: (file: File, makePublic: boolean) => Promise<void>
+  onImportNetwork: (file: File, makePublic: boolean) => Promise<{ uuid: string }>
 }
 
 const ImportNetworkDialog: React.FC<ImportNetworkDialogProps> = ({

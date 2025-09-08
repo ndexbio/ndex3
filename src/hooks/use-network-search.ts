@@ -5,14 +5,13 @@ import {
   NetworkSearchResponse,
   NetworkSummary,
 } from '@/types/api/ndex'
-import { networkListFetcher } from '../lib/api/network'
+import { getNdexClient } from '../lib/api/ndex-client-manager'
 import { useConfig } from '../lib/contexts/ConfigContext'
 
 const PAGE_SIZE = 1000
 
 export function useNetworkSearch(params: NetworkSearchParams) {
   const config = useConfig()
-  const searchNetworkUrl: string = `https://${config.ndexBaseUrl}/v2/search/network`
 
   // Check for empty search string
   const isEmptyQuery = !params.searchString || params.searchString.trim() === ''
@@ -40,7 +39,7 @@ export function useNetworkSearch(params: NetworkSearchParams) {
     }
 
     const start = pageIndex
-    return `${searchNetworkUrl}?q=${queryParam}&start=${start}&size=${PAGE_SIZE}`
+    return `networkSearch_${searchKey}_${start}_${PAGE_SIZE}`
   }
 
   // Fix #2: Make fetcher always return NetworkSearchResponse (not null)
@@ -64,9 +63,25 @@ export function useNetworkSearch(params: NetworkSearchParams) {
       } as NetworkSearchResponse
     }
 
-    console.log('URL==>', url)
-    console.log(`Fetching networks from ${url}`)
-    const response = await networkListFetcher(url, params)
+    console.log('Key==>', url)
+    console.log(`Fetching networks with params:`, params)
+    
+    // Extract pagination info from cache key
+    const keyParts = url.split('_')
+    const start = parseInt(keyParts[2]) || 0
+    
+    // Use new NDEx client for search
+    const ndexClient = getNdexClient(config.ndexBaseUrl)
+    const response = await ndexClient.networks.v2.searchNetworks(
+      params.searchString || '',
+      start,
+      PAGE_SIZE,
+      {
+        permission: params.permission,
+        includeGroups: params.includeGroups,
+        accountName: params.accountName
+      }
+    )
 
     if (!response || !Array.isArray(response.networks)) {
       throw new Error('Invalid response from server')

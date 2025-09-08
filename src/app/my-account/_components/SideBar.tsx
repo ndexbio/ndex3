@@ -184,9 +184,12 @@ export default function SideBar({
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
 
       // Import the network
-      const result = await ndexClient.createNetworkFromRawCX2(
+      const result = await ndexClient.networks.createNetworkFromRawCX2(
         fileContent,
-        makePublic,
+        {
+          visibility: makePublic ? 'PUBLIC' : 'PRIVATE',
+          folderId: currentFolderId || undefined,
+        }
       )
 
       // Reload the page to refresh the network list
