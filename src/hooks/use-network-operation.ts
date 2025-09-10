@@ -4,7 +4,6 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { FileItemBase } from '@/types/api/ndex/File'
-import { FileType } from '@/types/api/ndex'
 
 // Define Network interface
 export interface Network extends FileItemBase {
@@ -38,9 +37,8 @@ export const useNetworkOperation = (
 
     try {
       if (networkId) {
-        // Get network summary
-        // Assuming there's a getNetwork method, otherwise this needs to be adjusted
-        return await ndexClient.getNetwork(networkId, accessKey)
+        // Get network summary using new client API
+        return await ndexClient.networks.v2.getNetworkSummary(networkId, { accesskey: accessKey })
       }
       return null
     } catch (error) {
@@ -80,10 +78,9 @@ export const useNetworkOperation = (
   ): Promise<any> => {
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      return await ndexClient.getNetworkV3Summary(
+      return await ndexClient.networks.getNetworkSummary(
         networkIdToFetch,
-        summaryAccessKey,
-        format,
+        { accesskey: summaryAccessKey }
       )
     } catch (error) {
       console.error('Error fetching network summary:', error)
@@ -101,7 +98,7 @@ export const useNetworkOperation = (
   ): Promise<any> => {
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      return await ndexClient.copyNetwork(networkIdToCopy)
+      return await ndexClient.networks.v2.copyNetwork(networkIdToCopy)
     } catch (error) {
       console.error('Error copying network:', error)
     }
@@ -115,7 +112,9 @@ export const useNetworkOperation = (
   const getNetworkDOI = async (networkId:string): Promise<string> => {
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      return await ndexClient.getNetworkDOI(networkId)
+      // TODO: New API requires key and email parameters for DOI creation
+      // This needs to be updated to collect user input
+      throw new Error('DOI creation requires additional parameters in new API')
     } catch (error) {
       console.error('Error fetching network DOI:', error)       
       return ''
@@ -138,7 +137,7 @@ export const useNetworkOperation = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const result = await ndexClient.moveNetworks(networkIds, targetFolderId)
+      const result = await ndexClient.networks.moveNetworks(networkIds, targetFolderId)
 
       // If we're moving the current network, refresh it
       if (networkId && networkIds.includes(networkId)) {
@@ -183,9 +182,9 @@ export const useNetworkOperation = (
   ): Promise<any> => {
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      return await ndexClient.getRawNetwork(
+      return await ndexClient.networks.getRawCX1Network(
         networkIdToDownload,
-        networkAccessKey,
+        { accesskey: networkAccessKey }
       )
     } catch (error) {
       console.error('Error downloading raw network:', error)
@@ -205,9 +204,9 @@ export const useNetworkOperation = (
   ): Promise<any> => {
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      return await ndexClient.getCX2Network(
+      return await ndexClient.networks.getRawCX2Network(
         networkIdToDownload,
-        networkAccessKey,
+        { accesskey: networkAccessKey }
       )
     } catch (error) {
       console.error('Error downloading CX2 network:', error)
@@ -231,9 +230,9 @@ export const useNetworkOperation = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const result = await ndexClient.updateNetworkFromRawCX2(
+      const result = await ndexClient.networks.updateNetworkFromRawCX2(
         networkIdToUpdate,
-        rawCX2,
+        rawCX2
       )
 
       // If this is the network we're currently viewing, refresh it
@@ -277,16 +276,14 @@ export const useNetworkOperation = (
       if (networkId === networkIdToDelete && data) {
         parentFolderId = data.parent
       } else {
-        // Assuming there's a getNetwork method, otherwise this needs to be adjusted
-        const networkData = await ndexClient.getNetworkV3Summary(
-          networkIdToDelete,
+        const networkData = await ndexClient.networks.getNetworkSummary(
+          networkIdToDelete
         )
         parentFolderId = networkData.parent
       }
 
       // Delete the network
-      // Assuming there's a deleteNetwork method, otherwise this needs to be adjusted
-      await ndexClient.deleteNetwork(networkIdToDelete)
+      await ndexClient.networks.deleteNetwork(networkIdToDelete)
 
       // Refresh parent folder contents if it's being viewed
       if (parentFolderId) {
@@ -334,6 +331,5 @@ export const fetchNetwork = async (
   accessKey?: string,
 ): Promise<Network> => {
   const ndexClient = getNdexClient(ndexBaseUrl, token)
-  // Assuming there's a getNetwork method, otherwise this needs to be adjusted
-  return ndexClient.getNetwork(networkId, accessKey)
+  return ndexClient.networks.v2.getNetworkSummary(networkId, { accesskey: accessKey })
 }

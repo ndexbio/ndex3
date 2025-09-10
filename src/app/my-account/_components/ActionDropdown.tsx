@@ -13,7 +13,8 @@ import {
   Loader2,
 } from 'lucide-react'
 import { MyAccountTabType } from '@/types/ui/myAccount'
-import { FileItemBase, FileType } from '@/types/api/ndex/File'
+import { FileItemBase } from '@/types/api/ndex/File'
+import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
 
@@ -83,7 +84,7 @@ const DownloadMenu: React.FC<{
 
 interface ActionDropdownProps {
   openDropdownId: string | null
-  dropdownType: FileType | null
+  dropdownType: NDExFileType | null
   item: FileItemBase | null
   tabState: MyAccountTabType
   onClose: () => void
@@ -138,9 +139,9 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
 
   // Estimate dropdown height - these are approximate
   const dropdownHeight =
-    dropdownType === FileType.NETWORK
+    dropdownType === NDExFileType.NETWORK
       ? 340
-      : dropdownType === FileType.FOLDER
+      : dropdownType === NDExFileType.FOLDER
       ? 240
       : 40
 
@@ -232,7 +233,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             Delete permanently
           </button>
         </div>
-      ) : dropdownType === FileType.FOLDER ? (
+      ) : dropdownType === NDExFileType.FOLDER ? (
         // Regular folder options
         <div className="py-2">
           <button

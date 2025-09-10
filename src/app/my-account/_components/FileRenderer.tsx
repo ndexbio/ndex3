@@ -3,7 +3,7 @@ import { Folder, Trash, Search, Users } from 'lucide-react'
 import FoldersList from './FoldersList'
 import NetworksList from './NetworksList'
 import { FileItemBase } from '@/types/api/ndex/File'
-import { FileType } from '@/types/api/ndex'
+import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 
 interface ContentRendererProps {
@@ -61,9 +61,9 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
             <FoldersList
               folders={filteredItems.filter(
                 (item) =>
-                  item.type === FileType.FOLDER ||
-                  (item.type === FileType.SHORTCUT &&
-                    item.attributes?.target_type === FileType.FOLDER),
+                  item.type === NDExFileType.FOLDER ||
+                  (item.type === NDExFileType.SHORTCUT &&
+                    item.attributes?.target_type === NDExFileType.FOLDER),
               )}
               viewMode={viewMode}
               tabState={tabState}
@@ -78,9 +78,9 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
             <NetworksList
               items={filteredItems.filter(
                 (item) =>
-                  item.type === FileType.NETWORK ||
-                  (item.type === FileType.SHORTCUT &&
-                    item.attributes?.target_type === FileType.NETWORK),
+                  item.type === NDExFileType.NETWORK ||
+                  (item.type === NDExFileType.SHORTCUT &&
+                    item.attributes?.target_type === NDExFileType.NETWORK),
               )}
               tabState={tabState}
               viewMode={viewMode}
@@ -132,9 +132,9 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
             <FoldersList
               folders={filteredItems.filter(
                 (item) =>
-                  item.type === FileType.FOLDER ||
-                  (item.type === FileType.SHORTCUT &&
-                    item.attributes?.target_type === FileType.FOLDER),
+                  item.type === NDExFileType.FOLDER ||
+                  (item.type === NDExFileType.SHORTCUT &&
+                    item.attributes?.target_type === NDExFileType.FOLDER),
               )}
               viewMode={viewMode}
               tabState={tabState}
@@ -149,9 +149,9 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
             <NetworksList
               items={filteredItems.filter(
                 (item) =>
-                  item.type === FileType.NETWORK ||
-                  (item.type === FileType.SHORTCUT &&
-                    item.attributes?.target_type === FileType.NETWORK),
+                  item.type === NDExFileType.NETWORK ||
+                  (item.type === NDExFileType.SHORTCUT &&
+                    item.attributes?.target_type === NDExFileType.NETWORK),
               )}
               tabState={tabState}
               viewMode={viewMode}
@@ -209,9 +209,9 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
             <FoldersList
               folders={filteredItems.filter(
                 (item) =>
-                  item.type === FileType.FOLDER ||
-                  (item.type === FileType.SHORTCUT &&
-                    item.attributes?.target_type === FileType.FOLDER),
+                  item.type === NDExFileType.FOLDER ||
+                  (item.type === NDExFileType.SHORTCUT &&
+                    item.attributes?.target_type === NDExFileType.FOLDER),
               )}
               viewMode={viewMode}
               tabState={tabState}
@@ -226,9 +226,9 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
             <NetworksList
               items={filteredItems.filter(
                 (item) =>
-                  item.type === FileType.NETWORK ||
-                  (item.type === FileType.SHORTCUT &&
-                    item.attributes?.target_type === FileType.NETWORK),
+                  item.type === NDExFileType.NETWORK ||
+                  (item.type === NDExFileType.SHORTCUT &&
+                    item.attributes?.target_type === NDExFileType.NETWORK),
               )}
               tabState={tabState}
               viewMode={viewMode}

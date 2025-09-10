@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Folder, ArrowRight, X, FolderInput } from 'lucide-react'
-import { FileItemBase, FileType } from '@/types/api/ndex/File'
+import { FileItemBase } from '@/types/api/ndex/File'
+import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useFolder, useFolderContents } from '@/hooks/use-folder'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -41,7 +42,7 @@ const MoveFolderDialog: React.FC<MoveFolderDialogProps> = ({
 
   // Filter only folders from the contents
   const foldersOnly = folderContents.filter(
-    (item) => item.type === FileType.FOLDER,
+    (item) => item.type === NDExFileType.FOLDER,
   )
 
   // Reset to home folder when dialog opens

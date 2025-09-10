@@ -12,6 +12,7 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
 import { EmailVerificationDialog } from '@/components/EmailVerificationDialog'
 //import { NDEx } from '@js4cytoscape/ndex-client'
 import { getNdexClient } from '../api/ndex-client-manager'
+import { NDExUser } from '@js4cytoscape/ndex-client'
 
 type AuthContextType = {
   keycloak: Keycloak | null
@@ -23,6 +24,7 @@ type AuthContextType = {
   isInitializing: boolean
   diskUsed: number
   diskQuota: number
+  user: NDExUser | null
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -49,6 +51,7 @@ export const KeycloakProvider = ({
   const [diskUsed, setDiskUsed] = useState(0)
   const [diskQuota, setDiskQuota] = useState(0)
   const [isInitializing, setIsInitializing] = useState(true)
+  const [user, setUser] = useState<NDExUser | null>(null)
 
   // State for email verification
   const [emailUnverified, setEmailUnverified] = useState(false)
@@ -61,26 +64,30 @@ export const KeycloakProvider = ({
    */
   const checkUserVerification = async (ndexBaseUrl: string, token: string) => {
     try {
-      const ndexClient = getNdexClient(ndexBaseUrl)
-      const userInfo = await ndexClient.signInFromIdToken(token)
-      setDiskUsed(userInfo.diskUsed)
-      setDiskQuota(userInfo.diskQuota)
+      const ndexClient = getNdexClient(ndexBaseUrl, token)
+      const userInfo = await ndexClient.user.authenticate()
+      // Store the user object for future use
+      setUser(userInfo)
+      // TODO: Need to determine how to get disk usage with new client
+      // For now, using placeholder values until we can get disk usage info
+      setDiskUsed((userInfo as any).diskUsed || 0)
+      setDiskQuota((userInfo as any).diskQuota || 0)
       // If it succeeds, user is verified
       setEmailUnverified(false)
     } catch (e: unknown) {
       if (
         typeof e === 'object' &&
         e !== null &&
-        'status' in e &&
-        (e as { status: number }).status === 401 &&
-        'response' in e &&
-        typeof (e as { response?: unknown }).response === 'object' &&
-        (e as { response?: { data?: { errorCode?: string; message?: string } } }).response?.data?.errorCode === 'NDEx_User_Account_Not_Verified'
+        'statusCode' in e &&
+        (e as { statusCode: number }).statusCode === 401 &&
+        'message' in e &&
+        typeof (e as { message: string }).message === 'string' &&
+        (e as { message: string }).message.includes('NDEx_User_Account_Not_Verified')
       ) {
         // Extract name/email from NDEx's error message
         const pattern = /NDEx user account ([\w.]+) <([\w.]+@[\w.]+)>/
-        const message = (e as { response?: { data?: { message?: string } } }).response?.data?.message
-        const match = typeof message === 'string' ? message.match(pattern) : null
+        const message = (e as { message: string }).message
+        const match = message.match(pattern)
         if (match) {
           setUserName(match[1])
           setUserEmail(match[2])
@@ -192,10 +199,14 @@ export const KeycloakProvider = ({
             keycloakRef.current?.login()
           }
         },
-        logout: () => keycloakRef.current?.logout(),
+        logout: () => {
+          setUser(null)
+          return keycloakRef.current?.logout()
+        },
         isInitializing,
         diskUsed,
         diskQuota,
+        user,
       }}
     >
       {/* Normal app children */}

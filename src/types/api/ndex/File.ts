@@ -1,18 +1,11 @@
+import { NDExFileType } from '@js4cytoscape/ndex-client'
+
 export interface FileItemBase {
   uuid: string
   name: string
-  type: FileType
+  type: NDExFileType
   modificationTime: string | Date
   attributes: {
     [key: string]: string | number | boolean
   }
 }
-
-
-export const FileType = {
-  FOLDER: 'FOLDER',
-  NETWORK: 'NETWORK',
-  SHORTCUT: 'SHORTCUT',
-} as const
-
-export type FileType = (typeof FileType)[keyof typeof FileType]

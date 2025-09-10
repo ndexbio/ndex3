@@ -67,7 +67,7 @@ The home page content is configured through remote JSON files hosted under a com
 - **Types**: `src/types/entities/AppConfig.ts` - TypeScript definitions
 - **Services**: `src/lib/api/content-service.ts` - Content fetching logic
 - **Hooks**: `src/hooks/use-content-service.ts` - React hooks for components
-- **Components**: `src/components/home/` - UI components that consume content
+- **Components**: `src/app/_components/` - UI components that consume content (co-located with the home page feature)
 
 ## Content Fetching
 

@@ -8,6 +8,7 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { useFolder } from '@/hooks/use-folder'
+import { Visibility } from '@js4cytoscape/ndex-client'
 
 import {
   Folder,
@@ -184,9 +185,12 @@ export default function SideBar({
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
 
       // Import the network
-      const result = await ndexClient.createNetworkFromRawCX2(
+      const result = await ndexClient.networks.createNetworkFromRawCX2(
         fileContent,
-        makePublic,
+        {
+          visibility: makePublic ? Visibility.PUBLIC : Visibility.PRIVATE,
+          folderId: currentFolderId || undefined,
+        }
       )
 
       // Reload the page to refresh the network list

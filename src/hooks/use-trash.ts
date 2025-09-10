@@ -36,7 +36,7 @@ export const useTrash = (): TrashContents => {
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
       // Get trash contents
-      const items = await ndexClient.getTrash()
+      const items = await ndexClient.files.getTrash()
       return items || []
     } catch (error) {
       console.error('Error fetching trash contents:', error)
@@ -72,7 +72,7 @@ export const useTrash = (): TrashContents => {
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      await ndexClient.emptyTrash()
+      await ndexClient.files.emptyTrash()
       
       // Refresh trash contents after emptying
       await refresh()
@@ -105,7 +105,7 @@ export const useTrash = (): TrashContents => {
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      await ndexClient.restoreFile(networkIds, folderIds, shortcutIds)
+      await ndexClient.files.restoreFile(networkIds, folderIds, shortcutIds)
       
       // Refresh trash contents after restoring items
       await refresh()
@@ -134,7 +134,7 @@ export const useTrash = (): TrashContents => {
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      await ndexClient.permanentlyDeleteFile(itemId)
+      await ndexClient.files.permanentlyDeleteFile(itemId)
     } catch (error) {
       console.error('Error deleting item from trash:', error)
       throw error
@@ -164,5 +164,5 @@ export const fetchTrashContents = async (
   token: string,
 ): Promise<FileItemBase[]> => {
   const ndexClient = getNdexClient(ndexBaseUrl, token)
-  return ndexClient.getTrash()
+  return ndexClient.files.getTrash()
 }

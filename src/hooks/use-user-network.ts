@@ -5,10 +5,10 @@ import useSWR from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
-import { NetworkSummary } from '@/types/api/ndex/NetworkSummary'
+import { NetworkSummaryV2 } from '@js4cytoscape/ndex-client'
 
 // Default fallback data
-const fallbackData: NetworkSummary[] = []
+const fallbackData: NetworkSummaryV2[] = []
 
 /**
  * Hook to fetch networks for the authenticated user
@@ -18,16 +18,20 @@ const fallbackData: NetworkSummary[] = []
  */
 export const useUserNetwork = (offset: number = 0, limit: number = 500) => {
   const config = useConfig()
-  const { token, isAuthenticated } = useAuth()
+  const { token, isAuthenticated, user } = useAuth()
   
   // Create a cache key - this tells SWR when to revalidate
-  const cacheKey = isAuthenticated ? ['accountNetworks', offset, limit, token] : null
+  const cacheKey = isAuthenticated && user ? ['accountNetworks', offset, limit, token, user.externalId] : null
 
   // Fetcher function that uses ndexClient
   const fetcher = async () => {
     try {
+      if (!user) {
+        throw new Error('User not authenticated')
+      }
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const networks = await ndexClient.getAccountPageNetworks(offset, limit)
+      // Use cached user UUID instead of calling getCurrentUser()
+      const networks = await ndexClient.user.getAccountPageNetworks(user.externalId, offset, limit)
       return networks
     } catch (error) {
       console.error('Error fetching account networks:', error)
@@ -36,7 +40,7 @@ export const useUserNetwork = (offset: number = 0, limit: number = 500) => {
   }
 
   // Use SWR to fetch and cache the data
-  const { data, error, isLoading } = useSWR<NetworkSummary[]>(
+  const { data, error, isLoading } = useSWR<NetworkSummaryV2[]>(
     cacheKey,
     fetcher,
     {
@@ -76,7 +80,7 @@ export const useNetwork = (networkIds: string | string[]) => {
   const fetcher = async () => {
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const networks = await ndexClient.getNetworkSummariesByUUIDs(ids)
+      const networks = await ndexClient.networks.v2.getNetworkSummariesByUUIDs(ids)
       return networks
     } catch (error) {
       console.error('Error fetching networks by UUID:', error)
@@ -85,7 +89,7 @@ export const useNetwork = (networkIds: string | string[]) => {
   }
 
   // Use SWR to fetch and cache the data
-  const { data, error, isLoading } = useSWR<NetworkSummary[]>(
+  const { data, error, isLoading } = useSWR<NetworkSummaryV2[]>(
     cacheKey,
     fetcher,
     {
@@ -114,11 +118,13 @@ export const useNetwork = (networkIds: string | string[]) => {
 export const fetchUserNetworks = async (
   ndexBaseUrl: string,
   token: string,
+  userExternalId: string,
   offset: number = 0,
   limit: number = 500
-): Promise<NetworkSummary[]> => {
+): Promise<NetworkSummaryV2[]> => {
   const ndexClient = getNdexClient(ndexBaseUrl, token)
-  return ndexClient.getAccountPageNetworks(offset, limit)
+  // Use provided user UUID instead of calling getCurrentUser()
+  return ndexClient.user.getAccountPageNetworks(userExternalId, offset, limit)
 }
 
 /**
@@ -132,9 +138,9 @@ export const fetchNetworkById = async (
   ndexBaseUrl: string,
   networkId: string,
   token?: string
-): Promise<NetworkSummary> => {
+): Promise<NetworkSummaryV2> => {
   const ndexClient = getNdexClient(ndexBaseUrl, token)
-  const response = await ndexClient.getNetworkSummariesByUUIDs([networkId])
+  const response = await ndexClient.networks.v2.getNetworkSummariesByUUIDs([networkId])
   if (!response || response.length === 0) {
     throw new Error(`Network with ID ${networkId} not found`)
   }

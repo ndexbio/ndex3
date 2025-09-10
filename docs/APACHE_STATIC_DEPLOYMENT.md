@@ -86,7 +86,9 @@ npm run build
 
 ## Available Routes
 
-The static export includes these pages:
+The static export supports both static and dynamic routes through a hybrid approach:
+
+### Static Routes (Pre-generated)
 - `/ndex3/` - Home page
 - `/ndex3/search/` - Search page  
 - `/ndex3/my-account/` - My Account page
@@ -95,12 +97,19 @@ The static export includes these pages:
 - `/ndex3/shared-with-me/` - Shared with Me page
 - `/ndex3/trash/` - Trash page
 
-## Limitations
+### Dynamic Routes (Client-side Rendered)
+- `/ndex3/folders/[uuid]/` - Folder pages
+- `/ndex3/users/[uuid]/` - User profile pages
+- `/ndex3/networkset/[uuid]/` - Legacy folder redirects
 
-**Removed Features** (due to static export requirements):
-- User profile pages (`/users/[uuid]`) - Required server-side rendering
-- Folder pages (`/folder/[uuid]`) - Required server-side rendering
-- API proxy routes - Replaced with direct external API calls
+## Hybrid Routing for Static Export
+
+Due to the `output: 'export'` requirement, the application uses a hybrid routing strategy to support dynamic routes with unlimited UUIDs:
+
+- **Static Routes**: Pre-built as HTML files for maximum performance.
+- **Dynamic Routes**: The root `page.tsx` handles these on the client side. The Apache `RewriteRule` directs any non-file requests to `index.html`, allowing the Next.js client-side router to render the correct component (`FolderViewer`, `UserProfile`, etc.).
+
+This approach provides the benefits of static hosting while maintaining the full functionality of dynamic pages.
 
 ## Content Fetching
 

@@ -1,5 +1,6 @@
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { UserSearchParams, UserSearchResponse } from '../types/api/ndex'
+import { getNdexClient } from '../lib/api/ndex-client-manager'
 import useSWR from 'swr'
 
 const EMPTY_USER_RESULT: UserSearchResponse = {
@@ -7,45 +8,29 @@ const EMPTY_USER_RESULT: UserSearchResponse = {
   numFound: 0,
   start: 0,
 }
-const buildUrl = (baseUrl: string, params: UserSearchParams) => {
-  // Include all required parameters in the URL query params
-  const queryParams = new URLSearchParams()
-  if (params.searchString) {
-    queryParams.set('searchString', params.searchString)
+const createFetcher = (baseUrl: string) => async (params: UserSearchParams): Promise<UserSearchResponse> => {
+  const ndexClient = getNdexClient(baseUrl)
+  
+  const users = await ndexClient.user.searchUsers(
+    params.searchString || '',
+    0, // start
+    2000 // size
+  )
+
+  // Adapt the response format to match what the UI expects
+  return {
+    resultList: users,
+    numFound: users.length,
+    start: 0
   }
-
-  return `${baseUrl}?${queryParams.toString()}`
-}
-
-const fetcher = async (url: string, params: UserSearchParams) => {
-  const fullUrl = buildUrl(url, params)
-
-  // Ensure the POST body matches exactly what the API expects
-  const body: UserSearchParams = {
-    searchString: params.searchString || '',
-  }
-
-  const response = await fetch(fullUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    throw new Error('Network response was not ok')
-  }
-
-  return response.json()
 }
 
 export const useUserSearch = (params: UserSearchParams) => {
   const config = useConfig()
-  const url: string = `https://${config.ndexBaseUrl}/v2/search/user`
+  const fetcher = createFetcher(config.ndexBaseUrl)
+  
   // Create a cache key that changes when any relevant param changes
   const cacheKey = JSON.stringify({
-    url,
     searchString: params.searchString || '',
     start: 0,
     size: 2000,
@@ -53,7 +38,7 @@ export const useUserSearch = (params: UserSearchParams) => {
 
   const { data, error, isLoading } = useSWR<UserSearchResponse, Error>(
     cacheKey,
-    () => fetcher(url, params),
+    () => fetcher(params),
     {
       revalidateOnFocus: false,
       refreshInterval: 0,
