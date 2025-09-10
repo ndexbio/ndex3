@@ -29,7 +29,7 @@ import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { useToast } from '@/lib/contexts/ToastContext'
 import { MyAccountTabType, FilterOptionType } from '@/types/ui/myAccount'
-import { FileType } from '@/types/api/ndex'
+import { NDExFileType } from '@js4cytoscape/ndex-client'
 import SelectionToolbarAndFilters from './SelectionToolbarAndFilters'
 import { useShortcut } from '@/hooks/use-shortcut'
 import { FilterState } from './SelectionToolbarAndFilters' // Import the FilterState type
@@ -116,7 +116,7 @@ function MyAccountContent({
 
   // Remove the trashItems state since we're now using the hook
   // const [trashItems, setTrashItems] = useState<FileItemBase[]>([])
-  const [dropdownType, setDropdownType] = useState<FileType | null>(null)
+  const [dropdownType, setDropdownType] = useState<NDExFileType | null>(null)
   const [lastSelectedType, setLastSelectedType] = useState<
     'FOLDER' | 'NETWORK' | null
   >(null)
@@ -582,7 +582,7 @@ function MyAccountContent({
   const handleDropdownToggle = (
     event: React.MouseEvent,
     id: string,
-    type: FileType,
+    type: NDExFileType,
   ) => {
     event.preventDefault()
     if (openDropdownId === id && dropdownType === type) {
@@ -764,11 +764,11 @@ function MyAccountContent({
       const items = displayItems.filter((item) => itemIds.includes(item.uuid))
       setLoading(true)
       for (const item of items) {
-        if (item.type === FileType.FOLDER) {
+        if (item.type === NDExFileType.FOLDER) {
           await deleteFolder(item.uuid)
-        } else if (item.type === FileType.SHORTCUT) {
+        } else if (item.type === NDExFileType.SHORTCUT) {
           await deleteShortcut(item.uuid)
-        } else if (item.type === FileType.NETWORK) {
+        } else if (item.type === NDExFileType.NETWORK) {
           await deleteNetwork(item.uuid)
         }
       }

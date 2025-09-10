@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState } from 'react'
 import RenameFolderDialog from '@/app/my-account/_components/RenameFolderDialog'
 import MoveFolderDialog from '@/app/my-account/_components/MoveFolderDialog'
 import EditNetworkPropertiesDialog from '@/app/my-account/_components/EditNetworkPropertiesDialog'
-import { FileType } from '@/types/api/ndex/File'
+import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useFolderContents } from '@/hooks/use-folder'
 import { useNetworkOperation } from '@/hooks/use-network-operation'
 
@@ -135,7 +135,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         uuid: networkId,
         name: networkData.name || 'Untitled Network',
         description: networkData.description || '',
-        type: FileType.NETWORK,
+        type: NDExFileType.NETWORK,
         owner: networkData.owner || '',
         attributes: networkData.properties || {},
         // Add any other needed properties from the response
@@ -157,7 +157,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
           uuid: networkId,
           name: 'Network',
           description: '',
-          type: FileType.NETWORK,
+          type: NDExFileType.NETWORK,
           attributes: {},
         },
       })

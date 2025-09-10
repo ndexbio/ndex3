@@ -17,9 +17,9 @@ import { FileItemBase } from '@/types/api/ndex/File'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { ItemTypes } from '@/types/dnd/DndTypes'
 import { MyAccountTabType } from '@/types/ui/myAccount'
-import { FileType } from '@/types/api/ndex'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
+import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
 
 // Props for the component
 interface NetworksListProps {
@@ -37,7 +37,7 @@ interface NetworksListProps {
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: FileType,
+    type: NDExFileType,
   ) => void
 }
 
@@ -86,7 +86,7 @@ const GridNetworkItem = ({
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: FileType,
+    type: NDExFileType,
   ) => void
 }) => {
   // Create drag source for network items
@@ -126,7 +126,7 @@ const GridNetworkItem = ({
     >
       <div className="flex items-center gap-3 overflow-hidden">
         <div className="flex-shrink-0">
-          {network.type === FileType.NETWORK ? (
+          {network.type === NDExFileType.NETWORK ? (
             <File className="h-5 w-5 text-sky-700" />
           ) : (
             <File className="h-5 w-5 text-green-600" />
@@ -177,7 +177,7 @@ const ListNetworkItem = ({
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: FileType,
+    type: NDExFileType,
   ) => void
 }) => {
   // For list view, we need to handle refs differently
@@ -215,7 +215,7 @@ const ListNetworkItem = ({
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="flex items-center w-full">
           <div className="flex-shrink-0 mr-3">
-            {network.type === FileType.NETWORK ? (
+            {network.type === NDExFileType.NETWORK ? (
               <File className="h-5 w-5 text-sky-700" />
             ) : (
               <File className="h-5 w-5 text-green-600" />
@@ -258,12 +258,12 @@ const ListNetworkItem = ({
         <div className="flex justify-center w-full">
           <span 
             className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
-              network.attributes?.visibility === 'PUBLIC'
+              network.attributes?.visibility === Visibility.PUBLIC
                 ? 'bg-green-200 dark:bg-green-800/60'
                 : 'bg-blue-300 dark:bg-blue-700/70'
             }`}
           >
-            {network.attributes?.visibility || 'PRIVATE'}
+            {network.attributes?.visibility || Visibility.PRIVATE}
           </span>
         </div>
       </td>
@@ -313,7 +313,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
 
       if (networkItem) {
         // Check if it's a shortcut
-        if (networkItem.type === FileType.SHORTCUT) {
+        if (networkItem.type === NDExFileType.SHORTCUT) {
           try {
             // Get the NDEx client to fetch the shortcut
             const ndexClient = getNdexClient(config.ndexBaseUrl, token)

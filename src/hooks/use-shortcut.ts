@@ -3,7 +3,7 @@ import useSWR, { mutate as globalMutate } from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
-import { FileType } from '@/types/api/ndex'
+import { NDExFileType } from '@js4cytoscape/ndex-client'
 
 // Define types for shortcuts
 export interface Shortcut {
@@ -80,7 +80,7 @@ export const useShortcut = (
     name: string,
     parentFolderId: string|null,
     targetId: string,
-    targetType: FileType
+    targetType: NDExFileType
   ): Promise<Shortcut> => {
     if (!isAuthenticated) {
       throw new Error('Authentication required to create shortcuts')

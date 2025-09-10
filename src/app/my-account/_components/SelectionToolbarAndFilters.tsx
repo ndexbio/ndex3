@@ -23,11 +23,11 @@ import { MyAccountTabType, FilterOptionType } from '@/types/ui/myAccount'
 import { useTrash } from '@/hooks/use-trash'
 import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
-import { FileType } from '@/types/api/ndex/File'
+import { NDExFileType } from '@js4cytoscape/ndex-client'
 
 // Add a dropdown menu for bulk network downloads
 const BulkDownloadMenu: React.FC<{
-  selectedItems: Array<{ id: string; name: string; type: FileType }>
+  selectedItems: Array<{ id: string; name: string; type: NDExFileType }>
   onClose: () => void
 }> = ({ selectedItems, onClose }) => {
   const [isOpen, setIsOpen] = useState(false)
@@ -37,7 +37,7 @@ const BulkDownloadMenu: React.FC<{
 
   // Filter selected items to only include networks
   const networkItems = selectedItems
-    .filter((item) => item.type === FileType.NETWORK)
+    .filter((item) => item.type === NDExFileType.NETWORK)
     .map((item) => ({
       id: item.id,
       name: item.name,
@@ -183,7 +183,7 @@ export interface FilterState {
 // Simplified props interface without filter state and handlers
 interface SelectionToolbarAndFiltersProps {
   selectedItems: string[]
-  itemDataMap?: Record<string, { name: string; type: FileType }>
+  itemDataMap?: Record<string, { name: string; type: NDExFileType }>
   showSelectionToolbar: boolean
   tabState: MyAccountTabType
   handleCloseToolbar: (event: React.MouseEvent) => void
@@ -357,7 +357,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
     return selectedItems.map((id) => ({
       id,
       name: itemDataMap[id]?.name || `item_${id}`,
-      type: itemDataMap[id]?.type || FileType.NETWORK, // Default to NETWORK if no type specified
+      type: itemDataMap[id]?.type || NDExFileType.NETWORK, // Default to NETWORK if no type specified
     }))
   }
 

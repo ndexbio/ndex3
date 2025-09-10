@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation'
 import { useDrag, useDrop } from 'react-dnd'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { ItemTypes } from '@/types/dnd/DndTypes'
-import { FileType } from '@/types/api/ndex'
+import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 //import { useShortcut } from '@/hooks/use-shortcut'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -39,7 +39,7 @@ interface FoldersListProps {
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: FileType,
+    type: NDExFileType,
   ) => void
 }
 
@@ -90,7 +90,7 @@ const GridFolderItem = ({
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: FileType,
+    type: NDExFileType,
   ) => void
 }) => {
   // Drop target for any DRIVE_ITEM
@@ -140,7 +140,7 @@ const GridFolderItem = ({
     >
       <div className="flex items-center gap-3 overflow-hidden">
         <div className="flex-shrink-0">
-          {folder.type === FileType.FOLDER ? (
+          {folder.type === NDExFileType.FOLDER ? (
             <Folder className="h-5 w-5 text-muted-foreground" />
           ) : (
             <Folder className="h-5 w-5 text-green-600" />
@@ -189,7 +189,7 @@ const ListFolderItem = ({
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
-    type: FileType,
+    type: NDExFileType,
   ) => void
 }) => {
   // For list view, we'll make the name cell both draggable and a drop target
@@ -239,7 +239,7 @@ const ListFolderItem = ({
       >
         <div className="flex items-center w-full">
           <div className="flex-shrink-0 mr-3">
-            {folder.type === FileType.FOLDER ? (
+            {folder.type === NDExFileType.FOLDER ? (
               <Folder className="h-5 w-5 text-muted-foreground" />
             ) : (
               <Folder className="h-5 w-5 text-green-600" />
@@ -314,7 +314,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
 
       if (folderItem) {
         // Check if it's a shortcut
-        if (folderItem.type === FileType.SHORTCUT) {
+        if (folderItem.type === NDExFileType.SHORTCUT) {
           try {
             // Get the NDEx client to fetch the shortcut
             const ndexClient = getNdexClient(config.ndexBaseUrl, token)

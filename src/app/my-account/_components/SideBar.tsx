@@ -8,6 +8,7 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { useFolder } from '@/hooks/use-folder'
+import { Visibility } from '@js4cytoscape/ndex-client'
 
 import {
   Folder,
@@ -187,7 +188,7 @@ export default function SideBar({
       const result = await ndexClient.networks.createNetworkFromRawCX2(
         fileContent,
         {
-          visibility: makePublic ? 'PUBLIC' : 'PRIVATE',
+          visibility: makePublic ? Visibility.PUBLIC : Visibility.PRIVATE,
           folderId: currentFolderId || undefined,
         }
       )
