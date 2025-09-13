@@ -4,9 +4,6 @@ import React, { useCallback, useState } from 'react'
 import {
   Folder,
   MoreVertical,
-  Clock,
-  User,
-  //ArrowRight,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
@@ -17,25 +14,28 @@ import { FileItemBase } from '@/types/api/ndex/File'
 import { ItemTypes } from '@/types/dnd/DndTypes'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useConfig } from '@/lib/contexts/ConfigContext'
-//import { useShortcut } from '@/hooks/use-shortcut'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { MyAccountTabType } from '@/types/ui/myAccount'
+import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClasses } from '@/components/shared/table-styles'
+import { formatDate, getDisplayName } from '@/components/shared/table-utils'
+
 // Props for the component
 interface FoldersListProps {
   folders: FileItemBase[]
-  tabState: MyAccountTabType
+  tabState?: MyAccountTabType
   viewMode: 'grid' | 'list'
-  selectedItems: string[]
-  onSelect: (
+  readOnly?: boolean
+  selectedItems?: string[]
+  onSelect?: (
     event: React.MouseEvent,
     id: string,
     index: number,
-    type: 'FOLDER' | 'NETWORK',
+    type: NDExFileType,
     sortedItems: FileItemBase[],
   ) => void
-  currentFolderId: string | null
-  onDrop: (itemIds: string[], targetFolderId: string) => void
+  currentFolderId?: string | null
+  onDrop?: (itemIds: string[], targetFolderId: string) => void
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
@@ -43,27 +43,13 @@ interface FoldersListProps {
   ) => void
 }
 
+
+
 // Extended folder item with additional properties we might have
 interface FolderItem extends FileItemBase {}
 
 // Sort direction type
 type SortDirection = 'asc' | 'desc' | null
-
-// Format date in a readable way
-const formatDate = (dateStr?: string | Date) => {
-  if (!dateStr) return 'N/A'
-  const date =
-    typeof dateStr === 'string'
-      ? dateStr
-      : new Date(dateStr).toLocaleDateString()
-  return date
-}
-
-// Format count with commas for readability
-/*const formatCount = (count?: number) => {
-  if (count === undefined || count === null) return 'N/A'
-  return count.toLocaleString()
-}*/
 
 // Single folder grid item component
 const GridFolderItem = ({
@@ -74,6 +60,7 @@ const GridFolderItem = ({
   onDoubleClick,
   onDrop,
   onDropdownToggle,
+  readOnly,
 }: {
   folder: FolderItem
   index: number
@@ -82,83 +69,107 @@ const GridFolderItem = ({
     event: React.MouseEvent,
     id: string,
     index: number,
-    type: 'FOLDER' | 'NETWORK',
+    type: NDExFileType,
     sortedItems: FileItemBase[],
   ) => void
   onDoubleClick: (event: React.MouseEvent, id: string) => void
-  onDrop: (itemIds: string[], targetFolderId: string) => void
+  onDrop?: (itemIds: string[], targetFolderId: string) => void
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
     type: NDExFileType,
   ) => void
+  readOnly?: boolean
 }) => {
-  // Drop target for any DRIVE_ITEM
+  const isSelected = selectedItems.includes(folder.uuid)
+
+  // Drop target for any DRIVE_ITEM (only if not read-only and onDrop is provided)
   const [{ isOver }, drop] = useDrop({
     accept: ItemTypes.DRIVE_ITEM,
-    drop: (dragged) => onDrop((dragged as any).ids, folder.uuid),
-    collect: (m) => ({ isOver: m.isOver() }),
+    drop: (dragged: any) => {
+      if (!readOnly && onDrop) {
+        onDrop(dragged.ids, folder.uuid)
+      }
+    },
+    collect: (monitor) => ({ 
+      isOver: !readOnly && onDrop && monitor.isOver(),
+    }),
+    canDrop: () => !readOnly && !!onDrop,
   })
 
-  // Draggable source
+  // Draggable source (only if not read-only)
   const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.DRIVE_ITEM,
-    item: () => ({
+    item: readOnly ? null : () => ({
       ids: selectedItems.includes(folder.uuid) ? selectedItems : [folder.uuid],
-      type: 'FOLDER',
+      type: folder.type,
     }),
-    collect: (m) => ({ isDragging: m.isDragging() }),
+    collect: (m) => ({ isDragging: !readOnly && m.isDragging() }),
+    canDrag: !readOnly,
   })
 
   // Create a ref combining both drag and drop
   const ref = useCallback(
     (node: HTMLDivElement | null) => {
-      drag(node)
-      drop(node)
+      if (!readOnly) {
+        drag(node)
+        if (onDrop) {
+          drop(node)
+        }
+      }
     },
-    [drag, drop],
+    [drag, drop, readOnly, onDrop],
   )
 
   return (
     <div
       key={folder.uuid}
-      data-item
+      data-item={folder.uuid}
       ref={ref}
       className={`
-        rounded-md border border-border cursor-pointer select-none
-        p-2 flex items-center justify-between
-        ${isOver ? 'bg-accent/50 border-accent' : ''}
-        ${isDragging ? 'opacity-50' : 'opacity-100'}
-        ${
-          selectedItems.includes(folder.uuid)
-            ? 'bg-accent'
-            : 'hover:bg-muted'
-        }
+        ${getGridItemClasses(isSelected, isDragging, readOnly || false)}
+        ${isOver ? 'border-accent bg-accent/20' : ''}
       `}
-      onClick={(e) => onSelect(e, folder.uuid, index, 'FOLDER', [])}
+      onClick={(e) => onSelect?.(e, folder.uuid, index, folder.type, [])}
       onDoubleClick={(e) => onDoubleClick(e, folder.uuid)}
     >
-      <div className="flex items-center gap-3 overflow-hidden">
-        <div className="flex-shrink-0">
-          {folder.type === NDExFileType.FOLDER ? (
-            <Folder className="h-5 w-5 text-muted-foreground" />
-          ) : (
-            <Folder className="h-5 w-5 text-green-600" />
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center">
+          <div className="flex-shrink-0 mr-3">
+            {folder.type === NDExFileType.FOLDER ? (
+              <Folder className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <Folder className="h-5 w-5 text-green-600" />
+            )}
+          </div>
+          {!readOnly && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => {}}
+              onClick={(e) => e.stopPropagation()}
+              className={tableStyles.checkbox}
+            />
           )}
         </div>
-        <span className="text-sm truncate">{folder.name}</span>
+        {onDropdownToggle && (
+          <button
+            className={tableStyles.button.dropdown}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDropdownToggle(e, folder.uuid, folder.type)
+            }}
+            data-dropdown-trigger
+            data-dropdown-id={folder.uuid}
+          >
+            <MoreVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
+        )}
       </div>
-      <div className="flex items-center gap-4">
-        <button
-          className="p-1 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
-          onClick={(e) =>
-            onDropdownToggle && onDropdownToggle(e, folder.uuid, folder.type)
-          }
-          data-dropdown-trigger
-          data-dropdown-id={folder.uuid}
-        >
-          <MoreVertical className="h-4 w-4 text-muted-foreground" />
-        </button>
+      <div className="space-y-2">
+        <h3 className={tableStyles.text.name}>
+          {getDisplayName(folder)}
+        </h3>
       </div>
     </div>
   )
@@ -173,6 +184,7 @@ const ListFolderItem = ({
   onDoubleClick,
   onDrop,
   onDropdownToggle,
+  readOnly,
 }: {
   folder: FolderItem
   index: number
@@ -181,61 +193,69 @@ const ListFolderItem = ({
     event: React.MouseEvent,
     id: string,
     index: number,
-    type: 'FOLDER' | 'NETWORK',
+    type: NDExFileType,
     sortedItems: FileItemBase[],
   ) => void
   onDoubleClick: (event: React.MouseEvent, id: string) => void
-  onDrop: (itemIds: string[], targetFolderId: string) => void
+  onDrop?: (itemIds: string[], targetFolderId: string) => void
   onDropdownToggle?: (
     event: React.MouseEvent,
     id: string,
     type: NDExFileType,
   ) => void
+  readOnly?: boolean
 }) => {
+  const isSelected = selectedItems.includes(folder.uuid)
+
   // For list view, we'll make the name cell both draggable and a drop target
   const [{ isOver }, drop] = useDrop({
     accept: ItemTypes.DRIVE_ITEM,
-    drop: (dragged) => onDrop((dragged as any).ids, folder.uuid),
-    collect: (m) => ({ isOver: m.isOver() }),
+    drop: (dragged: any) => {
+      if (!readOnly && onDrop) {
+        onDrop(dragged.ids, folder.uuid)
+      }
+    },
+    collect: (monitor) => ({ 
+      isOver: !readOnly && onDrop && monitor.isOver(),
+    }),
+    canDrop: () => !readOnly && !!onDrop,
   })
 
-  // Draggable source for the folder
+  // Draggable source for the folder (only if not read-only)
   const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.DRIVE_ITEM,
-    item: () => ({
+    item: readOnly ? null : () => ({
       ids: selectedItems.includes(folder.uuid) ? selectedItems : [folder.uuid],
-      type: 'FOLDER',
+      type: folder.type,
     }),
-    collect: (m) => ({ isDragging: m.isDragging() }),
+    collect: (m) => ({ isDragging: !readOnly && m.isDragging() }),
+    canDrag: !readOnly,
   })
 
   // Create a ref combining both drag and drop
   const ref = useCallback(
     (node: HTMLTableRowElement | null) => {
-      drag(node)
-      drop(node)
+      if (!readOnly) {
+        drag(node)
+        if (onDrop) {
+          drop(node)
+        }
+      }
     },
-    [drag, drop],
+    [drag, drop, readOnly, onDrop],
   )
 
   return (
     <tr
       key={folder.uuid}
-      data-item
-      className={`cursor-pointer 
-        ${isDragging ? 'opacity-50' : 'opacity-100'} 
-        ${
-          selectedItems.includes(folder.uuid)
-            ? 'bg-accent'
-            : 'hover:bg-muted'
-        }
-      `}
-      onClick={(e) => onSelect(e, folder.uuid, index, 'FOLDER', [])}
+      data-item={folder.uuid}
+      className={getRowClasses(isSelected, isDragging, readOnly || false)}
+      onClick={(e) => onSelect?.(e, folder.uuid, index, folder.type, [])}
       onDoubleClick={(e) => onDoubleClick(e, folder.uuid)}
       ref={ref}
     >
       <td
-        className={`px-6 py-4 whitespace-nowrap ${isOver ? 'bg-accent/50' : ''}`}
+        className={`${getTdClasses('left')} ${isOver ? 'bg-accent/50' : ''}`}
       >
         <div className="flex items-center w-full">
           <div className="flex-shrink-0 mr-3">
@@ -247,36 +267,45 @@ const ListFolderItem = ({
           </div>
           <div className="overflow-hidden">
             <div className="text-sm font-medium text-foreground truncate max-w-[250px]">
-              {folder.name}
+              {getDisplayName(folder)}
             </div>
           </div>
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-center">
-        <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
-          <User className="h-4 w-4 mr-1 text-muted-foreground" />
-          <span className="truncate">{folder.attributes?.owner || 'Me'}</span>
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-center">
-        <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
-          <Clock className="h-4 w-4 mr-1 text-muted-foreground" />
+      <td className={getTdClasses('left')}>
+        <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
           <span className="truncate">
             {formatDate(folder.modificationTime)}
           </span>
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-center">
-        <button
-          className="p-1 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors inline-flex"
-          onClick={(e) =>
-            onDropdownToggle && onDropdownToggle(e, folder.uuid, folder.type)
-          }
-          data-dropdown-trigger
-          data-dropdown-id={folder.uuid}
-        >
-          <MoreVertical className="h-4 w-4 text-muted-foreground" />
-        </button>
+      <td className={getTdClasses('center')}>
+        <div className="flex justify-center w-full">
+          <span 
+            className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
+              folder.attributes?.visibility === 'PUBLIC'
+                ? 'bg-green-200 dark:bg-green-800/60'
+                : 'bg-blue-300 dark:bg-blue-700/70'
+            }`}
+          >
+            {folder.attributes?.visibility || 'PRIVATE'}
+          </span>
+        </div>
+      </td>
+      <td className={getTdClasses('center')}>
+        {onDropdownToggle && (
+          <button
+            className={tableStyles.button.dropdown}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDropdownToggle(e, folder.uuid, folder.type)
+            }}
+            data-dropdown-trigger
+            data-dropdown-id={folder.uuid}
+          >
+            <MoreVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
+        )}
       </td>
     </tr>
   )
@@ -286,9 +315,9 @@ const FoldersList: React.FC<FoldersListProps> = ({
   folders,
   viewMode,
   tabState,
-  selectedItems,
+  readOnly = false,
+  selectedItems = [],
   onSelect,
-  //currentFolderId,
   onDrop,
   onDropdownToggle,
 }) => {
@@ -301,50 +330,40 @@ const FoldersList: React.FC<FoldersListProps> = ({
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
 
   // Handle double click on folder to navigate into it
-  const handleFolderDoubleClick = async (
-    event: React.MouseEvent,
-    folderId: string,
-  ) => {
-    event.preventDefault()
-    event.stopPropagation()
+  const handleFolderDoubleClick = useCallback(
+    async (event: React.MouseEvent, folderId: string) => {
+      event.preventDefault()
+      event.stopPropagation()
 
-    if (tabState !== MyAccountTabType.TRASH) {
-      // Find the folder in the folders array
-      const folderItem = folders.find((folder) => folder.uuid === folderId)
+      if (!readOnly && tabState !== MyAccountTabType.TRASH) {
+        // Find the folder in the folders array
+        const folderItem = folders.find((folder) => folder.uuid === folderId)
 
-      if (folderItem) {
-        // Check if it's a shortcut
-        if (folderItem.type === NDExFileType.SHORTCUT) {
-          try {
-            // Get the NDEx client to fetch the shortcut
-            const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-            const shortcut = await ndexClient.getShortcut(folderId)
+        if (folderItem) {
+          // Check if it's a shortcut
+          if (folderItem.type === NDExFileType.SHORTCUT) {
+            try {
+              // Get the NDEx client to fetch the shortcut
+              const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+              const shortcut = await ndexClient.files.getShortcut(folderId)
 
-            // Check if the target is a folder, if so navigate to it
-            if (shortcut && shortcut.target) {
-              router.push(`/folders/${shortcut.target}`)
-              return
+              // Check if the target is a folder, if so navigate to it
+              if (shortcut && shortcut.target) {
+                router.push(`/folders/${shortcut.target}`)
+                return
+              }
+            } catch (error) {
+              console.error('Error fetching shortcut:', error)
             }
-          } catch (error) {
-            console.error('Error fetching shortcut:', error)
           }
         }
+
+        // Default behavior - navigate to the folder directly
+        router.push(`/folders/${folderId}`)
       }
-
-      // Default behavior - navigate to the folder directly
-      router.push(`/folders/${folderId}`)
-    }
-  }
-
-  // Handle item click with proper event passing
-  const handleItemClick = (
-    event: React.MouseEvent,
-    id: string,
-    index: number,
-  ) => {
-    // Pass both the ID and the actual sorted items for proper sorting-aware selection
-    onSelect(event, id, index, 'FOLDER', [])
-  }
+    },
+    [router, readOnly, tabState, folders, config.ndexBaseUrl, token]
+  )
 
   // Handle sort column click
   const handleSortClick = (field: 'name' | 'modificationTime') => {
@@ -367,8 +386,6 @@ const FoldersList: React.FC<FoldersListProps> = ({
     }
   }
 
-  // Filter out network items - this component only shows folders
-
   // Sort folders if needed
   const sortedFolderItems = [...folders]
 
@@ -378,8 +395,8 @@ const FoldersList: React.FC<FoldersListProps> = ({
       let valueB: any
 
       if (sortField === 'name') {
-        valueA = a.name?.toLowerCase() || ''
-        valueB = b.name?.toLowerCase() || ''
+        valueA = getDisplayName(a).toLowerCase()
+        valueB = getDisplayName(b).toLowerCase()
       } else if (sortField === 'modificationTime') {
         valueA = a.modificationTime ? new Date(a.modificationTime).getTime() : 0
         valueB = b.modificationTime ? new Date(b.modificationTime).getTime() : 0
@@ -396,17 +413,18 @@ const FoldersList: React.FC<FoldersListProps> = ({
   }
 
   // Create a drop container for when there are no folders
-  const [{ isOver }, drop] = useDrop({
+  const [, drop] = useDrop({
     accept: ItemTypes.DRIVE_ITEM,
     // We don't do anything on drop here since there are no folders
-    collect: (m) => ({ isOver: m.isOver() }),
+    collect: () => ({}),
+    canDrop: () => false,
   })
 
   if (folders.length === 0) {
     return (
-      <div className="mb-8">
-        <h2 className="text-sm font-medium text-muted-foreground mb-2">Folders</h2>
-        <div ref={drop as any} className="text-sm text-muted-foreground">
+      <div className="mb-4">
+        <h2 className={tableStyles.text.title}>Folders</h2>
+        <div ref={drop as any} className={tableStyles.empty}>
           No folders found
         </div>
       </div>
@@ -430,39 +448,41 @@ const FoldersList: React.FC<FoldersListProps> = ({
   }
 
   return (
-    <div className="mb-8">
-      <h2 className="text-sm font-medium text-foreground mb-2">Folders</h2>
+    <div className="mb-4">
+      <h2 className={tableStyles.text.title}>Folders</h2>
 
       {viewMode === 'grid' ? (
         // Grid View
-        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+        <div className={tableStyles.grid.container}>
           {sortedFolderItems.map((folder, index) => (
             <GridFolderItem
               key={folder.uuid}
               folder={folder}
               index={index}
               selectedItems={selectedItems}
-              onSelect={(e, id, idx) =>
-                onSelect(e, id, idx, 'FOLDER', sortedFolderItems)
+              onSelect={(e, id, idx, type) =>
+                onSelect?.(e, id, idx, type, sortedFolderItems)
               }
               onDoubleClick={handleFolderDoubleClick}
               onDrop={onDrop}
               onDropdownToggle={onDropdownToggle}
+              readOnly={readOnly}
             />
           ))}
         </div>
       ) : (
         // List View - Enhanced with table layout
-        <div className="overflow-x-auto border border-border rounded-md">
-          <table className="min-w-full divide-y divide-border table-fixed">
-            <thead className="bg-muted/50">
+        <div className={tableStyles.container}>
+          <table className="min-w-full divide-y divide-border" style={{ tableLayout: 'fixed', width: '100%' }}>
+            <thead className={tableStyles.thead}>
               <tr>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-2/5"
+                  className={getThClasses('left')}
+                  style={{ minWidth: '200px' }}
                 >
                   <button
-                    className="flex items-center focus:outline-none"
+                    className={tableStyles.button.sort}
                     onClick={() => handleSortClick('name')}
                   >
                     Name
@@ -471,16 +491,11 @@ const FoldersList: React.FC<FoldersListProps> = ({
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/5"
-                >
-                  Owner
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/5"
+                  className={getThClasses('left')}
+                  style={{ width: '170px', minWidth: '170px' }}
                 >
                   <button
-                    className="flex items-center justify-center mx-auto focus:outline-none"
+                    className="flex items-center justify-start focus:outline-none"
                     onClick={() => handleSortClick('modificationTime')}
                   >
                     Last Modified
@@ -489,25 +504,34 @@ const FoldersList: React.FC<FoldersListProps> = ({
                 </th>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-24"
+                  className={getThClasses('center')}
+                  style={{ width: '100px', minWidth: '100px' }}
+                >
+                  Visibility
+                </th>
+                <th
+                  scope="col"
+                  className={getThClasses('center')}
+                  style={{ width: '80px', minWidth: '80px' }}
                 >
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-background divide-y divide-border">
+            <tbody className={tableStyles.tbody}>
               {sortedFolderItems.map((folder, index) => (
                 <ListFolderItem
                   key={folder.uuid}
                   folder={folder}
                   index={index}
                   selectedItems={selectedItems}
-                  onSelect={(e, id, idx) =>
-                    onSelect(e, id, idx, 'FOLDER', sortedFolderItems)
+                  onSelect={(e, id, idx, type) =>
+                    onSelect?.(e, id, idx, type, sortedFolderItems)
                   }
                   onDoubleClick={handleFolderDoubleClick}
                   onDrop={onDrop}
                   onDropdownToggle={onDropdownToggle}
+                  readOnly={readOnly}
                 />
               ))}
             </tbody>

@@ -1,5 +1,5 @@
 import { PropertyValuePair } from './PropertyValuePair'
-import { Visibility } from './Visibility'
+import { Visibility } from '@js4cytoscape/ndex-client'
 
 export interface NetworkSummary {
   name: string // Name or title of the network, not unique

@@ -20,7 +20,7 @@ import {
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { useRouter } from 'next/navigation'
 import { useConfig } from '@/lib/contexts/ConfigContext'
-import DetailsPanel from './DetailsPanel'
+import DetailsPanel from '@/components/shared/DetailsPanel'
 import { useFolder, useFolderContents } from '@/hooks/use-folder'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { useSharedFiles } from '@/hooks/use-shared-files'
@@ -419,7 +419,7 @@ function MyAccountContent({
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
 
       while (parentId) {
-        const parentFolder = await ndexClient.getFolder(parentId)
+        const parentFolder = await ndexClient.files.getFolder(parentId)
         // Add parent to the beginning of the path
         path.unshift({
           name: parentFolder.name,
@@ -684,11 +684,11 @@ function MyAccountContent({
         ids.forEach((id) => {
           const item = trashItems.find((item) => item.uuid === id)
           if (item) {
-            if (item.type === 'FOLDER') {
+            if (item.type === NDExFileType.FOLDER) {
               folderIds.push(id)
-            } else if (item.type === 'NETWORK') {
+            } else if (item.type === NDExFileType.NETWORK) {
               networkIds.push(id)
-            } else if (item.type === 'SHORTCUT') {
+            } else if (item.type === NDExFileType.SHORTCUT) {
               shortcutIds.push(id)
             }
           }
@@ -827,16 +827,16 @@ function MyAccountContent({
       // Move each item to the target folder based on its type
       for (const item of itemsToMove) {
         try {
-          if (item.type === 'FOLDER') {
+          if (item.type === NDExFileType.FOLDER) {
             // Move folder
             await updateFolder(item.uuid, item.name, targetFolderId)
             movedItems.successful++
             movedItems.names.push(item.name)
-          } else if (item.type === 'NETWORK') {
+          } else if (item.type === NDExFileType.NETWORK) {
             // Move network
             // TODO: Implement the updateNetwork method in ndexClient
             networksToMove.push(item.uuid)
-          } else if (item.type === 'SHORTCUT') {
+          } else if (item.type === NDExFileType.SHORTCUT) {
             // Update shortcut parent
             await updateShortcut(
               item.uuid,
@@ -1005,7 +1005,7 @@ function MyAccountContent({
   }
 
   return (
-    <div className="flex h-screen gap-x-4 p-2">
+    <div className="flex gap-x-2 p-1" style={{ height: 'calc(100vh - 56px)' }}>
       {/* Sidebar */}
       <SideBar
         collapsed={sidebarCollapsed}
@@ -1015,7 +1015,7 @@ function MyAccountContent({
       />
 
       {/* Main Content and Details Panel Container */}
-      <div className="flex-1 flex h-full overflow-hidden gap-x-4">
+      <div className="flex-1 flex overflow-hidden gap-x-2 h-full">
         {/* Main Content */}
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-card border border-border rounded-md transition-all duration-300 ease-in-out">
           {/* Header */}

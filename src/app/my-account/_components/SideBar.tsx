@@ -228,8 +228,9 @@ export default function SideBar({
   return (
     <nav
       className={`${
-        collapsed ? 'w-16' : 'w-60'
-      } h-full bg-card border border-border p-4 flex flex-col transition-all duration-300 relative rounded-md`}
+        collapsed ? 'w-16' : 'w-52'
+      } bg-card border border-border p-4 flex flex-col transition-all duration-300 relative rounded-md`}
+      style={{ height: 'calc(100vh - 64px)' }}
     >
       <div className="absolute -right-3 top-15 z-10">
         <button

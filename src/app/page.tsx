@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Home from '@/app/_components/Home'
 import FolderViewer from '@/app/folders/_components/FolderViewer'
+import UserPublicPage from '@/app/users/_components/UserPublicPage'
 
 /**
  * Root Page with Static Export Compatibility
@@ -38,6 +39,17 @@ export default function HomePage() {
     if (uuid !== 'placeholder') {
       console.log('Client-side folder route for UUID:', uuid)
       return <FolderViewer uuid={uuid} />
+    }
+  }
+
+  // Handle user profile routes that couldn't be statically generated
+  const userMatch = pathname?.match(/^\/users\/([^\/]+)$/)
+  if (userMatch) {
+    const uuid = userMatch[1]
+    // Skip if it's the placeholder (should use file-system routing)
+    if (uuid !== 'placeholder') {
+      console.log('Client-side user route for UUID:', uuid)
+      return <UserPublicPage uuid={uuid} />
     }
   }
 

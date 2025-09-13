@@ -103,18 +103,18 @@ const BulkDownloadMenu: React.FC<{
 
       {isOpen && (
         <div className="absolute top-full right-0 mt-1 w-44 rounded-md bg-popover shadow-lg z-50 border border-border">
-          <div className="py-1 text-sm font-medium text-popover-foreground px-3 border-b border-border">
+          <div className="py-1 text-xs font-medium text-popover-foreground px-3 border-b border-border">
             Download Format
           </div>
           <button
-            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+            className="flex w-full items-center gap-2 px-3 py-1 text-xs text-popover-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => handleDownload('CX')}
             disabled={isDownloading || networkItems.length === 0}
           >
             <span>CX Format</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+            className="flex w-full items-center gap-2 px-3 py-1 text-xs text-popover-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => handleDownload('CX2')}
             disabled={isDownloading || networkItems.length === 0}
           >
@@ -364,7 +364,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
   return (
     <div className="mt-1 mb-3 mx-4">
       {selectedItems.length > 0 && showSelectionToolbar ? (
-        <div className="px-6 py-2 flex items-center justify-start bg-muted rounded-lg h-12">
+        <div className="px-6 py-1 flex items-center justify-start bg-muted rounded-lg h-12">
           <div className="flex items-center gap-2">
             <button
               className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
@@ -373,12 +373,12 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
             >
               <X className="h-5 w-5 text-muted-foreground" />
             </button>
-            <span className="text-sm font-medium text-foreground mr-8">
+            <span className="text-xs font-medium text-foreground mr-8">
               {selectedItems.length}{' '}
               {selectedItems.length === 1 ? 'item' : 'items'} selected
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             {tabState === MyAccountTabType.TRASH ? (
               // Trash-specific actions
               <>
@@ -488,7 +488,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
               <div className="relative ml-2 mr-2 h-12" ref={filterDropdownRef}>
                 {/* Main filter button styled like the image */}
                 <button
-                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-background border border-border text-primary hover:bg-accent hover:text-accent-foreground h-10 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1 rounded-md bg-background border border-border text-primary hover:bg-accent hover:text-accent-foreground h-10 transition-colors"
                   onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
                 >
                   <SlidersHorizontal className="h-5 w-5" />
@@ -497,8 +497,8 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
 
                 {/* Filter dropdown with checkboxes */}
                 {filterDropdownOpen && (
-                  <div className="absolute top-full left-0 mt-1 w-72 rounded-md bg-popover border border-border shadow-sm z-10 p-5">
-                    <h3 className="text-base font-medium text-popover-foreground mb-4">
+                  <div className="absolute top-full left-0 mt-1 w-72 rounded-md bg-popover border border-border shadow-sm z-10 p-3">
+                    <h3 className="text-xs font-medium text-popover-foreground mb-4">
                       Filters
                     </h3>
                     <div className="space-y-5">
@@ -518,7 +518,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                             )}
                           </div>
                           <label
-                            className="ml-2 text-base font-medium text-gray-700 cursor-pointer"
+                            className="ml-2 text-xs font-medium text-gray-700 cursor-pointer"
                             onClick={() => toggleFilter('edgeCount')}
                           >
                             Edge Count
@@ -529,7 +529,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                             <input
                               type="number"
                               placeholder="Min"
-                              className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                              className="w-24 px-2 py-0.5 border border-gray-300 rounded text-xs"
                               min="0"
                               value={filterValues.edgeCount.min}
                               onChange={(e) =>
@@ -544,7 +544,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                             <input
                               type="number"
                               placeholder="Max"
-                              className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                              className="w-24 px-2 py-0.5 border border-gray-300 rounded text-xs"
                               min="0"
                               value={filterValues.edgeCount.max}
                               onChange={(e) =>
@@ -575,7 +575,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                             )}
                           </div>
                           <label
-                            className="ml-2 text-base font-medium text-gray-700 cursor-pointer"
+                            className="ml-2 text-xs font-medium text-gray-700 cursor-pointer"
                             onClick={() => toggleFilter('nodeCount')}
                           >
                             Node Count
@@ -586,7 +586,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                             <input
                               type="number"
                               placeholder="Min"
-                              className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                              className="w-24 px-2 py-0.5 border border-gray-300 rounded text-xs"
                               min="0"
                               value={filterValues.nodeCount.min}
                               onChange={(e) =>
@@ -601,7 +601,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                             <input
                               type="number"
                               placeholder="Max"
-                              className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                              className="w-24 px-2 py-0.5 border border-gray-300 rounded text-xs"
                               min="0"
                               value={filterValues.nodeCount.max}
                               onChange={(e) =>
@@ -632,7 +632,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                             )}
                           </div>
                           <label
-                            className="ml-2 text-base font-medium text-gray-700 cursor-pointer"
+                            className="ml-2 text-xs font-medium text-gray-700 cursor-pointer"
                             onClick={() => toggleFilter('modificationTime')}
                           >
                             Modification Time
@@ -641,13 +641,13 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                         {selectedFilters.has('modificationTime') && (
                           <div className="flex flex-col gap-3">
                             <div className="flex items-center">
-                              <label className="text-sm text-gray-600 w-16">
+                              <label className="text-xs text-gray-600 w-16">
                                 From:
                               </label>
                               <div className="relative flex-1">
                                 <input
                                   type="date"
-                                  className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
+                                  className="w-full px-3 py-0.5 border border-gray-300 rounded text-xs"
                                   value={
                                     filterValues.modificationTime.start
                                       ? formatDateForInput(
@@ -669,13 +669,13 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                               </div>
                             </div>
                             <div className="flex items-center">
-                              <label className="text-sm text-gray-600 w-16">
+                              <label className="text-xs text-gray-600 w-16">
                                 To:
                               </label>
                               <div className="relative flex-1">
                                 <input
                                   type="date"
-                                  className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
+                                  className="w-full px-3 py-0.5 border border-gray-300 rounded text-xs"
                                   value={
                                     filterValues.modificationTime.end
                                       ? formatDateForInput(
@@ -713,7 +713,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                 ).map((filterType) => (
                   <div key={filterType} className="relative">
                     <div
-                      className={`flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 text-sm cursor-pointer h-10 ${
+                      className={`flex items-center gap-2 px-3 py-1 rounded-md border border-gray-300 text-xs cursor-pointer h-10 ${
                         selectedFilters.has(filterType)
                           ? 'bg-sky-50'
                           : 'bg-transparent'
@@ -741,10 +741,10 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                     {/* Filter value editing dropdown */}
                     {activeFilterDropdown === filterType && (
                       <div
-                        className="absolute top-full left-0 mt-1 w-72 rounded-md bg-white border border-gray-200 shadow-sm z-10 p-4"
+                        className="absolute top-full left-0 mt-1 w-72 rounded-md bg-white border border-gray-200 shadow-sm z-10 p-2"
                         data-filter-dropdown
                       >
-                        <h3 className="text-base font-medium text-gray-900 mb-3">
+                        <h3 className="text-xs font-medium text-gray-900 mb-3">
                           {filterLabels[filterType]} Settings
                         </h3>
 
@@ -753,7 +753,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                             <input
                               type="number"
                               placeholder="Min"
-                              className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                              className="w-24 px-2 py-0.5 border border-gray-300 rounded text-xs"
                               min="0"
                               value={filterValues.edgeCount.min}
                               onChange={(e) =>
@@ -768,7 +768,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                             <input
                               type="number"
                               placeholder="Max"
-                              className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                              className="w-24 px-2 py-0.5 border border-gray-300 rounded text-xs"
                               min="0"
                               value={filterValues.edgeCount.max}
                               onChange={(e) =>
@@ -787,7 +787,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                             <input
                               type="number"
                               placeholder="Min"
-                              className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                              className="w-24 px-2 py-0.5 border border-gray-300 rounded text-xs"
                               min="0"
                               value={filterValues.nodeCount.min}
                               onChange={(e) =>
@@ -802,7 +802,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                             <input
                               type="number"
                               placeholder="Max"
-                              className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                              className="w-24 px-2 py-0.5 border border-gray-300 rounded text-xs"
                               min="0"
                               value={filterValues.nodeCount.max}
                               onChange={(e) =>
@@ -819,13 +819,13 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                         {filterType === 'modificationTime' && (
                           <div className="flex flex-col gap-3">
                             <div className="flex items-center">
-                              <label className="text-sm text-gray-600 w-16">
+                              <label className="text-xs text-gray-600 w-16">
                                 From:
                               </label>
                               <div className="relative flex-1">
                                 <input
                                   type="date"
-                                  className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
+                                  className="w-full px-3 py-0.5 border border-gray-300 rounded text-xs"
                                   value={
                                     filterValues.modificationTime.start
                                       ? formatDateForInput(
@@ -847,13 +847,13 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                               </div>
                             </div>
                             <div className="flex items-center">
-                              <label className="text-sm text-gray-600 w-16">
+                              <label className="text-xs text-gray-600 w-16">
                                 To:
                               </label>
                               <div className="relative flex-1">
                                 <input
                                   type="date"
-                                  className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm"
+                                  className="w-full px-3 py-0.5 border border-gray-300 rounded text-xs"
                                   value={
                                     filterValues.modificationTime.end
                                       ? formatDateForInput(
@@ -879,7 +879,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
 
                         <div className="flex justify-end mt-4">
                           <button
-                            className="px-3 py-1.5 bg-sky-700 text-white text-sm rounded hover:bg-sky-600"
+                            className="px-3 py-0.5 bg-sky-700 text-white text-xs rounded hover:bg-sky-600"
                             onClick={() => {
                               // If not already selected, add to selected filters
                               if (!selectedFilters.has(filterType)) {
@@ -899,7 +899,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                 {/* Clear all filters button - only shown when filters are active */}
                 {selectedFilters.size > 0 && (
                   <button
-                    className="flex items-center gap-1 px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 h-10"
+                    className="flex items-center gap-1 px-3 py-1 rounded-md border border-gray-300 text-xs font-medium text-gray-700 hover:bg-gray-50 h-10"
                     onClick={resetFilters}
                   >
                     <RefreshCw className="h-4 w-4" />
@@ -912,7 +912,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
 
           {/* Show trash info message when in trash view */}
           {tabState === MyAccountTabType.TRASH && (
-            <div className="w-full flex items-center justify-between px-6 py-2 rounded-lg bg-gray-100 text-gray-700 border-b border-gray-200 h-12">
+            <div className="w-full flex items-center justify-between px-6 py-1 rounded-lg bg-gray-100 text-gray-700 border-b border-gray-200 h-12">
               <div>Items in trash will be deleted forever after 30 days</div>
               <button
                 className="text-gray-600 hover:text-gray-900 font-medium"

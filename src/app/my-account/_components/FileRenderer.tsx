@@ -1,7 +1,7 @@
 import React from 'react'
 import { Folder, Trash, Search, Users } from 'lucide-react'
-import FoldersList from './FoldersList'
-import NetworksList from './NetworksList'
+import FoldersList from '@/components/shared/FoldersList'
+import NetworksList from '@/components/shared/NetworksList'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { MyAccountTabType } from '@/types/ui/myAccount'
@@ -18,7 +18,7 @@ interface ContentRendererProps {
     event: React.MouseEvent,
     id: string,
     index: number,
-    type: 'FOLDER' | 'NETWORK',
+    type: NDExFileType,
     sortedItems?: FileItemBase[],
   ) => void
   handleOutsideClick: (event: React.MouseEvent) => void
@@ -45,7 +45,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
     // Trash content
     return (
       <div
-        className="px-6 py-5 flex-1 overflow-y-auto"
+        className="px-4 py-1 flex-1 overflow-y-auto"
         onClick={handleOutsideClick}
       >
         {trashItems.length === 0 ? (
@@ -69,7 +69,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               tabState={tabState}
               selectedItems={selectedItems}
               onSelect={(e, id, index) =>
-                handleItemSelect(e, id, index, 'FOLDER', trashItems)
+                handleItemSelect(e, id, index, NDExFileType.FOLDER, trashItems)
               }
               currentFolderId={currentFolderId}
               onDrop={() => {}} // No-op in trash
@@ -86,7 +86,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               viewMode={viewMode}
               selectedItems={selectedItems}
               onSelect={(e, id, index) =>
-                handleItemSelect(e, id, index, 'NETWORK', trashItems)
+                handleItemSelect(e, id, index, NDExFileType.NETWORK, trashItems)
               }
               onDropdownToggle={handleDropdownToggle}
             />
@@ -98,7 +98,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
     // Shared content
     return (
       <div
-        className="px-6 py-5 flex-1 overflow-y-auto"
+        className="px-4 py-1 flex-1 overflow-y-auto"
         onClick={handleOutsideClick}
       >
         {filteredItems.length === 0 ? (
@@ -169,7 +169,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
     // Regular folder content
     return (
       <div
-        className="px-6 py-5 flex-1 overflow-y-auto"
+        className="px-4 py-1 flex-1 overflow-y-auto"
         onClick={handleOutsideClick}
       >
         {filteredItems.length === 0 ? (
