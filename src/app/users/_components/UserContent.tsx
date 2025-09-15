@@ -196,6 +196,7 @@ export default function UserContent({ content, isLoading, userName }: UserConten
                   // Handle dropdown toggle for public read-only mode
                   console.log('Public user folder dropdown:', { id, type })
                 }}
+                defaultSort={{ field: 'name', direction: 'asc' }}
               />
             )}
 
@@ -212,6 +213,7 @@ export default function UserContent({ content, isLoading, userName }: UserConten
                 // This could show a different menu with options like "View in NDEx", "Copy Link", etc.
                 console.log('Public user dropdown:', { id, type })
               }}
+              defaultSort={{ field: 'name', direction: 'asc' }}
             />
           </DndProvider>
         </div>

@@ -151,7 +151,7 @@ export const useFolder = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const result = await ndexClient.files.createFolder(name, parentFolderId)
+      const result = await ndexClient.files.createFolder(name, parentFolderId || undefined)
       
       // Refresh parent folder contents if it's being viewed
       globalMutate((key) => 
@@ -276,7 +276,7 @@ export const fetchFolderContents = async (
 
   if (folderId === null) {
     // Get home folder contents
-    return ndexClient._httpGetV3ProtectedObj('files/folders/home/list')
+    return ndexClient.files.getFolderList()
   } else {
     // Get specific folder contents
     return ndexClient.files.getFolderList(folderId)

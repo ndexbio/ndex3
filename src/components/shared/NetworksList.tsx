@@ -41,6 +41,10 @@ interface NetworksListProps {
     id: string,
     type: NDExFileType,
   ) => void
+  defaultSort?: {
+    field: 'name' | 'modificationTime'
+    direction: 'asc' | 'desc'
+  }
 }
 
 
@@ -248,7 +252,12 @@ const ListNetworkItem = ({
       <td className={getTdClasses('right')}>
         <div className="flex items-center justify-end w-full text-sm text-muted-foreground">
           <span className="truncate">
-            {formatCount(network.attributes?.edges as number)}
+            {formatCount(
+              network.attributes?.edges ||
+              network.attributes?.edgeCount ||
+              (network as any).edgeCount ||
+              0
+            )}
           </span>
         </div>
       </td>
@@ -303,14 +312,15 @@ const NetworksList: React.FC<NetworksListProps> = ({
   selectedItems = [],
   onSelect,
   onDropdownToggle,
+  defaultSort = { field: 'modificationTime', direction: 'desc' },
 }) => {
   const router = useRouter()
   const config = useConfig()
   const { token } = useAuth()
   const [sortField, setSortField] = useState<
     'name' | 'modificationTime' | null
-  >(null)
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null)
+  >(defaultSort.field)
+  const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSort.direction)
 
   // Handle double click on network to open it
   const handleNetworkDoubleClick = useCallback(
@@ -429,6 +439,15 @@ const NetworksList: React.FC<NetworksListProps> = ({
 
       if (valueA < valueB) return -1 * direction
       if (valueA > valueB) return 1 * direction
+
+      // If primary sort values are equal, sort by name alphabetically
+      if (valueA === valueB) {
+        const nameA = getDisplayName(a, 'Untitled Network').toLowerCase()
+        const nameB = getDisplayName(b, 'Untitled Network').toLowerCase()
+        if (nameA < nameB) return -1
+        if (nameA > nameB) return 1
+      }
+
       return 0
     })
   }

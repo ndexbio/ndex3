@@ -1005,7 +1005,7 @@ function MyAccountContent({
   }
 
   return (
-    <div className="flex gap-x-2 p-1" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="flex gap-x-2 p-1 h-full">
       {/* Sidebar */}
       <SideBar
         collapsed={sidebarCollapsed}

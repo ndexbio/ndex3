@@ -10,7 +10,7 @@ export function MainPanel({ children }: MainPanelProps) {
   return (
     <SidebarProvider defaultOpen={false}>
       <AppSidebar />
-      <main className="flex-grow w-full h-full">{children}</main>
+      <main className="w-full h-[calc(100vh-56px)]">{children}</main>
     </SidebarProvider>
   )
 }

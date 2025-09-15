@@ -9,7 +9,7 @@ import { useBasePath } from '../lib/contexts/ConfigContext'
 export function Footer() {
   const basePath = useBasePath()
   return (
-    <footer className="w-full py-2 bg-muted flex-grow-1">
+    <footer className="w-full py-2 bg-muted -mt-14">
       <div className="mx-auto max-w-7xl px-4 md:flex md:justify-between md:items-start text-sm">
         {/* Left Column: LEGAL */}
         <div className="mb-3 md:mb-0">

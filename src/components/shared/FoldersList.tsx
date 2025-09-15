@@ -41,6 +41,10 @@ interface FoldersListProps {
     id: string,
     type: NDExFileType,
   ) => void
+  defaultSort?: {
+    field: 'name' | 'modificationTime'
+    direction: 'asc' | 'desc'
+  }
 }
 
 
@@ -320,14 +324,15 @@ const FoldersList: React.FC<FoldersListProps> = ({
   onSelect,
   onDrop,
   onDropdownToggle,
+  defaultSort = { field: 'modificationTime', direction: 'desc' },
 }) => {
   const router = useRouter()
   const config = useConfig()
   const { token } = useAuth()
   const [sortField, setSortField] = useState<
     'name' | 'modificationTime' | null
-  >(null)
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null)
+  >(defaultSort.field)
+  const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSort.direction)
 
   // Handle double click on folder to navigate into it
   const handleFolderDoubleClick = useCallback(
@@ -408,6 +413,15 @@ const FoldersList: React.FC<FoldersListProps> = ({
 
       if (valueA < valueB) return -1 * direction
       if (valueA > valueB) return 1 * direction
+
+      // If primary sort values are equal, sort by name alphabetically
+      if (valueA === valueB) {
+        const nameA = getDisplayName(a).toLowerCase()
+        const nameB = getDisplayName(b).toLowerCase()
+        if (nameA < nameB) return -1
+        if (nameA > nameB) return 1
+      }
+
       return 0
     })
   }

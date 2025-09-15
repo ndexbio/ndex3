@@ -1,26 +1,35 @@
 // Shared utility functions for table components
 
 // Format date in a readable way: M/D/YY H:MM AM/PM
-export const formatDate = (dateStr?: string | Date) => {
+export const formatDate = (dateStr?: string | Date | number) => {
   if (!dateStr) return 'N/A'
-  
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : new Date(dateStr)
-  
+
+  let date: Date
+
+  if (typeof dateStr === 'number') {
+    // Handle timestamp (milliseconds)
+    date = new Date(dateStr)
+  } else if (typeof dateStr === 'string') {
+    date = new Date(dateStr)
+  } else {
+    date = new Date(dateStr)
+  }
+
   // Check if date is valid
   if (isNaN(date.getTime())) return 'N/A'
-  
+
   // Format: M/D/YY H:MM AM/PM
   const month = date.getMonth() + 1
   const day = date.getDate()
   const year = date.getFullYear().toString().slice(-2)
-  
+
   let hours = date.getHours()
   const minutes = date.getMinutes().toString().padStart(2, '0')
   const ampm = hours >= 12 ? 'PM' : 'AM'
-  
+
   hours = hours % 12
   hours = hours ? hours : 12 // 0 should be 12
-  
+
   return `${month}/${day}/${year} ${hours}:${minutes} ${ampm}`
 }
 

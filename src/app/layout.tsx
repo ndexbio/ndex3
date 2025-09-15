@@ -57,7 +57,7 @@ export default function RootLayout({
           <KeycloakProvider>
             <ToastContextProvider>
               <ThemeWrapper>
-                <div className="flex flex-col min-h-screen">
+                <div className="min-h-screen">
                   <NavBar />
                   <MainPanel>{children}</MainPanel>
                   <Footer />
