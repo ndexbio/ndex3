@@ -17,6 +17,7 @@ import { FileItemBase } from '@/types/api/ndex/File'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
+import { useNetworkCopy } from '@/hooks/use-network-copy'
 
 // Add a dropdown menu for download formats
 const DownloadMenu: React.FC<{
@@ -87,6 +88,7 @@ interface ActionDropdownProps {
   dropdownType: NDExFileType | null
   item: FileItemBase | null
   tabState: MyAccountTabType
+  currentFolderId: string | null
   onClose: () => void
   onDelete: (itemIds: string[]) => Promise<void>
   onRestore: (itemIds: string[]) => Promise<void>
@@ -99,6 +101,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   dropdownType,
   item,
   tabState,
+  currentFolderId,
   onClose,
   onDelete,
   onRestore,
@@ -111,6 +114,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     openMoveFolderDialog,
     openEditNetworkPropertiesDialog,
   } = useDialogs()
+  const { copyFile, isCopying } = useNetworkCopy()
 
   // Add an effect to mark the component as mounted for event handling
   useEffect(() => {
@@ -198,6 +202,23 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       )
       onClose() // Close the dropdown
     }
+  }
+
+  // Handle copying the file
+  const handleCopyFile = async () => {
+    if (!item || !openDropdownId) return
+
+    // Use the currentFolderId passed as prop, fallback to empty string for root
+    const parentFolderId = currentFolderId || ''
+
+    await copyFile(
+      openDropdownId,
+      item.name || 'Unnamed file',
+      dropdownType || NDExFileType.NETWORK,
+      parentFolderId
+    )
+
+    onClose() // Close the dropdown
   }
 
   // Render different options based on tabState
@@ -316,10 +337,15 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
           </button>
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => onClose())}
+            onClick={handleButtonClick(handleCopyFile)}
+            disabled={isCopying[openDropdownId]}
           >
-            <Copy className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Make a Copy
+            {isCopying[openDropdownId] ? (
+              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+            ) : (
+              <Copy className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+            )}
+            {isCopying[openDropdownId] ? 'Copying...' : 'Make a Copy'}
           </button>
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

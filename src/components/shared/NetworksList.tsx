@@ -2,12 +2,12 @@
 
 import React, { useState, useCallback } from 'react'
 import {
-  File,
   MoreVertical,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
 } from 'lucide-react'
+import { ShortcutIcon } from '@/components/ui/ShortcutIcon'
 import { useRouter } from 'next/navigation'
 import { useDrag } from 'react-dnd'
 import { FileItemBase } from '@/types/api/ndex/File'
@@ -116,11 +116,11 @@ const GridNetworkItem = ({
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center">
           <div className="flex-shrink-0 mr-3">
-            {network.type === NDExFileType.NETWORK ? (
-              <File className="h-5 w-5 text-sky-700" />
-            ) : (
-              <File className="h-5 w-5 text-green-600" />
-            )}
+            <ShortcutIcon
+              type={network.type === NDExFileType.SHORTCUT ? NDExFileType.NETWORK : network.type}
+              isShortcut={network.type === NDExFileType.SHORTCUT}
+              className="h-5 w-5"
+            />
           </div>
           {!readOnly && (
             <input
@@ -227,11 +227,11 @@ const ListNetworkItem = ({
       <td className={getTdClasses('left')}>
         <div className="flex items-center w-full">
           <div className="flex-shrink-0 mr-3">
-            {network.type === NDExFileType.NETWORK ? (
-              <File className="h-5 w-5 text-sky-700" />
-            ) : (
-              <File className="h-5 w-5 text-green-600" />
-            )}
+            <ShortcutIcon
+              type={network.type === NDExFileType.SHORTCUT ? NDExFileType.NETWORK : network.type}
+              isShortcut={network.type === NDExFileType.SHORTCUT}
+              className="h-5 w-5"
+            />
           </div>
           <div className="flex-1 overflow-hidden">
             <div className="text-sm font-medium text-foreground truncate">
@@ -530,7 +530,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
                 <th
                   scope="col"
                   className={getThClasses('right')}
-                  style={{ width: '90px', minWidth: '90px' }}
+                  style={{ width: '120px', minWidth: '120px' }}
                 >
                   Edges
                 </th>

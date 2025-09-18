@@ -725,34 +725,46 @@ function MyAccountContent({
   const handlePermanentDelete = async (ids?: string[]) => {
     if (tabState === MyAccountTabType.TRASH && isAuthenticated) {
       setLoading(true)
-      if (ids) {
-        for (const id of ids) {
-          try {
+      try {
+        if (ids) {
+          // Delete individual items
+          for (const id of ids) {
             await permanentDelete(id)
-            addToast({
-              title: 'Item deleted',
-              description: 'Item deleted successfully',
-              type: 'success',
-            })
-          } catch (error) {
-            console.error('Error permanently deleting item:', error)
-            setErrorMessage('Failed to permanently delete item')
-            setLoading(false)
           }
-        }
-      } else {
-        try {
+
+          // Refresh trash contents after deleting individual items
+          await refreshTrash()
+
+          // Clear selection after successful deletion
+          setSelectedItems([])
+
+          // Show success toast
+          addToast({
+            title: ids.length === 1 ? 'Item deleted' : 'Items deleted',
+            description: `${ids.length} item(s) deleted permanently`,
+            type: 'success',
+          })
+        } else {
+          // Empty entire trash
           await emptyTrash()
           addToast({
             title: 'Trash emptied',
             description: 'Trash emptied successfully',
             type: 'success',
           })
-        } catch (error) {
-          console.error('Error emptying trash:', error)
-          setErrorMessage('Failed to empty trash')
-          setLoading(false)
         }
+      } catch (error) {
+        console.error('Error permanently deleting item(s):', error)
+        setErrorMessage('Failed to permanently delete item(s)')
+
+        // Show error toast
+        addToast({
+          title: 'Delete failed',
+          description: 'Failed to permanently delete item(s)',
+          type: 'error',
+        })
+      } finally {
+        setLoading(false)
       }
     }
   }
@@ -1124,6 +1136,7 @@ function MyAccountContent({
                   null
                 }
                 tabState={tabState}
+                currentFolderId={folderId}
                 onClose={() => {
                   setOpenDropdownId(null)
                   setDropdownType(null)

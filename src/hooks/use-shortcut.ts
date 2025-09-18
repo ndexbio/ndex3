@@ -43,7 +43,7 @@ export const useShortcut = (
     
     try {
       if (shortcutId) {
-        return await ndexClient.getShortcut(shortcutId, accessKey)
+        return await ndexClient.files.getShortcut(shortcutId, accessKey)
       }
       return null
     } catch (error) {
@@ -88,7 +88,12 @@ export const useShortcut = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const result = await ndexClient.files.createShortcut(name, parentFolderId, targetId, targetType )
+      const result = await ndexClient.files.createShortcut({
+        name,
+        target: targetId,
+        targetType,
+        parent: parentFolderId || undefined
+      })
       
       // Refresh parent folder contents if it's being viewed
       globalMutate((key) => 
@@ -215,5 +220,5 @@ export const fetchShortcut = async (
   accessKey?: string
 ): Promise<Shortcut> => {
   const ndexClient = getNdexClient(ndexBaseUrl, token)
-  return ndexClient.getShortcut(shortcutId, accessKey)
+  return ndexClient.files.getShortcut(shortcutId, accessKey)
 }

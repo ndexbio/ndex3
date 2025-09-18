@@ -2,12 +2,12 @@
 
 import React, { useCallback, useState } from 'react'
 import {
-  Folder,
   MoreVertical,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
 } from 'lucide-react'
+import { ShortcutIcon } from '@/components/ui/ShortcutIcon'
 import { useRouter } from 'next/navigation'
 import { useDrag, useDrop } from 'react-dnd'
 import { FileItemBase } from '@/types/api/ndex/File'
@@ -140,11 +140,11 @@ const GridFolderItem = ({
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center">
           <div className="flex-shrink-0 mr-3">
-            {folder.type === NDExFileType.FOLDER ? (
-              <Folder className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <Folder className="h-5 w-5 text-green-600" />
-            )}
+            <ShortcutIcon
+              type={folder.type === NDExFileType.SHORTCUT ? NDExFileType.FOLDER : folder.type}
+              isShortcut={folder.type === NDExFileType.SHORTCUT}
+              className="h-5 w-5"
+            />
           </div>
           {!readOnly && (
             <input
@@ -263,11 +263,11 @@ const ListFolderItem = ({
       >
         <div className="flex items-center w-full">
           <div className="flex-shrink-0 mr-3">
-            {folder.type === NDExFileType.FOLDER ? (
-              <Folder className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <Folder className="h-5 w-5 text-green-600" />
-            )}
+            <ShortcutIcon
+              type={folder.type === NDExFileType.SHORTCUT ? NDExFileType.FOLDER : folder.type}
+              isShortcut={folder.type === NDExFileType.SHORTCUT}
+              className="h-5 w-5"
+            />
           </div>
           <div className="overflow-hidden">
             <div className="text-sm font-medium text-foreground truncate max-w-[250px]">
