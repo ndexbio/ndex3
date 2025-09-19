@@ -208,8 +208,8 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const handleCopyFile = async () => {
     if (!item || !openDropdownId) return
 
-    // Use the currentFolderId passed as prop, fallback to empty string for root
-    const parentFolderId = currentFolderId || ''
+    // Use the currentFolderId passed as prop, keeping null for home directory
+    const parentFolderId = currentFolderId
 
     await copyFile(
       openDropdownId,
@@ -285,16 +285,19 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             <FolderInput className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
             Move
           </button>
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => {
-              onCreateShortcut(openDropdownId)
-              onClose()
-            })}
-          >
-            <FileSymlink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Add Shortcut
-          </button>
+          {/* Only show "Add Shortcut" if the item is not already a shortcut */}
+          {item.type !== NDExFileType.SHORTCUT && (
+            <button
+              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={handleButtonClick(() => {
+                onCreateShortcut(openDropdownId)
+                onClose()
+              })}
+            >
+              <FileSymlink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              Add Shortcut
+            </button>
+          )}
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
             onClick={handleButtonClick(() => {
@@ -361,16 +364,19 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             <FolderInput className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
             Move
           </button>
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => {
-              onCreateShortcut(openDropdownId)
-              onClose()
-            })}
-          >
-            <FileSymlink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Add a Shortcut
-          </button>
+          {/* Only show "Add a Shortcut" if the item is not already a shortcut */}
+          {item.type !== NDExFileType.SHORTCUT && (
+            <button
+              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={handleButtonClick(() => {
+                onCreateShortcut(openDropdownId)
+                onClose()
+              })}
+            >
+              <FileSymlink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              Add a Shortcut
+            </button>
+          )}
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
             onClick={handleButtonClick(() => {

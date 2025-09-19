@@ -96,10 +96,11 @@ export const useShortcut = (
       })
       
       // Refresh parent folder contents if it's being viewed
-      globalMutate((key) => 
-        Array.isArray(key) && 
-        key[0] === 'folderContents' && 
-        key[1] === parentFolderId
+      globalMutate((key) =>
+        Array.isArray(key) &&
+        key[0] === 'folderContents' &&
+        key[1] === parentFolderId &&
+        key[2] === token
       )
       
       return result
@@ -142,10 +143,11 @@ export const useShortcut = (
       }
       
       // Refresh parent folder contents if it's being viewed
-      globalMutate((key) => 
-        Array.isArray(key) && 
-        key[0] === 'folderContents' && 
-        key[1] === parentFolderId
+      globalMutate((key) =>
+        Array.isArray(key) &&
+        key[0] === 'folderContents' &&
+        key[1] === parentFolderId &&
+        key[2] === token
       )
       
       return result
@@ -182,10 +184,11 @@ export const useShortcut = (
       await ndexClient.files.deleteShortcut(shortcutIdToDelete)
       
       // Refresh parent folder contents if it's being viewed
-      globalMutate((key) => 
-        Array.isArray(key) && 
-        key[0] === 'folderContents' && 
-        key[1] === parentFolderId
+      globalMutate((key) =>
+        Array.isArray(key) &&
+        key[0] === 'folderContents' &&
+        key[1] === parentFolderId &&
+        key[2] === token
       )
       
     } catch (error) {

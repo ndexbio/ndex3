@@ -925,6 +925,33 @@ function MyAccountContent({
     }
   }
 
+  // Handle removing a trashed shortcut
+  const handleRemoveShortcut = async (shortcutId: string) => {
+    try {
+      await deleteShortcut(shortcutId)
+
+      // Refresh the current view
+      if (tabState === MyAccountTabType.SHARED) {
+        await refreshSharedFiles()
+      } else {
+        await refreshFolderContents()
+      }
+
+      addToast({
+        title: 'Shortcut removed',
+        description: 'The shortcut has been successfully removed',
+        type: 'success',
+      })
+    } catch (error) {
+      console.error('Error removing shortcut:', error)
+      addToast({
+        title: 'Remove failed',
+        description: 'An error occurred while removing the shortcut',
+        type: 'error',
+      })
+    }
+  }
+
   // Handle creating a shortcut to a folder or network
   const handleCreateShortcut = async (
     itemId: string,
@@ -1124,6 +1151,7 @@ function MyAccountContent({
               handleOutsideClick={handleOutsideClick}
               handleMoveItems={handleMoveItems}
               handleDropdownToggle={handleDropdownToggle}
+              handleRemoveShortcut={handleRemoveShortcut}
               setSelectedFilters={setSelectedFilters}
             />
             {/* Replace renderActionDropdown() with ActionDropdown component */}

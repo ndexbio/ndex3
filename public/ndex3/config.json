@@ -1,0 +1,16 @@
+{
+  "ndexBaseUrl": "dev3.ndex.ucsd.edu",
+  "keycloakConfig": {
+    "url": "https://dev3.ndex.ucsd.edu/auth2",
+    "clientId": "cytoscape-ndex",
+    "realm": "NDEx"
+  },
+  "urlBaseName": "/ndex3",
+  "uiContent": {
+    "contentRootPath": "https://home.ndexbio.org/landing_page_content/v2_4_2",
+    "featuredContent": "featured_content.json",
+    "featuredNetwork": "featured_networks.json",
+    "mainContent": "main.json",
+    "logos": "logos.json"
+  }
+}

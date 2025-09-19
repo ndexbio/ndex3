@@ -29,7 +29,7 @@ export const useNetworkCopy = () => {
     fileId: string,
     fileName: string,
     fileType: NDExFileType,
-    parentFolderId: string,
+    parentFolderId: string | null,
     accessKey?: string
   ): Promise<{ success: boolean; newFileId?: string; error?: Error | unknown }> => {
     if (!isAuthenticated) {
@@ -90,16 +90,24 @@ export const useNetworkCopy = () => {
           organism: copiedFileSummary.organism || '',
           disease: copiedFileSummary.disease || '',
           tissue: copiedFileSummary.tissue || '',
-          parent: parentFolderId
+          parent: parentFolderId || ''
         }
       }
 
-      // Optimistically update the folder contents cache
+      // Optimistically update the folder contents cache, then revalidate for consistency
+
+      // Handle the null vs empty string mismatch: cache uses null for home folder, but copy operation might pass empty string
+      const targetFolderId = parentFolderId === '' ? null : parentFolderId
+
       globalMutate(
-        (key) =>
-          Array.isArray(key) &&
-          key[0] === 'folderContents' &&
-          key[1] === parentFolderId,
+        (key) => {
+          const isMatch = Array.isArray(key) &&
+            key[0] === 'folderContents' &&
+            key[1] === targetFolderId &&
+            key[2] === token
+
+          return isMatch
+        },
         (currentData: { items: FileItemBase[] } | undefined) => {
           if (currentData && Array.isArray(currentData.items)) {
             return {
@@ -109,8 +117,22 @@ export const useNetworkCopy = () => {
           }
           return currentData
         },
-        false // Don't revalidate immediately, let the optimistic update show first
+        false // Show optimistic update first
       )
+
+      // Then trigger revalidation to ensure consistency with server state
+      setTimeout(() => {
+        globalMutate(
+          (key) => {
+            return Array.isArray(key) &&
+              key[0] === 'folderContents' &&
+              key[1] === targetFolderId &&
+              key[2] === token
+          },
+          undefined, // Let SWR fetch fresh data from server
+          true // Revalidate to ensure consistency
+        )
+      }, 100) // Small delay to let optimistic update render first
 
       // Show success toast
       addToast({
@@ -162,7 +184,7 @@ export const useNetworkCopy = () => {
       fileId: string
       fileName: string
       fileType: NDExFileType
-      parentFolderId: string
+      parentFolderId: string | null
       accessKey?: string
     }>
   ) => {

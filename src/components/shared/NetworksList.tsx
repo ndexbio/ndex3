@@ -41,6 +41,7 @@ interface NetworksListProps {
     id: string,
     type: NDExFileType,
   ) => void
+  onRemoveShortcut?: (shortcutId: string) => Promise<void>
   defaultSort?: {
     field: 'name' | 'modificationTime'
     direction: 'asc' | 'desc'
@@ -50,6 +51,29 @@ interface NetworksListProps {
 
 // Extended network item with additional properties we might have
 interface NetworkItem extends FileItemBase {}
+
+// Helper function to check if a shortcut's target is unavailable (in trash or deleted)
+const isUnavailableShortcut = (item: FileItemBase): boolean => {
+  return item.type === NDExFileType.SHORTCUT &&
+         (item.attributes?.target_status === 'IN_TRASH' || item.attributes?.target_status === 'DELETED')
+}
+
+// Helper function to get the appropriate message for unavailable shortcuts
+const getUnavailableShortcutMessage = (item: FileItemBase): string => {
+  if (item.type !== NDExFileType.SHORTCUT) return ''
+
+  if (item.attributes?.target_status === 'IN_TRASH') {
+    return 'Original moved to trash'
+  } else if (item.attributes?.target_status === 'DELETED') {
+    return 'Original item deleted'
+  }
+
+  return ''
+}
+
+// Helper function to get text styling for unavailable shortcuts
+const getUnavailableTextClass = (isUnavailable: boolean) =>
+  isUnavailable ? "text-muted-foreground opacity-60" : "text-foreground"
 
 // Sort direction type
 type SortDirection = 'asc' | 'desc' | null
@@ -62,6 +86,7 @@ const GridNetworkItem = ({
   onSelect,
   onDoubleClick,
   onDropdownToggle,
+  onRemoveShortcut,
   readOnly,
 }: {
   network: NetworkItem
@@ -80,10 +105,12 @@ const GridNetworkItem = ({
     id: string,
     type: NDExFileType,
   ) => void
+  onRemoveShortcut?: (shortcutId: string) => Promise<void>
   readOnly?: boolean
 }) => {
   const isSelected = selectedItems.includes(network.uuid)
-  
+  const isUnavailable = isUnavailableShortcut(network)
+
   // Create drag source for network items (only if not read-only)
   const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.DRIVE_ITEM,
@@ -132,22 +159,40 @@ const GridNetworkItem = ({
             />
           )}
         </div>
-        {onDropdownToggle && (
+        {isUnavailable && onRemoveShortcut ? (
           <button
-            className={tableStyles.button.dropdown}
-            onClick={(e) => {
+            className="px-2 py-1 text-xs font-medium text-destructive hover:text-destructive/80
+                       border border-destructive/20 hover:border-destructive/40 rounded-md
+                       transition-colors duration-200"
+            onClick={async (e) => {
               e.stopPropagation()
-              onDropdownToggle(e, network.uuid, network.type)
+              try {
+                await onRemoveShortcut(network.uuid)
+              } catch (error) {
+                console.error('Error removing shortcut:', error)
+              }
             }}
-            data-dropdown-trigger
-            data-dropdown-id={network.uuid}
           >
-            <MoreVertical className="h-4 w-4 text-muted-foreground" />
+            Remove
           </button>
+        ) : (
+          onDropdownToggle && !isUnavailable && (
+            <button
+              className={tableStyles.button.dropdown}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDropdownToggle(e, network.uuid, network.type)
+              }}
+              data-dropdown-trigger
+              data-dropdown-id={network.uuid}
+            >
+              <MoreVertical className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )
         )}
       </div>
       <div className="space-y-2">
-        <h3 className={tableStyles.text.name}>
+        <h3 className={`${tableStyles.text.name} ${getUnavailableTextClass(isUnavailable)}`}>
           {getDisplayName(network, 'Untitled Network')}
         </h3>
       </div>
@@ -164,6 +209,7 @@ const ListNetworkItem = ({
   onSelect,
   onDoubleClick,
   onDropdownToggle,
+  onRemoveShortcut,
   showOwnerColumn,
   showVisibilityColumn,
   readOnly,
@@ -185,12 +231,14 @@ const ListNetworkItem = ({
     id: string,
     type: NDExFileType,
   ) => void
+  onRemoveShortcut?: (shortcutId: string) => Promise<void>
   showOwnerColumn?: boolean
   showVisibilityColumn?: boolean
   readOnly?: boolean
 }) => {
   const isSelected = selectedItems.includes(network.uuid)
-  
+  const isUnavailable = isUnavailableShortcut(network)
+
   // For list view, we need to handle refs differently
   // Same approach as FoldersList - make the entire row draggable
   const [{ isDragging }, drag] = useDrag({
@@ -234,7 +282,7 @@ const ListNetworkItem = ({
             />
           </div>
           <div className="flex-1 overflow-hidden">
-            <div className="text-sm font-medium text-foreground truncate">
+            <div className={`text-sm font-medium truncate ${getUnavailableTextClass(isUnavailable)}`}>
               {getDisplayName(network, 'Untitled Network')}
             </div>
           </div>
@@ -249,42 +297,73 @@ const ListNetworkItem = ({
           </div>
         </td>
       )}
-      <td className={getTdClasses('right')}>
-        <div className="flex items-center justify-end w-full text-sm text-muted-foreground">
-          <span className="truncate">
-            {formatCount(
-              network.attributes?.edges ||
-              network.attributes?.edgeCount ||
-              (network as any).edgeCount ||
-              0
-            )}
-          </span>
-        </div>
-      </td>
-      <td className={getTdClasses('left')}>
-        <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
-          <span className="truncate">
-            {formatDate(network.modificationTime)}
-          </span>
-        </div>
-      </td>
+{isUnavailable ? (
+        // For unavailable shortcuts (trashed or deleted), span the message across Edges and Last Modified columns
+        <td className={getTdClasses('left')} colSpan={2}>
+          <div className="flex items-center justify-start w-full text-sm text-muted-foreground italic">
+            <span className="truncate">
+              {getUnavailableShortcutMessage(network)}
+            </span>
+          </div>
+        </td>
+      ) : (
+        <>
+          <td className={getTdClasses('right')}>
+            <div className="flex items-center justify-end w-full text-sm text-muted-foreground">
+              <span className="truncate">
+                {formatCount(
+                  network.attributes?.edges ||
+                  network.attributes?.edgeCount ||
+                  (network as any).edgeCount ||
+                  0
+                )}
+              </span>
+            </div>
+          </td>
+          <td className={getTdClasses('left')}>
+            <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
+              <span className="truncate">
+                {formatDate(network.modificationTime)}
+              </span>
+            </div>
+          </td>
+        </>
+      )}
       {showVisibilityColumn && (
         <td className={getTdClasses('center')}>
           <div className="flex justify-center w-full">
-            <span 
-              className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
-                network.attributes?.visibility === 'PUBLIC'
-                  ? 'bg-green-200 dark:bg-green-800/60'
-                  : 'bg-blue-300 dark:bg-blue-700/70'
-              }`}
-            >
-              {network.attributes?.visibility || 'PRIVATE'}
-            </span>
+            {isUnavailable && onRemoveShortcut ? (
+              <button
+                className="px-3 py-1 text-xs font-medium text-destructive hover:text-destructive/80
+                           border border-destructive/20 hover:border-destructive/40 rounded-md
+                           transition-colors duration-200"
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  try {
+                    await onRemoveShortcut(network.uuid)
+                  } catch (error) {
+                    console.error('Error removing shortcut:', error)
+                  }
+                }}
+              >
+                Remove shortcut
+              </button>
+            ) : (
+              <span
+                className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
+                  network.attributes?.visibility === 'PUBLIC'
+                    ? 'bg-green-200 dark:bg-green-800/60'
+                    : 'bg-blue-300 dark:bg-blue-700/70'
+                }`}
+              >
+                {network.attributes?.visibility || 'PRIVATE'}
+              </span>
+            )}
           </div>
         </td>
       )}
       <td className={getTdClasses('center')}>
-        {onDropdownToggle && (
+        {onDropdownToggle && !isUnavailable && (
           <button
             className={tableStyles.button.dropdown}
             onClick={(e) => {
@@ -312,6 +391,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
   selectedItems = [],
   onSelect,
   onDropdownToggle,
+  onRemoveShortcut,
   defaultSort = { field: 'modificationTime', direction: 'desc' },
 }) => {
   const router = useRouter()
@@ -495,6 +575,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
               }
               onDoubleClick={handleNetworkDoubleClick}
               onDropdownToggle={onDropdownToggle}
+              onRemoveShortcut={onRemoveShortcut}
               readOnly={readOnly}
             />
           ))}
@@ -578,6 +659,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
                   }
                   onDoubleClick={handleNetworkDoubleClick}
                   onDropdownToggle={onDropdownToggle}
+                  onRemoveShortcut={onRemoveShortcut}
                   showOwnerColumn={showOwnerColumn}
                   showVisibilityColumn={showVisibilityColumn}
                   readOnly={readOnly}

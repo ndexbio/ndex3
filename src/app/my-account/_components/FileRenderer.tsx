@@ -24,6 +24,7 @@ interface ContentRendererProps {
   handleOutsideClick: (event: React.MouseEvent) => void
   handleMoveItems: (itemIds: string[], targetFolderId: string) => Promise<void>
   handleDropdownToggle: (event: React.MouseEvent, id: string, type: any) => void
+  handleRemoveShortcut: (shortcutId: string) => Promise<void>
   setSelectedFilters: (filters: Set<any>) => void
 }
 
@@ -39,6 +40,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
   handleOutsideClick,
   handleMoveItems,
   handleDropdownToggle,
+  handleRemoveShortcut,
   setSelectedFilters,
 }) => {
   if (tabState === MyAccountTabType.TRASH) {
@@ -89,6 +91,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
                 handleItemSelect(e, id, index, NDExFileType.NETWORK, trashItems)
               }
               onDropdownToggle={handleDropdownToggle}
+              onRemoveShortcut={handleRemoveShortcut}
             />
           </>
         )}
@@ -162,6 +165,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
                 handleItemSelect(e, id, index, type, sortedItems)
               }
               onDropdownToggle={handleDropdownToggle}
+              onRemoveShortcut={handleRemoveShortcut}
             />
           </>
         )}
@@ -239,6 +243,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
                 handleItemSelect(e, id, index, type, sortedItems)
               }
               onDropdownToggle={handleDropdownToggle}
+              onRemoveShortcut={handleRemoveShortcut}
             />
           </>
         )}

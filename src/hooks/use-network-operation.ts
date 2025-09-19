@@ -151,7 +151,8 @@ export const useNetworkOperation = (
           (key) =>
             Array.isArray(key) &&
             key[0] === 'folderContents' &&
-            key[1] === data.parent,
+            key[1] === data.parent &&
+            key[2] === token,
         )
       }
 
@@ -160,7 +161,8 @@ export const useNetworkOperation = (
         (key) =>
           Array.isArray(key) &&
           key[0] === 'folderContents' &&
-          key[1] === targetFolderId,
+          key[1] === targetFolderId &&
+          key[2] === token,
       )
 
       return result
@@ -246,7 +248,8 @@ export const useNetworkOperation = (
           (key) =>
             Array.isArray(key) &&
             key[0] === 'folderContents' &&
-            key[1] === data.parent,
+            key[1] === data.parent &&
+            key[2] === token,
         )
       }
 
@@ -291,7 +294,8 @@ export const useNetworkOperation = (
           (key) =>
             Array.isArray(key) &&
             key[0] === 'folderContents' &&
-            key[1] === parentFolderId,
+            key[1] === parentFolderId &&
+            key[2] === token,
         )
       }
     } catch (error) {

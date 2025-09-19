@@ -1,5 +1,8 @@
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 
+// Shortcut target status type
+export type ShortcutTargetStatus = 'ACTIVE' | 'IN_TRASH' | 'DELETED'
+
 export interface FileItemBase {
   uuid: string
   name: string
@@ -15,6 +18,9 @@ export interface FileItemBase {
     visibility?: string
     owner?: string
     updatedBy?: string
+    // Shortcut-specific attributes
+    target_status?: ShortcutTargetStatus
+    target_type?: NDExFileType
     // Allow any other attributes
   }
 }

@@ -111,10 +111,11 @@ export const useTrash = (): TrashContents => {
       await refresh()
       
       // Refresh home folder contents since restored items might appear there
-      globalMutate((key) => 
-        Array.isArray(key) && 
-        key[0] === 'folderContents' && 
-        key[1] === null
+      globalMutate((key) =>
+        Array.isArray(key) &&
+        key[0] === 'folderContents' &&
+        key[1] === null &&
+        key[2] === token
       )
     } catch (error) {
       console.error('Error restoring items from trash:', error)

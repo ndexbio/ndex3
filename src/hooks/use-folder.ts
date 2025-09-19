@@ -154,10 +154,11 @@ export const useFolder = (
       const result = await ndexClient.files.createFolder(name, parentFolderId || undefined)
       
       // Refresh parent folder contents if it's being viewed
-      globalMutate((key) => 
-        Array.isArray(key) && 
-        key[0] === 'folderContents' && 
-        key[1] === parentFolderId
+      globalMutate((key) =>
+        Array.isArray(key) &&
+        key[0] === 'folderContents' &&
+        key[1] === parentFolderId &&
+        key[2] === token
       )
       
       return result
@@ -197,10 +198,11 @@ export const useFolder = (
       }
       
       // Refresh parent folder contents if it's being viewed
-      globalMutate((key) => 
-        Array.isArray(key) && 
-        key[0] === 'folderContents' && 
-        key[1] === parentFolderId
+      globalMutate((key) =>
+        Array.isArray(key) &&
+        key[0] === 'folderContents' &&
+        key[1] === parentFolderId &&
+        key[2] === token
       )
       
       return result
@@ -237,10 +239,11 @@ export const useFolder = (
       await ndexClient.files.deleteFolder(folderIdToDelete)
       
       // Refresh parent folder contents if it's being viewed
-      globalMutate((key) => 
-        Array.isArray(key) && 
-        key[0] === 'folderContents' && 
-        key[1] === parentFolderId
+      globalMutate((key) =>
+        Array.isArray(key) &&
+        key[0] === 'folderContents' &&
+        key[1] === parentFolderId &&
+        key[2] === token
       )
       
     } catch (error) {
