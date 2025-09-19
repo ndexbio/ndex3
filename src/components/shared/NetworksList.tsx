@@ -603,7 +603,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
                   <th
                     scope="col"
                     className={getThClasses('center')}
-                    style={{ width: '100px', minWidth: '100px' }}
+                    style={{ width: '160px', minWidth: '160px' }}
                   >
                     Owner
                   </th>

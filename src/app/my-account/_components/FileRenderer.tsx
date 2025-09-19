@@ -142,6 +142,8 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               viewMode={viewMode}
               tabState={tabState}
               selectedItems={selectedItems}
+              showOwnerColumn={true}
+              showVisibilityColumn={true}
               onSelect={(e, id, index, type, sortedItems) =>
                 handleItemSelect(e, id, index, type, sortedItems)
               }

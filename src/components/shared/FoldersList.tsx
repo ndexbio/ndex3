@@ -26,6 +26,8 @@ interface FoldersListProps {
   tabState?: MyAccountTabType
   viewMode: 'grid' | 'list'
   readOnly?: boolean
+  showOwnerColumn?: boolean
+  showVisibilityColumn?: boolean
   selectedItems?: string[]
   onSelect?: (
     event: React.MouseEvent,
@@ -182,15 +184,19 @@ const GridFolderItem = ({
 // Single folder list item component
 const ListFolderItem = ({
   folder,
+  tabState,
   index,
   selectedItems,
   onSelect,
   onDoubleClick,
   onDrop,
   onDropdownToggle,
+  showOwnerColumn,
+  showVisibilityColumn,
   readOnly,
 }: {
   folder: FolderItem
+  tabState?: MyAccountTabType
   index: number
   selectedItems: string[]
   onSelect: (
@@ -207,6 +213,8 @@ const ListFolderItem = ({
     id: string,
     type: NDExFileType,
   ) => void
+  showOwnerColumn?: boolean
+  showVisibilityColumn?: boolean
   readOnly?: boolean
 }) => {
   const isSelected = selectedItems.includes(folder.uuid)
@@ -276,6 +284,15 @@ const ListFolderItem = ({
           </div>
         </div>
       </td>
+      {showOwnerColumn && tabState === MyAccountTabType.SHARED && (
+        <td className={getTdClasses('center')}>
+          <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
+            <span className="truncate">
+              {folder.attributes?.owner || 'Me'}
+            </span>
+          </div>
+        </td>
+      )}
       <td className={getTdClasses('left')}>
         <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
           <span className="truncate">
@@ -283,19 +300,21 @@ const ListFolderItem = ({
           </span>
         </div>
       </td>
-      <td className={getTdClasses('center')}>
-        <div className="flex justify-center w-full">
-          <span 
-            className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
-              folder.attributes?.visibility === 'PUBLIC'
-                ? 'bg-green-200 dark:bg-green-800/60'
-                : 'bg-blue-300 dark:bg-blue-700/70'
-            }`}
-          >
-            {folder.attributes?.visibility || 'PRIVATE'}
-          </span>
-        </div>
-      </td>
+      {showVisibilityColumn !== false && (
+        <td className={getTdClasses('center')}>
+          <div className="flex justify-center w-full">
+            <span
+              className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
+                folder.attributes?.visibility === 'PUBLIC'
+                  ? 'bg-green-200 dark:bg-green-800/60'
+                  : 'bg-blue-300 dark:bg-blue-700/70'
+              }`}
+            >
+              {folder.attributes?.visibility || 'PRIVATE'}
+            </span>
+          </div>
+        </td>
+      )}
       <td className={getTdClasses('center')}>
         {onDropdownToggle && (
           <button
@@ -320,6 +339,8 @@ const FoldersList: React.FC<FoldersListProps> = ({
   viewMode,
   tabState,
   readOnly = false,
+  showOwnerColumn = false,
+  showVisibilityColumn = true,
   selectedItems = [],
   onSelect,
   onDrop,
@@ -503,6 +524,15 @@ const FoldersList: React.FC<FoldersListProps> = ({
                     {renderSortIcon('name')}
                   </button>
                 </th>
+                {showOwnerColumn && tabState === MyAccountTabType.SHARED && (
+                  <th
+                    scope="col"
+                    className={getThClasses('center')}
+                    style={{ width: '160px', minWidth: '160px' }}
+                  >
+                    Owner
+                  </th>
+                )}
                 <th
                   scope="col"
                   className={getThClasses('left')}
@@ -516,13 +546,15 @@ const FoldersList: React.FC<FoldersListProps> = ({
                     {renderSortIcon('modificationTime')}
                   </button>
                 </th>
-                <th
-                  scope="col"
-                  className={getThClasses('center')}
-                  style={{ width: '100px', minWidth: '100px' }}
-                >
-                  Visibility
-                </th>
+                {showVisibilityColumn !== false && (
+                  <th
+                    scope="col"
+                    className={getThClasses('center')}
+                    style={{ width: '100px', minWidth: '100px' }}
+                  >
+                    Visibility
+                  </th>
+                )}
                 <th
                   scope="col"
                   className={getThClasses('center')}
@@ -537,6 +569,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
                 <ListFolderItem
                   key={folder.uuid}
                   folder={folder}
+                  tabState={tabState}
                   index={index}
                   selectedItems={selectedItems}
                   onSelect={(e, id, idx, type) =>
@@ -545,6 +578,8 @@ const FoldersList: React.FC<FoldersListProps> = ({
                   onDoubleClick={handleFolderDoubleClick}
                   onDrop={onDrop}
                   onDropdownToggle={onDropdownToggle}
+                  showOwnerColumn={showOwnerColumn}
+                  showVisibilityColumn={showVisibilityColumn}
                   readOnly={readOnly}
                 />
               ))}
