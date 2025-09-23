@@ -23,7 +23,8 @@ import { MyAccountTabType, FilterOptionType } from '@/types/ui/myAccount'
 import { useTrash } from '@/hooks/use-trash'
 import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
-import { NDExFileType } from '@js4cytoscape/ndex-client'
+import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
+import { ShareableItem } from '@/types/sharing'
 
 // Add a dropdown menu for bulk network downloads
 const BulkDownloadMenu: React.FC<{
@@ -183,7 +184,7 @@ export interface FilterState {
 // Simplified props interface without filter state and handlers
 interface SelectionToolbarAndFiltersProps {
   selectedItems: string[]
-  itemDataMap?: Record<string, { name: string; type: NDExFileType }>
+  itemDataMap?: Record<string, { name: string; type: NDExFileType; visibility?: string }>
   showSelectionToolbar: boolean
   tabState: MyAccountTabType
   handleCloseToolbar: (event: React.MouseEvent) => void
@@ -231,7 +232,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
   initialFilterState,
 }) => {
   // Access the dialog context
-  const { openMoveFolderDialog } = useDialogs()
+  const { openMoveFolderDialog, openShareDialog } = useDialogs()
 
   // Internal state for filters
   const [filterValues, setFilterValues] = useState<FilterState>(
@@ -352,6 +353,40 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
     }
   }
 
+  // Handle opening share dialog
+  const handleOpenShareDialog = () => {
+    if (selectedItems.length === 0) return
+
+    if (selectedItems.length === 1) {
+      // For single item, use the same format as ActionDropdown
+      const id = selectedItems[0]
+      const item = itemDataMap[id]
+
+      const shareableItem: ShareableItem = {
+        uuid: id,
+        name: item?.name || 'Unnamed item',
+        type: item?.type || NDExFileType.NETWORK, // Use item's type directly with fallback
+        currentPermissions: [], // TODO: Load existing permissions
+        visibility: (item?.visibility as Visibility) || Visibility.PRIVATE,
+      }
+
+      openShareDialog([shareableItem], 'single')
+    } else {
+      // For bulk selection, use simpler format
+      const shareableItems: ShareableItem[] = selectedItems.map((id) => {
+        const item = itemDataMap[id]
+        return {
+          uuid: id,
+          name: item?.name || `item_${id}`,
+          type: item?.type || NDExFileType.NETWORK, // Use item's type directly with fallback
+          visibility: (item?.visibility as Visibility) || Visibility.PRIVATE,
+        }
+      })
+
+      openShareDialog(shareableItems, 'bulk')
+    }
+  }
+
   // Create array of item objects for the BulkDownloadMenu component
   const getSelectedItemObjects = () => {
     return selectedItems.map((id) => ({
@@ -424,6 +459,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                         className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
                         title="Share"
                         data-action-button
+                        onClick={handleOpenShareDialog}
                       >
                         <UserPlus className="h-5 w-5 text-muted-foreground" />
                       </button>

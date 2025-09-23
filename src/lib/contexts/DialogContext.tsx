@@ -4,9 +4,11 @@ import React, { createContext, useContext, useState } from 'react'
 import RenameFolderDialog from '@/app/my-account/_components/RenameFolderDialog'
 import MoveFolderDialog from '@/app/my-account/_components/MoveFolderDialog'
 import EditNetworkPropertiesDialog from '@/app/my-account/_components/EditNetworkPropertiesDialog'
+import ShareDialog from '@/components/dialogs/ShareDialog'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useFolderContents } from '@/hooks/use-folder'
 import { useNetworkOperation } from '@/hooks/use-network-operation'
+import { ShareableItem } from '@/types/sharing'
 
 interface DialogContextType {
   openRenameFolderDialog: (
@@ -20,6 +22,7 @@ interface DialogContextType {
     onMove: (targetFolderId: string) => Promise<void>,
   ) => void
   openEditNetworkPropertiesDialog: (networkId: string) => void
+  openShareDialog: (items: ShareableItem[], mode: 'single' | 'bulk') => void
 }
 
 const DialogContext = createContext<DialogContextType | undefined>(undefined)
@@ -73,6 +76,17 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     isOpen: false,
     networkId: '',
     network: null,
+  })
+
+  // Share dialog state
+  const [shareDialogProps, setShareDialogProps] = useState<{
+    isOpen: boolean
+    items: ShareableItem[]
+    mode: 'single' | 'bulk'
+  }>({
+    isOpen: false,
+    items: [],
+    mode: 'single',
   })
 
   // Get network operation functions (no specific network ID)
@@ -181,12 +195,28 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     console.log('Network properties updated successfully')
   }
 
+  const openShareDialog = (items: ShareableItem[], mode: 'single' | 'bulk') => {
+    setShareDialogProps({
+      isOpen: true,
+      items,
+      mode,
+    })
+  }
+
+  const closeShareDialog = () => {
+    setShareDialogProps((prev) => ({
+      ...prev,
+      isOpen: false,
+    }))
+  }
+
   return (
     <DialogContext.Provider
       value={{
         openRenameFolderDialog,
         openMoveFolderDialog,
         openEditNetworkPropertiesDialog,
+        openShareDialog,
       }}
     >
       {children}
@@ -214,6 +244,13 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         onClose={closeEditNetworkPropertiesDialog}
         network={editNetworkPropertiesDialogProps.network}
         onSuccess={handleEditNetworkPropertiesSuccess}
+      />
+
+      <ShareDialog
+        isOpen={shareDialogProps.isOpen}
+        onClose={closeShareDialog}
+        items={shareDialogProps.items}
+        mode={shareDialogProps.mode}
       />
     </DialogContext.Provider>
   )

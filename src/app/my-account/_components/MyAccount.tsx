@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import SideBar from './SideBar'
 import {
   Grid,
@@ -321,6 +321,19 @@ function MyAccountContent({
       : tabState === MyAccountTabType.TRASH
       ? trashItems
       : folderContents
+
+  // Create itemDataMap for the selection toolbar
+  const itemDataMap = useMemo(() => {
+    const map: Record<string, { name: string; type: NDExFileType; visibility?: string }> = {}
+    displayItems.forEach((item: any) => {
+      map[item.uuid] = {
+        name: item.name || item.networkName || 'Unnamed item',
+        type: item.type,
+        visibility: item.visibility || item.attributes?.visibility
+      }
+    })
+    return map
+  }, [displayItems])
 
   const currentLoading =
     tabState === MyAccountTabType.SHARED
@@ -1122,6 +1135,7 @@ function MyAccountContent({
           {/* Selection Toolbar or Filters */}
           <SelectionToolbarAndFilters
             selectedItems={selectedItems}
+            itemDataMap={itemDataMap}
             showSelectionToolbar={showSelectionToolbar}
             tabState={tabState}
             handleCloseToolbar={handleCloseToolbar}

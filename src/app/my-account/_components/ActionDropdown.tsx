@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 import { FileItemBase } from '@/types/api/ndex/File'
-import { NDExFileType } from '@js4cytoscape/ndex-client'
+import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
 import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
 import { useNetworkCopy } from '@/hooks/use-network-copy'
@@ -113,6 +113,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     openRenameFolderDialog,
     openMoveFolderDialog,
     openEditNetworkPropertiesDialog,
+    openShareDialog,
   } = useDialogs()
   const { copyFile, isCopying } = useNetworkCopy()
 
@@ -204,6 +205,21 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     }
   }
 
+  const handleOpenShareDialog = () => {
+    if (!item || !openDropdownId) return
+
+    const shareableItem = {
+      uuid: openDropdownId,
+      name: item.name || 'Unnamed item',
+      type: item.type, // Use the item's type directly
+      currentPermissions: [], // TODO: Load existing permissions
+      visibility: (item.attributes?.visibility as Visibility) || Visibility.PRIVATE,
+    }
+
+    openShareDialog([shareableItem], 'single')
+    onClose() // Close the dropdown
+  }
+
   // Handle copying the file
   const handleCopyFile = async () => {
     if (!item || !openDropdownId) return
@@ -259,7 +275,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
         <div className="py-2">
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => onClose())}
+            onClick={handleButtonClick(handleOpenShareDialog)}
           >
             <Download className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
             Download
@@ -273,7 +289,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
           </button>
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => onClose())}
+            onClick={handleButtonClick(handleOpenShareDialog)}
           >
             <UserPlus className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
             Share
@@ -314,14 +330,14 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
         <div className="py-2">
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => onClose())}
+            onClick={handleButtonClick(handleOpenShareDialog)}
           >
             <ExternalLink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
             Open in Cytoscape Desktop
           </button>
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => onClose())}
+            onClick={handleButtonClick(handleOpenShareDialog)}
           >
             <BookCopy className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
             Request DOI
@@ -352,7 +368,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
           </button>
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => onClose())}
+            onClick={handleButtonClick(handleOpenShareDialog)}
           >
             <UserPlus className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
             Share
