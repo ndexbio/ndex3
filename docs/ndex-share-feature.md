@@ -9,9 +9,10 @@ A comprehensive sharing system for NDEx3 networks and folders, inspired by Googl
 
 #### 1.1 Single Item Sharing
 - **Location**: Action dropdown in NetworksList component
-- **Trigger**: "Share" button in ActionDropdown.tsx (lines 278-280 for folders, 356-359 for networks)
+- **Trigger**: "Share" button in ActionDropdown.tsx (conditionally disabled for DOI networks)
 - **Context**: Current UUID of the selected network or folder
 - **File**: `src/app/my-account/_components/ActionDropdown.tsx`
+- **Restrictions**: ✅ Share button is always enabled for all network types
 
 #### 1.2 Bulk Sharing
 - **Location**: Selection command bar at top of NetworksList
@@ -503,8 +504,10 @@ src/
 ├── types/
 │   └── sharing.ts                       # ✅ Updated TypeScript interfaces with NDExFileType
 └── app/my-account/_components/
-    ├── ActionDropdown.tsx               # ✅ Share button integration (simplified)
+    ├── ActionDropdown.tsx               # ✅ Share button integration with DOI/readonly restrictions
     └── SelectionToolbarAndFilters.tsx   # ✅ Bulk share button integration (simplified)
+└── components/shared/
+    └── NetworksList.tsx                 # ✅ Visual indicators for DOI and readonly networks
 ```
 
 ## 12. Implementation Summary
@@ -719,3 +722,25 @@ The ShareDialog now provides complete dark mode support with proper contrast and
 - ✅ Error states and loading indicators dark mode compatible
 
 This comprehensive dark mode implementation ensures a seamless user experience regardless of system theme preferences.
+
+## 16. DOI Network Share Access ✅ COMPLETED
+
+### 16.1 Design Update - Share Always Enabled
+The ActionDropdown share button behavior has been updated:
+
+- **✅ DOI Networks**: Share button is **enabled** and fully functional
+- **✅ Read-Only Networks**: Share button is **enabled** and fully functional
+- **✅ Visual Indicators**: Networks still show trophy (DOI) and lock (read-only) icons for identification
+- **✅ Rationale**: Users should be able to manage sharing permissions regardless of network publication status
+
+### 16.2 Implementation
+```typescript
+// In ActionDropdown.tsx
+const shouldDisableShare = false  // Share is always enabled
+```
+
+### 16.3 User Experience
+- All networks can be shared via the ActionDropdown menu
+- Visual icons (trophy/lock) help users identify special network types
+- Share dialog provides full functionality for all network types
+- Consistent sharing experience across all network states

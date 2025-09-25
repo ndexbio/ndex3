@@ -17,7 +17,7 @@ export const tableStyles = {
   tbody: "bg-background divide-y divide-border",
   tr: {
     base: "transition-colors duration-150 cursor-pointer",
-    selected: "bg-accent",
+    selected: "bg-blue-100 dark:bg-blue-900/50 border-l-4 border-l-blue-500",
     hover: "hover:bg-accent/50",
     dragging: "opacity-50",
     readOnly: "cursor-default",
@@ -34,7 +34,7 @@ export const tableStyles = {
     container: "grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4",
     item: {
       base: "p-3 rounded-md border border-border transition-all duration-200 cursor-pointer",
-      selected: "bg-accent border-accent-foreground/20",
+      selected: "bg-blue-100 dark:bg-blue-900/50 border-2 border-blue-500 shadow-md",
       hover: "hover:bg-accent/50",
       dragging: "opacity-50",
       readOnly: "cursor-default",

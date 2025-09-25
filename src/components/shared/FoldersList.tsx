@@ -7,7 +7,7 @@ import {
   ArrowDown,
   ArrowUpDown,
 } from 'lucide-react'
-import { ShortcutIcon } from '@/components/ui/ShortcutIcon'
+import { ItemIcon } from '@/components/ui/ItemIcon'
 import { useRouter } from 'next/navigation'
 import { useDrag, useDrop } from 'react-dnd'
 import { FileItemBase } from '@/types/api/ndex/File'
@@ -19,6 +19,11 @@ import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClasses } from '@/components/shared/table-styles'
 import { formatDate, getDisplayName } from '@/components/shared/table-utils'
+
+// Helper function to check if folder is shared
+const isSharedFolder = (folder: FileItemBase): boolean => {
+  return Boolean((folder as any).isShared)
+}
 
 // Props for the component
 interface FoldersListProps {
@@ -142,9 +147,10 @@ const GridFolderItem = ({
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center">
           <div className="flex-shrink-0 mr-3">
-            <ShortcutIcon
+            <ItemIcon
               type={folder.type === NDExFileType.SHORTCUT ? NDExFileType.FOLDER : folder.type}
               isShortcut={folder.type === NDExFileType.SHORTCUT}
+              isShared={isSharedFolder(folder)}
               className="h-5 w-5"
             />
           </div>
@@ -271,9 +277,10 @@ const ListFolderItem = ({
       >
         <div className="flex items-center w-full">
           <div className="flex-shrink-0 mr-3">
-            <ShortcutIcon
+            <ItemIcon
               type={folder.type === NDExFileType.SHORTCUT ? NDExFileType.FOLDER : folder.type}
               isShortcut={folder.type === NDExFileType.SHORTCUT}
+              isShared={isSharedFolder(folder)}
               className="h-5 w-5"
             />
           </div>

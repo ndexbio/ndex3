@@ -14,7 +14,7 @@ export type ShortcutTargetStatus = typeof SHORTCUT_TARGET_STATUS[keyof typeof SH
 export const SHORTCUT_STYLES = {
   UNAVAILABLE_TEXT: 'text-muted-foreground opacity-60',
   NORMAL_TEXT: 'text-foreground',
-  REMOVE_BUTTON: 'px-3 py-1 text-xs font-medium text-destructive hover:text-destructive/80 border border-destructive/20 hover:border-destructive/40 rounded-md transition-colors duration-200',
+  REMOVE_BUTTON: 'px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700 rounded-md transition-colors duration-200',
   MESSAGE_CONTAINER: 'flex items-center justify-start w-full text-sm text-muted-foreground italic',
   COLUMN_SPAN: 2
 } as const

@@ -96,6 +96,19 @@ interface ActionDropdownProps {
   onMoveItems?: (itemIds: string[], targetFolderId: string) => Promise<void>
 }
 
+// Helper function to check if network has DOI (and it's not pending)
+const hasValidDOI = (item: FileItemBase | null): boolean => {
+  if (!item) return false
+  const doi = (item as any).doi
+  return doi && typeof doi === 'string' && !doi.toLowerCase().startsWith('pending')
+}
+
+// Helper function to check if network is read-only
+const isReadOnlyNetwork = (item: FileItemBase | null): boolean => {
+  if (!item) return false
+  return Boolean((item as any).isReadOnly)
+}
+
 const ActionDropdown: React.FC<ActionDropdownProps> = ({
   openDropdownId,
   dropdownType,
@@ -116,6 +129,23 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     openShareDialog,
   } = useDialogs()
   const { copyFile, isCopying } = useNetworkCopy()
+
+  // Check DOI and readonly status for networks
+  const hasDOI = dropdownType === NDExFileType.NETWORK && hasValidDOI(item)
+  const isReadOnly = dropdownType === NDExFileType.NETWORK && isReadOnlyNetwork(item)
+
+  // Determine which menu items should be disabled
+  const shouldDisableRequestDOI = hasDOI
+  const shouldDisableEditProperties = hasDOI || isReadOnly
+  const shouldDisableShare = false  // Share is always enabled
+  const shouldDisableMoveToTrash = hasDOI || isReadOnly
+
+  // Tooltip messages for disabled items
+  const getMoveToTrashTooltip = (): string => {
+    if (hasDOI) return "Networks with DOI can't be deleted"
+    if (isReadOnly) return "Read-only networks can't be deleted"
+    return ""
+  }
 
   // Add an effect to mark the component as mounted for event handling
   useEffect(() => {
@@ -336,10 +366,19 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             Open in Cytoscape Desktop
           </button>
           <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(handleOpenShareDialog)}
+            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+              shouldDisableRequestDOI
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+            onClick={shouldDisableRequestDOI ? undefined : handleButtonClick(handleOpenShareDialog)}
+            disabled={shouldDisableRequestDOI}
           >
-            <BookCopy className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+            <BookCopy className={`h-4 w-4 ${
+              shouldDisableRequestDOI
+                ? 'text-gray-400'
+                : 'text-gray-500 group-hover:text-gray-700'
+            }`} />
             Request DOI
           </button>
           <DownloadMenu
@@ -348,10 +387,19 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             onClose={onClose}
           />
           <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(handleOpenEditPropertiesDialog)}
+            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+              shouldDisableEditProperties
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+            onClick={shouldDisableEditProperties ? undefined : handleButtonClick(handleOpenEditPropertiesDialog)}
+            disabled={shouldDisableEditProperties}
           >
-            <FileEdit className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+            <FileEdit className={`h-4 w-4 ${
+              shouldDisableEditProperties
+                ? 'text-gray-400'
+                : 'text-gray-500 group-hover:text-gray-700'
+            }`} />
             Edit Properties
           </button>
           <button
@@ -367,10 +415,19 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             {isCopying[openDropdownId] ? 'Copying...' : 'Make a Copy'}
           </button>
           <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(handleOpenShareDialog)}
+            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+              shouldDisableShare
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+            onClick={shouldDisableShare ? undefined : handleButtonClick(handleOpenShareDialog)}
+            disabled={shouldDisableShare}
           >
-            <UserPlus className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+            <UserPlus className={`h-4 w-4 ${
+              shouldDisableShare
+                ? 'text-gray-400'
+                : 'text-gray-500 group-hover:text-gray-700'
+            }`} />
             Share
           </button>
           <button
@@ -393,16 +450,27 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               Add a Shortcut
             </button>
           )}
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => {
-              onDelete([openDropdownId])
-              onClose()
-            })}
-          >
-            <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Move to Trash
-          </button>
+          <div title={shouldDisableMoveToTrash ? getMoveToTrashTooltip() : ""}>
+            <button
+              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+                shouldDisableMoveToTrash
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              onClick={shouldDisableMoveToTrash ? undefined : handleButtonClick(() => {
+                onDelete([openDropdownId])
+                onClose()
+              })}
+              disabled={shouldDisableMoveToTrash}
+            >
+              <Trash2 className={`h-4 w-4 ${
+                shouldDisableMoveToTrash
+                  ? 'text-gray-400'
+                  : 'text-gray-500 group-hover:text-gray-700'
+              }`} />
+              Move to Trash
+            </button>
+          </div>
         </div>
       )}
     </div>

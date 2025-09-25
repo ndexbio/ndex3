@@ -6,8 +6,10 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  Trophy,
+  Lock,
 } from 'lucide-react'
-import { ShortcutIcon } from '@/components/ui/ShortcutIcon'
+import { ItemIcon } from '@/components/ui/ItemIcon'
 import { useRouter } from 'next/navigation'
 import { useDrag } from 'react-dnd'
 import { FileItemBase } from '@/types/api/ndex/File'
@@ -19,6 +21,7 @@ import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClasses } from '@/components/shared/table-styles'
 import { formatDate, formatCount, getDisplayName } from '@/components/shared/table-utils'
+import { NetworkStatusDialog } from '@/components/dialogs/NetworkStatusDialog'
 
 // Props for the component
 interface NetworksListProps {
@@ -75,6 +78,41 @@ const getUnavailableShortcutMessage = (item: FileItemBase): string => {
 const getUnavailableTextClass = (isUnavailable: boolean) =>
   isUnavailable ? "text-muted-foreground opacity-60" : "text-foreground"
 
+// Helper function to check if network has DOI (and it's not pending)
+const hasValidDOI = (network: FileItemBase): boolean => {
+  const doi = (network as any).doi
+  return doi && typeof doi === 'string' && !doi.toLowerCase().startsWith('pending')
+}
+
+// Helper function to check if network is read-only
+const isReadOnlyNetwork = (network: FileItemBase): boolean => {
+  return Boolean((network as any).isReadOnly)
+}
+
+// Helper function to check if network is shared
+const isSharedNetwork = (network: FileItemBase): boolean => {
+  return Boolean((network as any).isShared)
+}
+
+// Helper function to check if network is valid
+const isNetworkValid = (network: FileItemBase): boolean => {
+  // Default to true if isValid attribute is not present
+  const isValid = (network as any).isValid
+  return isValid !== false
+}
+
+// Helper function to check if network has warnings
+const hasNetworkWarnings = (network: FileItemBase): boolean => {
+  const warnings = (network as any).warnings
+  return warnings && Array.isArray(warnings) && warnings.length > 0
+}
+
+// Helper function to check if network has error
+const hasNetworkError = (network: FileItemBase): boolean => {
+  const errorMessage = (network as any).errorMessage
+  return errorMessage && typeof errorMessage === 'string' && errorMessage.trim() !== ''
+}
+
 // Sort direction type
 type SortDirection = 'asc' | 'desc' | null
 
@@ -87,6 +125,8 @@ const GridNetworkItem = ({
   onDoubleClick,
   onDropdownToggle,
   onRemoveShortcut,
+  onWarningClick,
+  onErrorClick,
   readOnly,
 }: {
   network: NetworkItem
@@ -106,6 +146,8 @@ const GridNetworkItem = ({
     type: NDExFileType,
   ) => void
   onRemoveShortcut?: (shortcutId: string) => Promise<void>
+  onWarningClick: (network: FileItemBase) => void
+  onErrorClick: (network: FileItemBase) => void
   readOnly?: boolean
 }) => {
   const isSelected = selectedItems.includes(network.uuid)
@@ -143,9 +185,15 @@ const GridNetworkItem = ({
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center">
           <div className="flex-shrink-0 mr-3">
-            <ShortcutIcon
+            <ItemIcon
               type={network.type === NDExFileType.SHORTCUT ? NDExFileType.NETWORK : network.type}
               isShortcut={network.type === NDExFileType.SHORTCUT}
+              isShared={isSharedNetwork(network)}
+              isValid={isNetworkValid(network)}
+              hasWarnings={hasNetworkWarnings(network)}
+              hasError={hasNetworkError(network)}
+              onWarningClick={() => onWarningClick(network)}
+              onErrorClick={() => onErrorClick(network)}
               className="h-5 w-5"
             />
           </div>
@@ -192,8 +240,20 @@ const GridNetworkItem = ({
         )}
       </div>
       <div className="space-y-2">
-        <h3 className={`${tableStyles.text.name} ${getUnavailableTextClass(isUnavailable)}`}>
-          {getDisplayName(network, 'Untitled Network')}
+        <h3 className={`${tableStyles.text.name} ${getUnavailableTextClass(isUnavailable)} flex items-center gap-2`}>
+          <span className="truncate">{getDisplayName(network, 'Untitled Network')}</span>
+          {/* Show Trophy icon for networks with valid DOI */}
+          {network.type === NDExFileType.NETWORK && hasValidDOI(network) && (
+            <div title="Published network with DOI">
+              <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
+            </div>
+          )}
+          {/* Show Lock icon for read-only networks (without DOI) */}
+          {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !hasValidDOI(network) && (
+            <div title="Read-only network">
+              <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            </div>
+          )}
         </h3>
       </div>
     </div>
@@ -210,6 +270,8 @@ const ListNetworkItem = ({
   onDoubleClick,
   onDropdownToggle,
   onRemoveShortcut,
+  onWarningClick,
+  onErrorClick,
   showOwnerColumn,
   showVisibilityColumn,
   readOnly,
@@ -232,6 +294,8 @@ const ListNetworkItem = ({
     type: NDExFileType,
   ) => void
   onRemoveShortcut?: (shortcutId: string) => Promise<void>
+  onWarningClick: (network: FileItemBase) => void
+  onErrorClick: (network: FileItemBase) => void
   showOwnerColumn?: boolean
   showVisibilityColumn?: boolean
   readOnly?: boolean
@@ -275,15 +339,33 @@ const ListNetworkItem = ({
       <td className={getTdClasses('left')}>
         <div className="flex items-center w-full">
           <div className="flex-shrink-0 mr-3">
-            <ShortcutIcon
+            <ItemIcon
               type={network.type === NDExFileType.SHORTCUT ? NDExFileType.NETWORK : network.type}
               isShortcut={network.type === NDExFileType.SHORTCUT}
+              isShared={isSharedNetwork(network)}
+              isValid={isNetworkValid(network)}
+              hasWarnings={hasNetworkWarnings(network)}
+              hasError={hasNetworkError(network)}
+              onWarningClick={() => onWarningClick(network)}
+              onErrorClick={() => onErrorClick(network)}
               className="h-5 w-5"
             />
           </div>
           <div className="flex-1 overflow-hidden">
-            <div className={`text-sm font-medium truncate ${getUnavailableTextClass(isUnavailable)}`}>
-              {getDisplayName(network, 'Untitled Network')}
+            <div className={`text-sm font-medium truncate ${getUnavailableTextClass(isUnavailable)} flex items-center gap-2`}>
+              <span className="truncate">{getDisplayName(network, 'Untitled Network')}</span>
+              {/* Show Trophy icon for networks with valid DOI */}
+              {network.type === NDExFileType.NETWORK && hasValidDOI(network) && (
+                <div title="Published network with DOI">
+                  <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                </div>
+              )}
+              {/* Show Lock icon for read-only networks (without DOI) */}
+              {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !hasValidDOI(network) && (
+                <div title="Read-only network">
+                  <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -334,8 +416,8 @@ const ListNetworkItem = ({
           <div className="flex justify-center w-full">
             {isUnavailable && onRemoveShortcut ? (
               <button
-                className="px-3 py-1 text-xs font-medium text-destructive hover:text-destructive/80
-                           border border-destructive/20 hover:border-destructive/40 rounded-md
+                className="px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300
+                           border border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700 rounded-md
                            transition-colors duration-200"
                 onClick={async (e) => {
                   e.stopPropagation()
@@ -401,6 +483,19 @@ const NetworksList: React.FC<NetworksListProps> = ({
     'name' | 'modificationTime' | null
   >(defaultSort.field)
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSort.direction)
+
+  // Dialog state for warnings and errors
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean
+    type: 'warning' | 'error'
+    title: string
+    content: string[]
+  }>({
+    isOpen: false,
+    type: 'warning',
+    title: '',
+    content: []
+  })
 
   // Handle double click on network to open it
   const handleNetworkDoubleClick = useCallback(
@@ -475,6 +570,37 @@ const NetworksList: React.FC<NetworksListProps> = ({
     },
     [router, readOnly, items, config.ndexBaseUrl, token, tabState]
   )
+
+  // Handle warning icon click
+  const handleWarningClick = useCallback((network: FileItemBase) => {
+    const warnings = (network as any).warnings
+    if (warnings && Array.isArray(warnings)) {
+      setDialogState({
+        isOpen: true,
+        type: 'warning',
+        title: 'Network Data Warnings',
+        content: warnings
+      })
+    }
+  }, [])
+
+  // Handle error icon click
+  const handleErrorClick = useCallback((network: FileItemBase) => {
+    const errorMessage = (network as any).errorMessage
+    if (errorMessage) {
+      setDialogState({
+        isOpen: true,
+        type: 'error',
+        title: 'Network Data Error',
+        content: [errorMessage]
+      })
+    }
+  }, [])
+
+  // Handle dialog close
+  const handleDialogClose = useCallback(() => {
+    setDialogState(prev => ({ ...prev, isOpen: false }))
+  }, [])
 
   // Handle sort column click
   const handleSortClick = (field: 'name' | 'modificationTime') => {
@@ -576,6 +702,8 @@ const NetworksList: React.FC<NetworksListProps> = ({
               onDoubleClick={handleNetworkDoubleClick}
               onDropdownToggle={onDropdownToggle}
               onRemoveShortcut={onRemoveShortcut}
+              onWarningClick={handleWarningClick}
+              onErrorClick={handleErrorClick}
               readOnly={readOnly}
             />
           ))}
@@ -660,6 +788,8 @@ const NetworksList: React.FC<NetworksListProps> = ({
                   onDoubleClick={handleNetworkDoubleClick}
                   onDropdownToggle={onDropdownToggle}
                   onRemoveShortcut={onRemoveShortcut}
+                  onWarningClick={handleWarningClick}
+                  onErrorClick={handleErrorClick}
                   showOwnerColumn={showOwnerColumn}
                   showVisibilityColumn={showVisibilityColumn}
                   readOnly={readOnly}
@@ -669,6 +799,15 @@ const NetworksList: React.FC<NetworksListProps> = ({
           </table>
         </div>
       )}
+
+      {/* Dialog for warnings and errors */}
+      <NetworkStatusDialog
+        isOpen={dialogState.isOpen}
+        onClose={handleDialogClose}
+        type={dialogState.type}
+        title={dialogState.title}
+        content={dialogState.content}
+      />
     </div>
   )
 }
