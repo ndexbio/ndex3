@@ -338,16 +338,50 @@ const handlePermissionChange = async (username: string, action: PermissionAction
 }
 ```
 
-#### 5.2 Visibility Management
+#### 5.2 Visibility Management - ✅ FULLY IMPLEMENTED WITH IMMEDIATE API CALLS
 ```typescript
-// ✅ IMPLEMENTED: Visibility API integration
+// ✅ IMPLEMENTED: Single item visibility update
 export const updateVisibility = async (
+  client: NDExClient,
   itemUuid: string,
+  itemType: NDExFileType,
   visibility: Visibility
 ): Promise<void> => {
-  console.log(`TODO: Setting ${itemUuid} visibility to ${visibility}`)
-  // This will be implemented when the visibility API is available
-  throw new Error('Visibility update not yet implemented')
+  try {
+    await client.files.setVisibility({
+      files: {
+        [itemUuid]: itemType
+      },
+      visibility: visibility
+    })
+    console.log(`Successfully updated ${itemUuid} visibility to ${visibility}`)
+  } catch (error) {
+    console.error(`Failed to update ${itemUuid} visibility to ${visibility}:`, error)
+    throw new Error('Failed to update visibility')
+  }
+}
+
+// ✅ IMPLEMENTED: Bulk visibility update for multiple items
+export const updateBulkVisibility = async (
+  client: NDExClient,
+  items: ShareableItem[],
+  visibility: Visibility
+): Promise<void> => {
+  const files: Record<string, NDExFileType> = {}
+  items.forEach(item => {
+    files[item.uuid] = item.type
+  })
+
+  try {
+    await client.files.setVisibility({
+      files,
+      visibility: visibility
+    })
+    console.log(`Successfully updated visibility to ${visibility} for ${items.length} items`)
+  } catch (error) {
+    console.error(`Failed to update visibility to ${visibility} for ${items.length} items:`, error)
+    throw new Error('Failed to update visibility')
+  }
 }
 ```
 
@@ -608,7 +642,7 @@ The share feature now provides **immediate server consistency** with these key i
 | **Change Edit → Read** | ✅ Immediate | Only if permission actually changes |
 | **Click same permission** | ❌ No API call | Smart change detection prevents redundant calls |
 | **Remove user** | ✅ Immediate | Removes user access completely |
-| **Change visibility** | ⏱️ On "Done" click | Batch operation for all selected items |
+| **Change visibility** | ✅ Immediate | Single item or bulk operation via client.files.setVisibility |
 
 ### 🎯 Benefits of Current Implementation
 
@@ -620,6 +654,311 @@ The share feature now provides **immediate server consistency** with these key i
 6. **Intuitive UX**: Existing users clearly identified and protected from duplication
 
 This implementation ensures that users can trust the sharing interface to immediately and reliably manage access to their scientific data, providing the reliability expected in professional collaborative tools.
+
+## 17. Immediate Visibility Updates Implementation ✅ COMPLETED
+
+### 17.1 Overview
+The visibility settings in the ShareDialog now provide **immediate server updates** when users change visibility settings. This ensures consistent state between the UI and server without requiring the user to click "Done" to save changes.
+
+### 17.2 Implementation Details
+
+#### Immediate API Calls
+- **✅ Visibility changes**: API calls made immediately when user changes visibility radio buttons
+- **✅ Single item visibility**: Uses `updateVisibility()` function for individual items
+- **✅ Bulk visibility**: Uses `updateBulkVisibility()` for multiple selected items
+- **✅ Optimistic UI**: Instant visual feedback with error rollback
+- **✅ Error handling**: Failed changes revert to previous state with user notification
+
+#### Enhanced User Experience
+- **✅ Real-time updates**: Visibility changes applied immediately to server
+- **✅ Error recovery**: Failed updates automatically revert UI state
+- **✅ Loading indicators**: No loading states needed since changes are immediate
+- **✅ Simplified workflow**: "Done" button only closes dialog, no saving required
+
+### 17.3 API Integration
+
+#### Single Item Visibility Update
+```typescript
+const handleVisibilityChange = async (newVisibility: VisibilityLevel) => {
+  const oldVisibility = visibility
+
+  try {
+    // Update local state first for immediate UI feedback
+    setVisibility(newVisibility)
+    setError(null)
+
+    // Make immediate API call to update visibility
+    const client = getNdexClient(config.ndexBaseUrl, token)
+    await updateVisibility(client, items[0].uuid, items[0].type, newVisibility)
+
+  } catch (error) {
+    setError('Failed to update visibility')
+    setVisibility(oldVisibility) // Revert on error
+  }
+}
+```
+
+#### Bulk Visibility Update
+```typescript
+if (items.length === 1) {
+  // Single item update
+  await updateVisibility(client, items[0].uuid, items[0].type, newVisibility)
+} else {
+  // Bulk update
+  await updateBulkVisibility(client, items, newVisibility)
+}
+```
+
+### 17.4 Updated API Functions
+
+#### NDEx Client Integration
+The implementation leverages the NDEx client's `setVisibility` method:
+
+```typescript
+// NDEx Client API usage
+await client.files.setVisibility({
+  files: {
+    [itemUuid]: itemType  // or multiple files for bulk operations
+  },
+  visibility: visibility
+})
+```
+
+#### Function Signatures
+```typescript
+// Single item visibility update
+updateVisibility(
+  client: NDExClient,
+  itemUuid: string,
+  itemType: NDExFileType,
+  visibility: Visibility
+): Promise<void>
+
+// Bulk visibility update
+updateBulkVisibility(
+  client: NDExClient,
+  items: ShareableItem[],
+  visibility: Visibility
+): Promise<void>
+```
+
+### 17.5 User Workflow Changes
+
+#### Before Implementation
+1. User changes visibility setting
+2. Setting stored locally only
+3. User clicks "Done" to save all changes
+4. API calls made in batch during "Done" processing
+
+#### After Implementation
+1. User changes visibility setting
+2. **Immediate API call** updates server
+3. Visual feedback confirms change
+4. User clicks "Done" to simply close dialog
+
+### 17.6 Benefits Achieved
+
+1. **Real-time consistency**: UI and server state always synchronized
+2. **User confidence**: Changes are immediately persisted and visible
+3. **Better error handling**: Individual operation failures don't affect other changes
+4. **Simplified UX**: No confusion about when changes are saved
+5. **Professional reliability**: Immediate feedback matches user expectations
+
+### 17.7 Compatibility
+
+- **✅ Single selection**: Works from ActionDropdown menu
+- **✅ Bulk selection**: Works from selection command bar
+- **✅ All file types**: Supports networks, folders, and shortcuts
+- **✅ Mixed selections**: Handles combinations of different file types
+- **✅ Error scenarios**: Graceful handling of API failures
+
+This implementation completes the visibility management functionality by providing immediate, reliable updates that ensure users can confidently manage the visibility of their scientific data with real-time server synchronization.
+
+## 18. Cache Synchronization and UI Updates ✅ COMPLETED
+
+### 18.1 Problem Solved
+After implementing immediate visibility API calls, users reported that changes weren't reflecting in the My Account table, requiring page refresh to see updates. This indicated a cache synchronization issue.
+
+### 18.2 Root Cause Analysis
+The issue was incorrect SWR cache key matching:
+- **Problem**: Using string-based cache keys for SWR `mutate()` function
+- **Actual Keys**: SWR was using array-based keys for network/folder data
+- **Result**: Cache updates weren't matching the actual cached data
+
+### 18.3 Solution Implementation
+
+#### Updated Cache Key Structure
+```typescript
+// Folder contents cache key
+['folderContents', folderId, token]
+
+// Shared files cache key
+['sharedFiles', token]
+
+// Trash contents cache key
+['trashContents', token]
+```
+
+#### Efficient Cache Update Function
+```typescript
+const handleShareDialogSuccess = async (updatedItems: { uuid: string; visibility: Visibility }[]) => {
+  const updatesMap = new Map(updatedItems.map(item => [item.uuid, item.visibility]))
+
+  const updateItemsInArray = (items: FileItemBase[]): FileItemBase[] => {
+    return items.map(item => {
+      const newVisibility = updatesMap.get(item.uuid)
+      if (newVisibility !== undefined) {
+        return {
+          ...item,
+          attributes: {
+            ...item.attributes,
+            visibility: newVisibility
+          }
+        }
+      }
+      return item
+    })
+  }
+
+  // Update appropriate SWR cache based on current tab
+  if (tabState === MyAccountTabType.SHARED) {
+    mutate(
+      (key) => Array.isArray(key) && key[0] === 'sharedFiles',
+      (data) => data ? updateItemsInArray(data) : data,
+      false
+    )
+  }
+  // Similar for other tabs...
+}
+```
+
+### 18.4 ShareDialog Integration
+
+#### Updated Props Interface
+```typescript
+export interface ShareDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  items: ShareableItem[];
+  mode: 'single' | 'bulk';
+  onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void;
+}
+```
+
+#### Change Tracking Implementation
+```typescript
+const [changedVisibilityItems, setChangedVisibilityItems] = useState<Map<string, Visibility>>(new Map())
+
+const handleVisibilityChange = async (newVisibility: VisibilityLevel) => {
+  // ... API call logic ...
+
+  // Track changed items for cache update
+  if (items.length === 1) {
+    setChangedVisibilityItems(prev => new Map(prev.set(items[0].uuid, newVisibility)))
+  } else {
+    setChangedVisibilityItems(prev => {
+      const newMap = new Map(prev)
+      items.forEach(item => {
+        newMap.set(item.uuid, newVisibility)
+      })
+      return newMap
+    })
+  }
+}
+
+const handleClose = () => {
+  if (changedVisibilityItems.size > 0 && onSuccess) {
+    const updatedItems = Array.from(changedVisibilityItems.entries()).map(([uuid, visibility]) => ({
+      uuid,
+      visibility
+    }))
+    onSuccess(updatedItems)
+  }
+  onClose()
+}
+```
+
+### 18.5 Benefits Achieved
+
+1. **Immediate UI Updates**: Table reflects visibility changes without page refresh
+2. **Efficient Updates**: Only affected items are updated in cache
+3. **Consistent State**: UI and server state remain synchronized
+4. **Better UX**: No loading delays or page refreshes required
+5. **Selective Updates**: Only updates the currently active tab's cache
+
+### 18.6 User Workflow Enhancement
+
+#### Before Fix
+1. User changes visibility in ShareDialog
+2. API call succeeds on server
+3. User closes dialog
+4. Table still shows old visibility values
+5. User must refresh page to see changes
+
+#### After Fix
+1. User changes visibility in ShareDialog
+2. API call succeeds on server
+3. User closes dialog
+4. **Table immediately shows new visibility values**
+5. No page refresh needed
+
+This cache synchronization implementation ensures a seamless user experience where visibility changes are immediately reflected throughout the application interface.
+
+## 19. Visibility Color Styling ✅ COMPLETED
+
+### 19.1 Enhanced Visual Distinction
+The visibility badges in network and folder lists now use distinctive colors to clearly differentiate between visibility levels:
+
+#### Color Scheme Implementation
+- **PUBLIC**: Green background (`bg-green-200 dark:bg-green-700/80`)
+- **UNLISTED**: Purple background (`bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200`)
+- **PRIVATE**: Blue background (`bg-blue-300 dark:bg-blue-700/70`)
+
+### 19.2 Files Updated
+
+#### NetworksList.tsx
+```typescript
+className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
+  network.attributes?.visibility === 'PUBLIC'
+    ? 'bg-green-200 dark:bg-green-700/80'
+    : network.attributes?.visibility === 'UNLISTED'
+    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+    : 'bg-blue-300 dark:bg-blue-700/70'
+}`}
+```
+
+#### FoldersList.tsx
+```typescript
+// Applied identical color styling as NetworksList
+```
+
+### 19.3 Design Decisions
+
+#### Color Selection Rationale
+- **Green for PUBLIC**: Universal association with "go/available/public"
+- **Purple for UNLISTED**: Neutral color that doesn't suggest warnings (avoiding orange)
+- **Blue for PRIVATE**: Traditional association with privacy/security
+
+#### Dark Mode Optimization
+- **Enhanced Green Brightness**: Changed from `dark:bg-green-800/60` to `dark:bg-green-700/80`
+- **Reason**: Previous green was too dim in dark mode, reducing visibility
+- **Result**: Better contrast and readability while maintaining color identity
+
+### 19.4 Accessibility Benefits
+
+1. **Clear Visual Hierarchy**: Each visibility level has distinct appearance
+2. **Consistent Mapping**: Same colors used across all list contexts
+3. **Dark Mode Support**: Proper contrast ratios in both light and dark themes
+4. **Semantic Association**: Colors align with common UI patterns
+
+### 19.5 User Experience Impact
+
+- **Instant Recognition**: Users can quickly identify visibility levels at a glance
+- **Reduced Cognitive Load**: No need to read text labels to understand visibility
+- **Professional Appearance**: Polished interface with clear visual distinctions
+- **Consistent Branding**: Unified color scheme across all network and folder displays
+
+This color styling enhancement completes the visual feedback system, making visibility settings immediately recognizable and professionally presented throughout the application.
 
 ## 14. Type System Improvements ✅ COMPLETED
 

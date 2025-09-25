@@ -201,6 +201,7 @@ interface SelectionToolbarAndFiltersProps {
     selectedFilters: Set<FilterOptionType>
     filterValues: FilterState
   }
+  onShareSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void
 }
 
 // Filter labels
@@ -230,6 +231,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
   currentFolderId = null,
   onFiltersChange,
   initialFilterState,
+  onShareSuccess,
 }) => {
   // Access the dialog context
   const { openMoveFolderDialog, openShareDialog } = useDialogs()
@@ -383,7 +385,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
         }
       })
 
-      openShareDialog(shareableItems, 'bulk')
+      openShareDialog(shareableItems, 'bulk', onShareSuccess)
     }
   }
 

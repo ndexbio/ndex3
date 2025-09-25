@@ -22,6 +22,7 @@ export interface ShareDialogProps {
   onClose: () => void;
   items: ShareableItem[];
   mode: 'single' | 'bulk';
+  onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void;
 }
 
 export interface ShareDialogState {

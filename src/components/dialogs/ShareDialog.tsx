@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { X, UserPlus, ChevronDown, Info, Search, Loader2 } from 'lucide-react'
-import { ShareDialogProps, ShareableItem, UserPermission, PermissionAction, VisibilityLevel } from '@/types/sharing'
-import { updateMemberPermissions, removeMemberPermissions, updateVisibility } from '@/lib/api/sharing'
+import { ShareDialogProps, UserPermission, PermissionAction, VisibilityLevel } from '@/types/sharing'
+import { updateMemberPermissions, removeMemberPermissions, updateVisibility, updateBulkVisibility } from '@/lib/api/sharing'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { NDExUser, Visibility, NDExFileType } from '@js4cytoscape/ndex-client'
 import { useConfig } from '@/lib/contexts/ConfigContext'
@@ -15,13 +15,14 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
   onClose,
   items,
   mode,
+  onSuccess,
 }) => {
   const config = useConfig()
   const { token } = useAuth()
   const [userPermissions, setUserPermissions] = useState<Map<string, UserPermission>>(new Map())
   const [visibility, setVisibility] = useState<VisibilityLevel | 'mixed'>(Visibility.PRIVATE)
   const [newUserInput, setNewUserInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [showVisibilityInfo, setShowVisibilityInfo] = useState(false)
@@ -29,6 +30,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
   const [isSearching, setIsSearching] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [accessLinkEnabled, setAccessLinkEnabled] = useState(false)
+  const [changedVisibilityItems, setChangedVisibilityItems] = useState<Map<string, Visibility>>(new Map())
   const inputRef = useRef<HTMLInputElement>(null)
   const infoPopupRef = useRef<HTMLDivElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
@@ -42,6 +44,20 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
       }
     }
   }, [isOpen, items])
+
+  // Handle Escape key to close dialog
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        closeDialogWithChanges()
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape)
+      return () => document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isOpen, changedVisibilityItems, onSuccess])
 
   // Handle click outside for info popup
   useEffect(() => {
@@ -130,6 +146,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
     setShowSuggestions(false)
     setAccessLinkEnabled(false)
     setError(null)
+    setChangedVisibilityItems(new Map()) // Reset changed items tracker
   }
 
   const handleSelectUser = async (user: NDExUser) => {
@@ -249,11 +266,51 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
     setOpenDropdownId(null)
   }
 
-  const handleVisibilityChange = (newVisibility: VisibilityLevel) => {
-    setVisibility(newVisibility)
-    // Reset access link when visibility changes away from private
-    if (newVisibility !== Visibility.PRIVATE) {
-      setAccessLinkEnabled(false)
+  const handleVisibilityChange = async (newVisibility: VisibilityLevel) => {
+    const oldVisibility = visibility
+
+    try {
+      // Update local state first for immediate UI feedback
+      setVisibility(newVisibility)
+      setError(null)
+
+      // Reset access link when visibility changes away from private
+      if (newVisibility !== Visibility.PRIVATE) {
+        setAccessLinkEnabled(false)
+      }
+
+      // Make immediate API call to update visibility
+      const client = getNdexClient(config.ndexBaseUrl, token)
+
+      if (items.length === 1) {
+        // Single item update
+        await updateVisibility(client, items[0].uuid, items[0].type, newVisibility)
+        // Track this item as changed
+        setChangedVisibilityItems(prev => new Map(prev.set(items[0].uuid, newVisibility)))
+      } else {
+        // Bulk update
+        await updateBulkVisibility(client, items, newVisibility)
+        // Track all items as changed
+        setChangedVisibilityItems(prev => {
+          const newMap = new Map(prev)
+          items.forEach(item => {
+            newMap.set(item.uuid, newVisibility)
+          })
+          return newMap
+        })
+      }
+
+    } catch (error) {
+      setError('Failed to update visibility')
+      console.error('Error updating visibility:', error)
+
+      // Revert local state on error
+      setVisibility(oldVisibility)
+
+      // Revert access link if it was changed
+      if (oldVisibility === Visibility.PRIVATE && newVisibility !== Visibility.PRIVATE) {
+        setAccessLinkEnabled(true)
+      }
     }
   }
 
@@ -262,33 +319,23 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
     // The AccessLinkSection component handles the actual API calls
   }
 
-  const handleDone = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      // Note: Member permissions are now updated immediately when changed
-      // Only handle visibility updates here
-
-      // Update visibility for each item if changed
-      if (visibility !== 'mixed') {
-        for (const item of items) {
-          try {
-            await updateVisibility(item.uuid, visibility as VisibilityLevel)
-          } catch (error) {
-            // Log but don't fail the whole operation for visibility updates
-            console.warn(`Failed to update visibility for ${item.uuid}:`, error)
-          }
-        }
-      }
-
-      onClose()
-    } catch (error) {
-      setError('Failed to update sharing settings')
-      console.error('Error updating sharing settings:', error)
-    } finally {
-      setIsLoading(false)
+  // Helper to notify parent of changes and close dialog
+  const closeDialogWithChanges = () => {
+    // If there were visibility changes, notify the parent via onSuccess callback
+    if (changedVisibilityItems.size > 0 && onSuccess) {
+      const updatedItems = Array.from(changedVisibilityItems.entries()).map(([uuid, visibility]) => ({
+        uuid,
+        visibility
+      }))
+      onSuccess(updatedItems)
     }
+
+    // Close the dialog
+    onClose()
+  }
+
+  const handleDone = () => {
+    closeDialogWithChanges()
   }
 
   if (!isOpen) return null
@@ -309,7 +356,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
       {/* Background overlay */}
       <div
         className="fixed inset-0 bg-gray-300 dark:bg-gray-700 opacity-50"
-        onClick={onClose}
+        onClick={closeDialogWithChanges}
       />
 
       {/* Dialog box */}
@@ -318,7 +365,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h2 className="text-xl font-normal text-gray-900 dark:text-gray-100">{dialogTitle}</h2>
           <button
-            onClick={onClose}
+            onClick={closeDialogWithChanges}
             className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
           >
             <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
@@ -575,10 +622,9 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
           <button
             onClick={handleDone}
-            className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-            disabled={isLoading}
+            className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
-            {isLoading ? 'Saving...' : 'Done'}
+            Done
           </button>
         </div>
       </div>

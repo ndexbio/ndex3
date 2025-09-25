@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { mutate } from 'swr'
 import SideBar from './SideBar'
 import {
   Grid,
@@ -29,7 +30,7 @@ import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { useToast } from '@/lib/contexts/ToastContext'
 import { MyAccountTabType, FilterOptionType } from '@/types/ui/myAccount'
-import { NDExFileType } from '@js4cytoscape/ndex-client'
+import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
 import SelectionToolbarAndFilters from './SelectionToolbarAndFilters'
 import { useShortcut } from '@/hooks/use-shortcut'
 import { FilterState } from './SelectionToolbarAndFilters' // Import the FilterState type
@@ -485,6 +486,65 @@ function MyAccountContent({
       router.push('/my-account')
     } else {
       router.push(`/folders/${id}`)
+    }
+  }
+
+  // Handle visibility updates from ShareDialog - efficiently update specific items
+  const handleShareDialogSuccess = async (updatedItems: { uuid: string; visibility: Visibility }[]) => {
+    // Create a map for quick lookup
+    const updatesMap = new Map(updatedItems.map(item => [item.uuid, item.visibility]))
+
+    // Function to update items in an array
+    const updateItemsInArray = (items: FileItemBase[]): FileItemBase[] => {
+      return items.map(item => {
+        const newVisibility = updatesMap.get(item.uuid)
+        if (newVisibility !== undefined) {
+          return {
+            ...item,
+            attributes: {
+              ...item.attributes,
+              visibility: newVisibility
+            }
+          }
+        }
+        return item
+      })
+    }
+
+    // Update the appropriate SWR cache based on current tab using the exact cache key structure
+    try {
+      if (tabState === MyAccountTabType.SHARED) {
+        // Update shared files cache: ['sharedFiles', token]
+        mutate(
+          (key) => Array.isArray(key) && key[0] === 'sharedFiles',
+          (data) => data ? updateItemsInArray(data) : data,
+          false
+        )
+      } else if (tabState === MyAccountTabType.TRASH) {
+        // Update trash cache: ['trashContents', token]
+        mutate(
+          (key) => Array.isArray(key) && key[0] === 'trashContents',
+          (data) => data ? updateItemsInArray(data) : data,
+          false
+        )
+      } else {
+        // Update folder contents cache: ['folderContents', folderId, token]
+        mutate(
+          (key) => Array.isArray(key) && key[0] === 'folderContents' && key[1] === folderId,
+          (data) => data ? updateItemsInArray(data) : data,
+          false
+        )
+      }
+    } catch (error) {
+      console.error('Error updating cache after visibility change:', error)
+      // Fall back to refresh if cache update fails
+      if (tabState === MyAccountTabType.SHARED) {
+        await refreshSharedFiles()
+      } else if (tabState === MyAccountTabType.TRASH) {
+        await refreshTrash()
+      } else {
+        await refreshFolderContents()
+      }
     }
   }
 
@@ -1149,6 +1209,7 @@ function MyAccountContent({
               selectedFilters,
               filterValues,
             }}
+            onShareSuccess={handleShareDialogSuccess}
           />
 
           {/* Main content with DnD support */}
@@ -1187,6 +1248,7 @@ function MyAccountContent({
                 onRestore={handleRestoreFromTrash}
                 onCreateShortcut={handleCreateShortcut}
                 onMoveItems={handleMoveItems}
+                onShareSuccess={handleShareDialogSuccess}
               />
             )}
           </DndProvider>

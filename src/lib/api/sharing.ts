@@ -77,14 +77,47 @@ export const getExistingPermissions = async (
   }
 }
 
-// TODO: Implement visibility update API when available
 export const updateVisibility = async (
+  client: NDExClient,
   itemUuid: string,
+  itemType: NDExFileType,
   visibility: Visibility
 ): Promise<void> => {
-  console.log(`TODO: Setting ${itemUuid} visibility to ${visibility}`)
-  // This will be implemented when the visibility API is available
-  throw new Error('Visibility update not yet implemented')
+  try {
+    await client.files.setVisibility({
+      files: {
+        [itemUuid]: itemType
+      },
+      visibility: visibility
+    })
+    console.log(`Successfully updated ${itemUuid} visibility to ${visibility}`)
+  } catch (error) {
+    console.error(`Failed to update ${itemUuid} visibility to ${visibility}:`, error)
+    throw new Error('Failed to update visibility')
+  }
+}
+
+export const updateBulkVisibility = async (
+  client: NDExClient,
+  items: ShareableItem[],
+  visibility: Visibility
+): Promise<void> => {
+  // Convert items to the format expected by the API
+  const files: Record<string, NDExFileType> = {}
+  items.forEach(item => {
+    files[item.uuid] = item.type
+  })
+
+  try {
+    await client.files.setVisibility({
+      files,
+      visibility: visibility
+    })
+    console.log(`Successfully updated visibility to ${visibility} for ${items.length} items`)
+  } catch (error) {
+    console.error(`Failed to update visibility to ${visibility} for ${items.length} items:`, error)
+    throw new Error('Failed to update visibility')
+  }
 }
 
 // TODO: Implement user search API when available

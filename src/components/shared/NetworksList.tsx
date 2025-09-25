@@ -434,7 +434,9 @@ const ListNetworkItem = ({
               <span
                 className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
                   network.attributes?.visibility === 'PUBLIC'
-                    ? 'bg-green-200 dark:bg-green-800/60'
+                    ? 'bg-green-200 dark:bg-green-700/80'
+                    : network.attributes?.visibility === 'UNLISTED'
+                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
                     : 'bg-blue-300 dark:bg-blue-700/70'
                 }`}
               >

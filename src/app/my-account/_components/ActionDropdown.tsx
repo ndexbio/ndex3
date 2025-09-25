@@ -94,6 +94,7 @@ interface ActionDropdownProps {
   onRestore: (itemIds: string[]) => Promise<void>
   onCreateShortcut: (itemId: string, targetFolderId?: string) => Promise<void>
   onMoveItems?: (itemIds: string[], targetFolderId: string) => Promise<void>
+  onShareSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void
 }
 
 // Helper function to check if network has DOI (and it's not pending)
@@ -120,6 +121,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   onRestore,
   onCreateShortcut,
   onMoveItems,
+  onShareSuccess,
 }) => {
   const actionDropdownRef = useRef<HTMLDivElement>(null)
   const {
@@ -246,7 +248,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       visibility: (item.attributes?.visibility as Visibility) || Visibility.PRIVATE,
     }
 
-    openShareDialog([shareableItem], 'single')
+    openShareDialog([shareableItem], 'single', onShareSuccess)
     onClose() // Close the dropdown
   }
 
