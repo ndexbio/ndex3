@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { File, Folder, X, Link, Loader2 } from 'lucide-react'
+import { File, Folder, X, Link, Loader2, GripVertical } from 'lucide-react'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { formatDate } from './NetworksList'
 import { useConfig } from '@/lib/contexts/ConfigContext'
@@ -16,6 +16,9 @@ interface DetailsPanelProps {
   onClose: () => void
   selectedItems: string[]
   allItems: FileItemBase[]
+  width?: number
+  isDragging?: boolean
+  onMouseDownResize?: (e: React.MouseEvent) => void
 }
 
 interface DetailedItemData {
@@ -31,6 +34,9 @@ export default function DetailsPanel({
   onClose,
   selectedItems,
   allItems,
+  width = 320,
+  isDragging = false,
+  onMouseDownResize,
 }: DetailsPanelProps) {
   const config = useConfig()
   const { token } = useAuth()
@@ -98,7 +104,24 @@ export default function DetailsPanel({
   }
 
   return (
-    <div className="w-80 h-full border border-border bg-card flex flex-col rounded-md shrink-0">
+    <div
+      className="h-full border border-border bg-card flex rounded-md shrink-0 relative"
+      style={{ width }}
+    >
+      {/* Resize Handle */}
+      {onMouseDownResize && (
+        <div
+          className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize bg-transparent hover:bg-accent/50 transition-colors flex items-center justify-center group ${isDragging ? 'bg-accent' : ''}`}
+          onMouseDown={onMouseDownResize}
+        >
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+      )}
+
+      {/* Panel Content */}
+      <div className="flex flex-col flex-1 ml-1">
       <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
         <h3 className="font-medium text-foreground">Details</h3>
         <button
@@ -320,6 +343,7 @@ export default function DetailsPanel({
           </ul>
         </div>
       )}
+      </div>
     </div>
   )
 }

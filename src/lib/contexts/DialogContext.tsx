@@ -9,6 +9,7 @@ import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useFolderContents } from '@/hooks/use-folder'
 import { useNetworkOperation } from '@/hooks/use-network-operation'
 import { ShareableItem } from '@/types/sharing'
+import { Visibility } from '@js4cytoscape/ndex-client'
 
 interface DialogContextType {
   openRenameFolderDialog: (
@@ -22,7 +23,7 @@ interface DialogContextType {
     onMove: (targetFolderId: string) => Promise<void>,
   ) => void
   openEditNetworkPropertiesDialog: (networkId: string) => void
-  openShareDialog: (items: ShareableItem[], mode: 'single' | 'bulk') => void
+  openShareDialog: (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => void
 }
 
 const DialogContext = createContext<DialogContextType | undefined>(undefined)
@@ -83,10 +84,12 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     isOpen: boolean
     items: ShareableItem[]
     mode: 'single' | 'bulk'
+    onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void
   }>({
     isOpen: false,
     items: [],
     mode: 'single',
+    onSuccess: undefined,
   })
 
   // Get network operation functions (no specific network ID)
@@ -195,11 +198,12 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     console.log('Network properties updated successfully')
   }
 
-  const openShareDialog = (items: ShareableItem[], mode: 'single' | 'bulk') => {
+  const openShareDialog = (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => {
     setShareDialogProps({
       isOpen: true,
       items,
       mode,
+      onSuccess,
     })
   }
 
@@ -251,6 +255,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         onClose={closeShareDialog}
         items={shareDialogProps.items}
         mode={shareDialogProps.mode}
+        onSuccess={shareDialogProps.onSuccess}
       />
     </DialogContext.Provider>
   )

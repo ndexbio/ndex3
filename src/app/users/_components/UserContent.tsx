@@ -9,6 +9,7 @@ import { NDExFileType } from '@js4cytoscape/ndex-client'
 import FoldersList from '@/components/shared/FoldersList'
 import NetworksList from '@/components/shared/NetworksList'
 import DetailsPanel from '@/components/shared/DetailsPanel'
+import { useResizablePanel } from '@/hooks/useResizablePanel'
 
 interface UserContentProps {
   content: FileItemBase[]
@@ -20,6 +21,14 @@ export default function UserContent({ content, isLoading, userName }: UserConten
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [selectedItems, setSelectedItems] = useState<string[]>([])
+
+  // Resizable panel hook
+  const { width: panelWidth, isDragging, handleMouseDown } = useResizablePanel({
+    defaultWidth: 320,
+    minWidth: 280,
+    maxWidthPercent: 0.6,
+    storageKey: 'detailsPanel.userPublic.width'
+  })
 
   // Handle item selection (similar to my-account page)
   const handleSelect = (
@@ -225,6 +234,9 @@ export default function UserContent({ content, isLoading, userName }: UserConten
             onClose={() => setDetailsOpen(false)}
             selectedItems={selectedItems}
             allItems={[...folders, ...networks]}
+            width={panelWidth}
+            isDragging={isDragging}
+            onMouseDownResize={handleMouseDown}
           />
         )}
       </div>

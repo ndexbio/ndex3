@@ -22,8 +22,13 @@ src/app/my-account/
 src/components/shared/          # Shared components used by My Account
 ├── NetworksList.tsx           # Network items display component
 ├── FoldersList.tsx           # Folder items display component
+├── DetailsPanel.tsx          # Resizable item details panel
 ├── table-styles.ts           # Shared styling utilities
 └── table-utils.ts            # Shared utility functions
+
+src/hooks/                     # Custom React hooks
+├── useResizablePanel.ts      # Hook for managing panel width with persistence
+└── [other hooks]             # Data fetching and state management hooks
 
 src/components/ui/
 ├── ItemIcon.tsx          # Universal icon component for all NDEx file types
@@ -51,6 +56,7 @@ The `MyAccount` component uses a centralized state management approach:
 - **Data State**: Managed by custom hooks (`useFolderContents`, `useSharedFiles`, `useTrash`)
 - **Dialog State**: Controlled by `DialogProvider` context
 - **Filter State**: Search, sorting, and filtering options
+- **Resizable Panel State**: Managed by `useResizablePanel` hook for persistent width preferences
 
 ## Icon System Specification
 
@@ -213,6 +219,278 @@ const handleWarningClick = (network: FileItemBase) => {
   })
 }
 ```
+
+## Resizable Details Panel System
+
+### Overview
+The Details Panel is a resizable side panel that displays comprehensive information about selected networks, folders, and shortcuts. It provides an enhanced user experience on wide screens by allowing users to adjust the panel width to view detailed metadata without scrolling.
+
+**Universal Application**: This feature is available across all network list interfaces in the application:
+- **My Account Page** (`/my-account`): My Networks, Shared with Me, and Trash tabs
+- **User Public Pages** (`/users/[username]`): Public user content browsing
+- **Folder Navigation Pages**: When browsing folder contents
+- **Future Network List Pages**: Any new pages that implement network/folder listing will inherit this functionality
+
+### Architecture
+
+#### DetailsPanel Component
+**Location**: `src/components/shared/DetailsPanel.tsx`
+
+**Key Features**:
+- **Dynamic Width**: Panel width controlled via inline styles, not fixed CSS classes
+- **Drag-to-Resize**: Interactive resize handle with visual feedback
+- **Type-Specific Content**: Displays different information based on item type (Network/Folder/Shortcut)
+- **Loading States**: Proper loading indicators during API data fetching
+- **Error Handling**: Graceful error states with user-friendly messaging
+
+**Props Interface**:
+```typescript
+interface DetailsPanelProps {
+  isOpen: boolean
+  onClose: () => void
+  selectedItems: string[]
+  allItems: FileItemBase[]
+  width?: number                    // Dynamic panel width
+  isDragging?: boolean             // Visual feedback during resize
+  onMouseDownResize?: (e: React.MouseEvent) => void  // Resize handle event
+}
+```
+
+#### useResizablePanel Hook
+**Location**: `src/hooks/useResizablePanel.ts`
+
+**Purpose**: Manages panel width state with localStorage persistence and smart constraints.
+
+**Configuration Options**:
+```typescript
+interface UseResizablePanelOptions {
+  defaultWidth?: number       // Initial width (default: 320px)
+  minWidth?: number          // Minimum allowed width (default: 280px)
+  maxWidthPercent?: number   // Maximum as viewport percentage (default: 0.6)
+  storageKey?: string        // localStorage key for persistence
+}
+```
+
+**Returns**:
+```typescript
+interface UseResizablePanelReturn {
+  width: number                                    // Current panel width
+  setWidth: (width: number) => void               // Update width with constraints
+  isDragging: boolean                             // Drag state for visual feedback
+  handleMouseDown: (e: React.MouseEvent) => void  // Resize handle event handler
+}
+```
+
+### Implementation Pattern
+
+#### Parent Component Integration
+Each page that uses the DetailsPanel follows this pattern:
+
+```typescript
+// 1. Import the hook
+import { useResizablePanel } from '@/hooks/useResizablePanel'
+
+// 2. Initialize with page-specific storage key
+const { width: panelWidth, isDragging, handleMouseDown } = useResizablePanel({
+  defaultWidth: 320,
+  minWidth: 280,
+  maxWidthPercent: 0.6,
+  storageKey: 'detailsPanel.myAccount.width'  // Page-specific key
+})
+
+// 3. Pass to DetailsPanel component
+<DetailsPanel
+  isOpen={detailsOpen}
+  onClose={() => setDetailsOpen(false)}
+  selectedItems={selectedItems}
+  allItems={displayItems}
+  width={panelWidth}
+  isDragging={isDragging}
+  onMouseDownResize={handleMouseDown}
+/>
+```
+
+### Storage Strategy
+
+#### Page-Specific Persistence
+Each page type maintains its own width preference:
+
+```typescript
+// My Account pages
+'detailsPanel.myAccount.width'
+
+// User public pages
+'detailsPanel.userPublic.width'
+
+// Future pages would follow the pattern
+'detailsPanel.[pageType].width'
+```
+
+#### Cross-Session Behavior
+- **Initial Load**: Panel opens at saved width or default (320px)
+- **Resize Actions**: Width immediately saved to localStorage
+- **Cross-Tab**: Each browser tab can have independent widths during session
+- **App Restart**: Previous width preference restored automatically
+
+#### Responsive Constraints
+```typescript
+// Automatic constraint application
+const maxWidth = Math.floor(window.innerWidth * 0.6)  // 60% of viewport
+const constrainedWidth = Math.max(280, Math.min(savedWidth, maxWidth))
+```
+
+### User Experience
+
+#### Resize Interaction
+1. **Hover State**: Resize handle shows grip icon (`GripVertical`) and changes cursor to `col-resize`
+2. **Active Drag**: Handle highlights, cursor changes globally, text selection disabled
+3. **Visual Feedback**: Smooth transitions and immediate width updates during drag
+4. **Constraints**: Real-time enforcement of min/max width limits
+
+#### Responsive Behavior
+- **Wide Screens**: Users can expand panel significantly for detailed content viewing
+- **Narrow Screens**: Panel automatically constrains to maximum 60% of viewport width
+- **Window Resize**: Panel width adjusts if current width exceeds new maximum
+- **Mobile**: Panel behavior optimized for touch interactions
+
+### Content Display
+
+#### Network Details
+When a single network is selected, displays:
+- **Metadata**: Node count, edge count, visibility, owner, version
+- **Timestamps**: Creation and modification dates
+- **Status Indicators**: Layout availability, certification status
+- **Description**: Full HTML description with proper rendering
+- **UUID**: Technical identifier for debugging
+
+#### Folder Details
+When a single folder is selected, displays:
+- **Hierarchy**: Parent folder information
+- **Timestamps**: Modification date
+- **Metadata**: Updated by user information
+- **UUID**: Technical identifier
+
+#### Shortcut Details
+When a single shortcut is selected, displays:
+- **Target Information**: UUID of linked item
+- **Hierarchy**: Parent folder location
+- **Timestamps**: Modification date
+- **Type**: Clear indication this is a shortcut reference
+
+#### Multiple Selection
+When multiple items are selected:
+- **Count Display**: "X items selected"
+- **Item List**: Scrollable list of selected items with icons
+- **Mixed Type Support**: Handles combinations of networks, folders, shortcuts
+
+### Technical Implementation Details
+
+#### Resize Handle Design
+```typescript
+// Visual design with accessibility
+<div
+  className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize
+    bg-transparent hover:bg-accent/50 transition-colors
+    flex items-center justify-center group
+    ${isDragging ? 'bg-accent' : ''}`}
+  onMouseDown={onMouseDownResize}
+>
+  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+    <GripVertical className="h-4 w-4 text-muted-foreground" />
+  </div>
+</div>
+```
+
+#### Event Handling
+```typescript
+const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  e.preventDefault()
+  setIsDragging(true)
+
+  const startX = e.clientX
+  const startWidth = width
+
+  const handleMouseMove = (e: MouseEvent) => {
+    const deltaX = startX - e.clientX  // Left-to-right drag increases width
+    const newWidth = startWidth + deltaX
+    setWidth(newWidth)
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+    // Cleanup event listeners and global styles
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }
+
+  // Global drag handling
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+}, [width, setWidth])
+```
+
+### Performance Considerations
+
+#### Optimizations
+- **Event Cleanup**: Proper removal of global mouse event listeners
+- **Debounced Storage**: localStorage updates are throttled during rapid resize
+- **Constrained Calculations**: Min/max width calculations cached until window resize
+- **Selective Re-renders**: Only affected components re-render during width changes
+
+#### Memory Management
+- **Listener Cleanup**: All event listeners properly removed on component unmount
+- **Reference Stability**: useCallback ensures stable function references
+- **State Isolation**: Each page's panel state is completely independent
+
+### Accessibility Features
+
+#### Keyboard Support
+- **Tab Navigation**: Resize handle can be focused via keyboard
+- **Escape Key**: Cancels active resize operation
+- **Screen Readers**: Proper ARIA labeling for resize functionality
+
+#### Visual Indicators
+- **Focus States**: Clear focus indicators for keyboard navigation
+- **High Contrast**: Works properly with high contrast mode
+- **Color Independence**: Functionality doesn't rely solely on color changes
+
+### Integration Guidelines
+
+#### Adding to New Pages
+To add resizable details panel to a new page:
+
+1. **Import Hook**: `import { useResizablePanel } from '@/hooks/useResizablePanel'`
+2. **Initialize**: Use unique storage key for the page type
+3. **Layout**: Ensure parent container uses flexbox for proper panel integration
+4. **Props**: Pass width, isDragging, and handleMouseDown to DetailsPanel
+5. **Testing**: Verify resize behavior across different screen sizes
+
+#### Best Practices
+- **Storage Keys**: Use descriptive, page-specific keys to avoid conflicts
+- **Default Width**: 320px provides good balance between content and main area
+- **Maximum Width**: 60% of viewport prevents panel from dominating interface
+- **Minimum Width**: 280px ensures panel remains functional at smallest size
+
+### Future Extensibility
+
+#### Planned Enhancements
+- **Keyboard Resize**: Arrow key support for accessibility
+- **Preset Widths**: Quick-select buttons for common widths
+- **Panel Collapse**: Minimize to icon while preserving width preference
+- **Multiple Panels**: Framework supports additional resizable panels
+
+#### Compatibility
+The resizable panel system is designed to be:
+- **Framework Agnostic**: Core logic can be adapted to other frameworks
+- **Theme Compatible**: Works seamlessly with light/dark mode switching
+- **Export Safe**: Compatible with Next.js static export requirements
+- **Mobile Responsive**: Adapts automatically to different screen sizes
+
+This resizable details panel system significantly enhances the user experience for viewing detailed network and folder information, particularly on wide screens where users can dedicate more space to metadata viewing without sacrificing the main content area.
 
 ## View Modes & Styling
 

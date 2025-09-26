@@ -22,6 +22,7 @@ import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { useRouter } from 'next/navigation'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import DetailsPanel from '@/components/shared/DetailsPanel'
+import { useResizablePanel } from '@/hooks/useResizablePanel'
 import { useFolder, useFolderContents } from '@/hooks/use-folder'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { useSharedFiles } from '@/hooks/use-shared-files'
@@ -57,6 +58,14 @@ function MyAccountContent({
 
   // Add the useShortcut hook
   const { createShortcut, updateShortcut, deleteShortcut } = useShortcut()
+
+  // Resizable panel hook
+  const { width: panelWidth, isDragging, handleMouseDown } = useResizablePanel({
+    defaultWidth: 320,
+    minWidth: 280,
+    maxWidthPercent: 0.6,
+    storageKey: 'detailsPanel.myAccount.width'
+  })
 
   // Add the useFolder hook
   const { deleteFolder, updateFolder } = useFolder()
@@ -1261,6 +1270,9 @@ function MyAccountContent({
             onClose={() => setDetailsOpen(false)}
             selectedItems={selectedItems}
             allItems={displayItems}
+            width={panelWidth}
+            isDragging={isDragging}
+            onMouseDownResize={handleMouseDown}
           />
         )}
       </div>
