@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 import { FileItemBase } from '@/types/api/ndex/File'
+import { Folder } from '@/hooks/use-folder'
 import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
 import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
@@ -206,7 +207,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   }
 
   // Function to prevent event bubbling for button clicks
-  const handleButtonClick = (callback: Function) => (e: React.MouseEvent) => {
+  const handleButtonClick = (callback: () => void) => (e: React.MouseEvent) => {
     e.stopPropagation()
     callback()
   }
@@ -217,7 +218,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     openRenameFolderDialog(
       openDropdownId,
       item.name,
-      (item as any).parent || '',
+      (item as Folder)?.parent || '',
     )
     onClose() // Close the dropdown
   }
@@ -234,7 +235,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       // Open the move dialog with the current item ID
       openMoveFolderDialog(
         [openDropdownId],
-        (item as any).parent || null,
+        (item as Folder)?.parent || null,
         (targetFolderId: string) =>
           onMoveItems([openDropdownId], targetFolderId),
       )

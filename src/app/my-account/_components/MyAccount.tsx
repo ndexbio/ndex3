@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { mutate } from 'swr'
 import SideBar from './SideBar'
 import {
@@ -8,15 +8,6 @@ import {
   List,
   Info,
   ChevronRight,
-  Trash2,
-  Download,
-  FolderInput,
-  UserPlus,
-  FileEdit,
-  Copy,
-  FileSymlink,
-  ExternalLink,
-  BookCopy,
 } from 'lucide-react'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { useRouter } from 'next/navigation'
@@ -31,7 +22,7 @@ import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { useToast } from '@/lib/contexts/ToastContext'
 import { MyAccountTabType, FilterOptionType } from '@/types/ui/myAccount'
-import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
+import { NDExFileType } from '@js4cytoscape/ndex-client'
 import SelectionToolbarAndFilters from './SelectionToolbarAndFilters'
 import { useShortcut } from '@/hooks/use-shortcut'
 import { FilterState } from './SelectionToolbarAndFilters' // Import the FilterState type
@@ -70,10 +61,10 @@ function MyAccountContent({
   // Add the useFolder hook
   const { deleteFolder, updateFolder } = useFolder()
 
-  const { moveNetworks, deleteNetwork, getNetworkDOI, copyNetwork } =
-    useNetworkOperation()
+  const { moveNetworks, deleteNetwork } = useNetworkOperation()
 
-  // Only initialize hooks that are needed based on the active tab
+  // Always call hooks but conditionally use results based on the active tab
+  const trashHookResult = useTrash()
   const {
     items: trashItems,
     isLoading: isLoadingTrash,
@@ -83,7 +74,7 @@ function MyAccountContent({
     restoreItems: restoreTrashItems,
     permanentDelete,
   } = tabState === MyAccountTabType.TRASH
-    ? useTrash()
+    ? trashHookResult
     : {
         items: [],
         isLoading: false,
@@ -131,9 +122,7 @@ function MyAccountContent({
     'FOLDER' | 'NETWORK' | null
   >(null)
 
-  // Reference to detect clicks outside the dropdown
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const actionDropdownRef = useRef<HTMLDivElement>(null)
+  // Reference to detect clicks outside the dropdown - handled in ActionDropdown component
 
   // Effect to close dropdown when clicking outside
   useEffect(() => {
@@ -290,7 +279,8 @@ function MyAccountContent({
     })
   }
 
-  // Only fetch folder contents if we're in My Networks tab
+  // Always call hook but conditionally use results
+  const folderContentsHookResult = useFolderContents(folderId)
   const {
     items: folderContents,
     isLoading,
@@ -298,7 +288,7 @@ function MyAccountContent({
     isEmpty,
     refresh: refreshFolderContents,
   } = tabState === MyAccountTabType.MYNETWORKS
-    ? useFolderContents(folderId)
+    ? folderContentsHookResult
     : {
         items: [],
         isLoading: false,
@@ -307,7 +297,8 @@ function MyAccountContent({
         refresh: async () => {},
       }
 
-  // Only fetch shared items if we're in Shared tab
+  // Always call hook but conditionally use results
+  const sharedFilesHookResult = useSharedFiles()
   const {
     items: sharedFiles,
     isLoading: isLoadingShared,
@@ -315,7 +306,7 @@ function MyAccountContent({
     isEmpty: isSharedEmpty,
     refresh: refreshSharedFiles,
   } = tabState === MyAccountTabType.SHARED
-    ? useSharedFiles()
+    ? sharedFilesHookResult
     : {
         items: [],
         isLoading: false,
@@ -359,12 +350,6 @@ function MyAccountContent({
       ? trashError
       : error
 
-  const currentIsEmpty =
-    tabState === MyAccountTabType.SHARED
-      ? isSharedEmpty
-      : tabState === MyAccountTabType.TRASH
-      ? !trashItems || trashItems.length === 0
-      : isEmpty
 
   // Apply filters to get filtered items
   const filteredItems = applyFilters(displayItems)
@@ -377,49 +362,8 @@ function MyAccountContent({
     }
   }, [tabState])
 
-  // Fetch current folder info if we're in a subfolder
-  useEffect(() => {
-    const fetchFolderInfo = async () => {
-      if (folderId) {
-        try {
-          const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-          const folderInfo = await ndexClient.files.getFolder(folderId)
-          setCurrentFolderInfo(folderInfo)
-
-          // After setting current folder info, build the breadcrumb path
-          if (folderInfo) {
-            buildBreadcrumbPath(folderInfo)
-          }
-        } catch (error) {
-          console.error('Error fetching folder info:', error)
-          setErrorMessage('Failed to load folder information')
-        }
-      } else {
-        setCurrentFolderInfo(null)
-        // Reset breadcrumb path based on current view
-        if (tabState === MyAccountTabType.SHARED) {
-          setBreadcrumbPath([{ name: 'Shared with me', id: null }])
-        } else if (tabState === MyAccountTabType.TRASH) {
-          setBreadcrumbPath([{ name: 'Trash', id: null }])
-        } else {
-          setBreadcrumbPath([{ name: 'My Drive', id: null }])
-        }
-      }
-    }
-
-    if (isAuthenticated && token && folderId !== undefined) {
-      fetchFolderInfo()
-    } else if (tabState === MyAccountTabType.SHARED) {
-      // For shared view without folder ID, set the breadcrumb
-      setBreadcrumbPath([{ name: 'Shared with me', id: null }])
-    } else if (tabState === MyAccountTabType.TRASH) {
-      // For trash view without folder ID, set the breadcrumb
-      setBreadcrumbPath([{ name: 'Trash', id: null }])
-    }
-  }, [folderId, isAuthenticated, token, config.ndexBaseUrl, tabState])
-
   // Build complete breadcrumb path by recursively fetching parent folders
-  const buildBreadcrumbPath = async (currentFolder: {
+  const buildBreadcrumbPath = useCallback(async (currentFolder: {
     name: string
     parent: string | null
     externalId?: string
@@ -464,7 +408,48 @@ function MyAccountContent({
         { name: currentFolder.name, id: folderId },
       ])
     }
-  }
+  }, [config.ndexBaseUrl, token, folderId])
+
+  // Fetch current folder info if we're in a subfolder
+  useEffect(() => {
+    const fetchFolderInfo = async () => {
+      if (folderId) {
+        try {
+          const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+          const folderInfo = await ndexClient.files.getFolder(folderId)
+          setCurrentFolderInfo(folderInfo)
+
+          // After setting current folder info, build the breadcrumb path
+          if (folderInfo) {
+            buildBreadcrumbPath(folderInfo)
+          }
+        } catch (error) {
+          console.error('Error fetching folder info:', error)
+          setErrorMessage('Failed to load folder information')
+        }
+      } else {
+        setCurrentFolderInfo(null)
+        // Reset breadcrumb path based on current view
+        if (tabState === MyAccountTabType.SHARED) {
+          setBreadcrumbPath([{ name: 'Shared with me', id: null }])
+        } else if (tabState === MyAccountTabType.TRASH) {
+          setBreadcrumbPath([{ name: 'Trash', id: null }])
+        } else {
+          setBreadcrumbPath([{ name: 'My Drive', id: null }])
+        }
+      }
+    }
+
+    if (isAuthenticated && token && folderId !== undefined) {
+      fetchFolderInfo()
+    } else if (tabState === MyAccountTabType.SHARED) {
+      // For shared view without folder ID, set the breadcrumb
+      setBreadcrumbPath([{ name: 'Shared with me', id: null }])
+    } else if (tabState === MyAccountTabType.TRASH) {
+      // For trash view without folder ID, set the breadcrumb
+      setBreadcrumbPath([{ name: 'Trash', id: null }])
+    }
+  }, [folderId, isAuthenticated, token, config.ndexBaseUrl, tabState, buildBreadcrumbPath])
 
   // Redirect if not authenticated - optimized for better UX
   useEffect(() => {
@@ -592,16 +577,30 @@ function MyAccountContent({
     }
   }
 
+  // Helper function to convert NDExFileType to the string type used by lastSelectedType
+  const getSelectionType = (type: NDExFileType, item?: FileItemBase): 'FOLDER' | 'NETWORK' => {
+    if (type === NDExFileType.FOLDER) return 'FOLDER'
+    if (type === NDExFileType.NETWORK) return 'NETWORK'
+    if (type === NDExFileType.SHORTCUT && item) {
+      return item.attributes?.target_type === NDExFileType.FOLDER ? 'FOLDER' : 'NETWORK'
+    }
+    return 'NETWORK' // Default fallback
+  }
+
   // Handle selection with modifiers
   const handleItemSelect = (
     event: React.MouseEvent,
     id: string,
     index: number,
-    type: 'FOLDER' | 'NETWORK',
+    type: NDExFileType,
     sortedItems: FileItemBase[] = [],
   ) => {
     // Prevent default browser behavior (like text selection)
     event.preventDefault()
+
+    // Get the item for type conversion
+    const item = filteredItems.find(item => item.uuid === id)
+    const selectionType = getSelectionType(type, item)
 
     // If clicking an already selected item and the toolbar is hidden, show it
     if (
@@ -626,7 +625,7 @@ function MyAccountContent({
         setSelectedItems([...selectedItems, id])
       }
       setLastSelectedIndex(index)
-      setLastSelectedType(type)
+      setLastSelectedType(selectionType)
     }
     // Shift key for range selection
     else if (
@@ -662,7 +661,7 @@ function MyAccountContent({
       if (!lastSelectedItem) {
         setSelectedItems([id])
         setLastSelectedIndex(index)
-        setLastSelectedType(type)
+        setLastSelectedType(selectionType)
         return
       }
 
@@ -691,7 +690,7 @@ function MyAccountContent({
     else {
       setSelectedItems([id])
       setLastSelectedIndex(index)
-      setLastSelectedType(type)
+      setLastSelectedType(selectionType)
     }
   }
 
@@ -708,6 +707,22 @@ function MyAccountContent({
     } else {
       setOpenDropdownId(id)
       setDropdownType(type)
+
+      // When opening a dropdown, always select only the clicked row
+      // Find the item's index in the filtered items list
+      const itemIndex = filteredItems.findIndex(item => item.uuid === id)
+
+      if (itemIndex !== -1) {
+        // Get the item for type conversion
+        const item = filteredItems[itemIndex]
+        const selectionType = getSelectionType(type, item)
+
+        // Select only this item (clears other selections and selects this one)
+        setSelectedItems([id])
+        setLastSelectedIndex(itemIndex)
+        setLastSelectedType(selectionType)
+        setShowSelectionToolbar(true)
+      }
     }
   }
 
@@ -936,8 +951,8 @@ function MyAccountContent({
       // Show loading state
       setLoading(true)
 
-      // Get NdexClient
-      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+      // TODO: Get NdexClient when move network functionality is implemented
+      // const ndexClient = getNdexClient(config.ndexBaseUrl, token)
 
       // Find the items to move
       const itemsToMove = displayItems.filter((item) =>
@@ -952,7 +967,7 @@ function MyAccountContent({
         names: [] as string[],
       }
 
-      let networksToMove: string[] = []
+      const networksToMove: string[] = []
       // Move each item to the target folder based on its type
       for (const item of itemsToMove) {
         try {

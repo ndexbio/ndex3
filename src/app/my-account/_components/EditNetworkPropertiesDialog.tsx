@@ -67,7 +67,7 @@ const EditNetworkPropertiesDialog: React.FC<
         setProperties(networkProperties)
       })
     }
-  }, [isOpen, network])
+  }, [isOpen, network, getNetworkSummary])
 
   // Focus the name input when the dialog opens
   useEffect(() => {
