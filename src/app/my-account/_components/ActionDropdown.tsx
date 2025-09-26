@@ -18,6 +18,7 @@ import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
 import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
 import { useNetworkCopy } from '@/hooks/use-network-copy'
+import { hasNetworkError, hasValidDOI as hasValidNetworkDOI, isNetworkReadOnly } from '@/lib/utils/network-status'
 
 // Add a dropdown menu for download formats
 const DownloadMenu: React.FC<{
@@ -97,17 +98,20 @@ interface ActionDropdownProps {
   onShareSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void
 }
 
-// Helper function to check if network has DOI (and it's not pending)
+// Helper functions using the network status utility
 const hasValidDOI = (item: FileItemBase | null): boolean => {
   if (!item) return false
-  const doi = (item as any).doi
-  return doi && typeof doi === 'string' && !doi.toLowerCase().startsWith('pending')
+  return hasValidNetworkDOI(item)
 }
 
-// Helper function to check if network is read-only
 const isReadOnlyNetwork = (item: FileItemBase | null): boolean => {
   if (!item) return false
-  return Boolean((item as any).isReadOnly)
+  return isNetworkReadOnly(item)
+}
+
+const networkHasError = (item: FileItemBase | null): boolean => {
+  if (!item) return false
+  return hasNetworkError(item)
 }
 
 const ActionDropdown: React.FC<ActionDropdownProps> = ({
@@ -132,9 +136,10 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   } = useDialogs()
   const { copyFile, isCopying } = useNetworkCopy()
 
-  // Check DOI and readonly status for networks
+  // Check DOI, readonly status, and error status for networks
   const hasDOI = dropdownType === NDExFileType.NETWORK && hasValidDOI(item)
   const isReadOnly = dropdownType === NDExFileType.NETWORK && isReadOnlyNetwork(item)
+  const hasError = dropdownType === NDExFileType.NETWORK && networkHasError(item)
 
   // Determine which menu items should be disabled
   const shouldDisableRequestDOI = hasDOI
@@ -357,8 +362,27 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             Move to Trash
           </button>
         </div>
+      ) : hasError ? (
+        // Networks with errors - only show Download and Move to Trash
+        <div className="py-2">
+          <DownloadMenu
+            networkId={openDropdownId}
+            networkName={item.name || 'network'}
+            onClose={onClose}
+          />
+          <button
+            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            onClick={handleButtonClick(() => {
+              onDelete([openDropdownId])
+              onClose()
+            })}
+          >
+            <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+            Move to Trash
+          </button>
+        </div>
       ) : (
-        // Network options
+        // Regular network options (no errors)
         <div className="py-2">
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

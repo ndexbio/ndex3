@@ -1,5 +1,5 @@
 import { NDExClient, Permission, NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
-import { ShareableItem, UserPermission } from '@/types/sharing'
+import { ShareableItem, UserPermission, FilePermissionList } from '@/types/sharing'
 
 export const updateMemberPermissions = async (
   client: NDExClient,
@@ -61,7 +61,10 @@ export const removeMemberPermissions = async (
 export const getExistingPermissions = async (
   client: NDExClient,
   items: ShareableItem[]
-): Promise<any> => {
+): Promise<FilePermissionList | null> => {
+  if (!items || items.length === 0) {
+    return null
+  }
 
   const files: Record<string, NDExFileType> = {}
   items.forEach(item => {
@@ -73,7 +76,8 @@ export const getExistingPermissions = async (
     return result
   } catch (error) {
     console.error('Failed to get existing permissions:', error)
-    throw new Error('Failed to load existing permissions')
+    // Return null instead of throwing to allow graceful degradation
+    return null
   }
 }
 
@@ -128,6 +132,29 @@ export const searchUsers = async (query: string): Promise<any[]> => {
 }
 
 /**
+ * Check if access keys already exist for networks by getting network access key
+ */
+export const getNetworkAccessKey = async (
+  client: NDExClient,
+  networkUuid: string
+): Promise<string | null> => {
+  try {
+    // Use the proper NDEx client method to get network access key
+    const result = await client.networks.getNetworkAccessKey(networkUuid)
+
+    if (result && typeof result === 'object' && 'accessKey' in result) {
+      const accessKey = (result as { accessKey: string }).accessKey
+      return accessKey
+    }
+
+    return null
+  } catch (error) {
+    console.log(`No access key found for network ${networkUuid}`)
+    return null
+  }
+}
+
+/**
  * Generate access keys for sharing files publicly
  */
 export const generateAccessKeys = async (
@@ -163,10 +190,38 @@ export const revokeAccessKeys = async (
 
   try {
     await client.files.unshare(files)
-    console.log('Access keys revoked successfully')
   } catch (error) {
     console.error('Failed to revoke access keys:', error)
     throw new Error('Failed to revoke access keys')
+  }
+}
+
+/**
+ * Transfer ownership of networks to a new owner
+ */
+export const transferOwnership = async (
+  client: NDExClient,
+  items: ShareableItem[],
+  newOwnerUuid: string
+): Promise<void> => {
+  // Extract network UUIDs from items (only networks can have ownership transferred)
+  const networks = items
+    .filter(item => item.type === NDExFileType.NETWORK)
+    .map(item => item.uuid)
+
+  if (networks.length === 0) {
+    throw new Error('No networks selected for ownership transfer')
+  }
+
+  try {
+    await client.files.transferOwnership({
+      networks,
+      newOwner: newOwnerUuid
+    })
+    console.log(`Successfully transferred ownership of ${networks.length} networks to ${newOwnerUuid}`)
+  } catch (error) {
+    console.error(`Failed to transfer ownership of ${networks.length} networks:`, error)
+    throw new Error('Failed to transfer ownership')
   }
 }
 

@@ -22,6 +22,7 @@ import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClasses } from '@/components/shared/table-styles'
 import { formatDate, formatCount, getDisplayName } from '@/components/shared/table-utils'
 import { NetworkStatusDialog } from '@/components/dialogs/NetworkStatusDialog'
+import { hasNetworkError } from '@/lib/utils/network-status'
 
 // Props for the component
 interface NetworksListProps {
@@ -107,11 +108,7 @@ const hasNetworkWarnings = (network: FileItemBase): boolean => {
   return warnings && Array.isArray(warnings) && warnings.length > 0
 }
 
-// Helper function to check if network has error
-const hasNetworkError = (network: FileItemBase): boolean => {
-  const errorMessage = (network as any).errorMessage
-  return errorMessage && typeof errorMessage === 'string' && errorMessage.trim() !== ''
-}
+// Use shared network status utilities
 
 // Sort direction type
 type SortDirection = 'asc' | 'desc' | null

@@ -1,4 +1,4 @@
-import { Visibility, NDExFileType } from '@js4cytoscape/ndex-client'
+import { Visibility, NDExFileType, Permission } from '@js4cytoscape/ndex-client'
 
 export interface ShareableItem {
   uuid: string;
@@ -22,7 +22,7 @@ export interface ShareDialogProps {
   onClose: () => void;
   items: ShareableItem[];
   mode: 'single' | 'bulk';
-  onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void;
+  onSuccess?: (updatedItems: any[]) => void;
 }
 
 export interface ShareDialogState {
@@ -43,3 +43,23 @@ export interface User {
   email: string;
   fullName: string;
 }
+
+/**
+ * Permission details for a file including its type and member permissions
+ */
+export interface FilePermissionDetails {
+  /**
+   * The type of the file (NETWORK, FOLDER, or SHORTCUT)
+   */
+  type: NDExFileType;
+
+  /**
+   * Map of user UUIDs to their permission levels on this file
+   */
+  members: Record<string, Permission>;
+}
+
+/**
+ * List of file permission records returned by listMembers
+ */
+export type FilePermissionList = Record<string, FilePermissionDetails>[];

@@ -498,31 +498,37 @@ function MyAccountContent({
     }
   }
 
-  // Handle visibility updates from ShareDialog - efficiently update specific items
-  const handleShareDialogSuccess = async (updatedItems: { uuid: string; visibility: Visibility }[]) => {
-    // Create a map for quick lookup
-    const updatesMap = new Map(updatedItems.map(item => [item.uuid, item.visibility]))
+  // Handle updates from ShareDialog - visibility changes and ownership transfers
+  const handleShareDialogSuccess = async (updatedItems: any[]) => {
+    // Separate visibility updates from ownership transfers
+    const visibilityUpdates = updatedItems.filter(item => item.uuid && item.visibility)
+    const ownershipTransfers = updatedItems.filter(item => item.type === 'ownership_transferred')
 
-    // Function to update items in an array
-    const updateItemsInArray = (items: FileItemBase[]): FileItemBase[] => {
-      return items.map(item => {
-        const newVisibility = updatesMap.get(item.uuid)
-        if (newVisibility !== undefined) {
-          return {
-            ...item,
-            attributes: {
-              ...item.attributes,
-              visibility: newVisibility
+    // Handle visibility updates
+    if (visibilityUpdates.length > 0) {
+      // Create a map for quick lookup
+      const updatesMap = new Map(visibilityUpdates.map(item => [item.uuid, item.visibility]))
+
+      // Function to update items in an array
+      const updateItemsInArray = (items: FileItemBase[]): FileItemBase[] => {
+        return items.map(item => {
+          const newVisibility = updatesMap.get(item.uuid)
+          if (newVisibility !== undefined) {
+            return {
+              ...item,
+              attributes: {
+                ...item.attributes,
+                visibility: newVisibility
+              }
             }
           }
-        }
-        return item
-      })
-    }
+          return item
+        })
+      }
 
-    // Update the appropriate SWR cache based on current tab using the exact cache key structure
-    try {
-      if (tabState === MyAccountTabType.SHARED) {
+      // Update the appropriate SWR cache based on current tab using the exact cache key structure
+      try {
+        if (tabState === MyAccountTabType.SHARED) {
         // Update shared files cache: ['sharedFiles', token]
         mutate(
           (key) => Array.isArray(key) && key[0] === 'sharedFiles',
@@ -544,15 +550,44 @@ function MyAccountContent({
           false
         )
       }
-    } catch (error) {
-      console.error('Error updating cache after visibility change:', error)
-      // Fall back to refresh if cache update fails
-      if (tabState === MyAccountTabType.SHARED) {
-        await refreshSharedFiles()
-      } else if (tabState === MyAccountTabType.TRASH) {
-        await refreshTrash()
-      } else {
+      } catch (error) {
+        console.error('Error updating cache after visibility change:', error)
+        // Fall back to refresh if cache update fails
+        if (tabState === MyAccountTabType.SHARED) {
+          await refreshSharedFiles()
+        } else if (tabState === MyAccountTabType.TRASH) {
+          await refreshTrash()
+        } else {
+          await refreshFolderContents()
+        }
+      }
+    }
+
+    // Handle ownership transfers - simple refresh approach
+    if (ownershipTransfers.length > 0) {
+      try {
+        console.log('Ownership transfer detected, refreshing lists...')
+
+        // Refresh both current folder contents and shared files
+        // This ensures transferred networks move between lists correctly
         await refreshFolderContents()
+        await refreshSharedFiles()
+
+        // Show success notification
+        const totalNetworks = ownershipTransfers.reduce((total, transfer) => total + transfer.networks.length, 0)
+        addToast({
+          title: 'Ownership transferred',
+          description: `Successfully transferred ownership of ${totalNetworks} network(s)`,
+          type: 'success',
+        })
+
+      } catch (error) {
+        console.error('Error refreshing after ownership transfer:', error)
+        addToast({
+          title: 'Refresh needed',
+          description: 'Please refresh the page to see updated network ownership',
+          type: 'warning',
+        })
       }
     }
   }

@@ -1,14 +1,17 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { X, UserPlus, ChevronDown, Info, Search, Loader2 } from 'lucide-react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { X, UserPlus, Info, Search, Loader2 } from 'lucide-react'
 import { ShareDialogProps, UserPermission, PermissionAction, VisibilityLevel } from '@/types/sharing'
-import { updateMemberPermissions, removeMemberPermissions, updateVisibility, updateBulkVisibility } from '@/lib/api/sharing'
+import { updateMemberPermissions, removeMemberPermissions, updateVisibility, updateBulkVisibility, transferOwnership } from '@/lib/api/sharing'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { NDExUser, Visibility, NDExFileType } from '@js4cytoscape/ndex-client'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
+import { useFilePermissions } from '@/hooks/use-file-permissions'
+import { useUserDetails } from '@/hooks/use-user-details'
 import AccessLinkSection from './AccessLinkSection'
+import PeopleWithAccessSection from './PeopleWithAccessSection'
 
 const ShareDialog: React.FC<ShareDialogProps> = ({
   isOpen,
@@ -18,12 +21,13 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
   onSuccess,
 }) => {
   const config = useConfig()
-  const { token } = useAuth()
-  const [userPermissions, setUserPermissions] = useState<Map<string, UserPermission>>(new Map())
+  const { token, user: currentUser } = useAuth()
+  const [localUserPermissions, setLocalUserPermissions] = useState<Map<string, UserPermission>>(new Map())
   const [visibility, setVisibility] = useState<VisibilityLevel | 'mixed'>(Visibility.PRIVATE)
   const [newUserInput, setNewUserInput] = useState('')
   const [isLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [ownershipTransferred, setOwnershipTransferred] = useState(false)
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [showVisibilityInfo, setShowVisibilityInfo] = useState(false)
   const [searchSuggestions, setSearchSuggestions] = useState<NDExUser[]>([])
@@ -34,6 +38,37 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
   const inputRef = useRef<HTMLInputElement>(null)
   const infoPopupRef = useRef<HTMLDivElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
+
+  // First, fetch permissions to get user UUIDs
+  const {
+    userPermissions: initialUserPermissions,
+    userUuids,
+    isLoading: isLoadingPermissions,
+    error: permissionsError,
+    hasData: hasPermissionsData,
+  } = useFilePermissions(items, isOpen)
+
+  // Then, fetch user details for those UUIDs
+  const {
+    userDetails,
+    isLoadingUsers,
+    userError,
+  } = useUserDetails(userUuids, isOpen && hasPermissionsData)
+
+  // Finally, get enriched permissions with user details
+  const {
+    userPermissions: fetchedUserPermissions,
+  } = useFilePermissions(items, isOpen, userDetails)
+
+  // Merge fetched permissions with local changes
+  const mergedUserPermissions = useMemo(() => {
+    const merged = new Map(fetchedUserPermissions)
+    // Overlay local changes on top of fetched data
+    localUserPermissions.forEach((localUser, key) => {
+      merged.set(key, localUser)
+    })
+    return merged
+  }, [fetchedUserPermissions, localUserPermissions])
 
   // Initialize dialog state when opened
   useEffect(() => {
@@ -137,9 +172,8 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
   }, [newUserInput, searchUsers])
 
   const initializeDialogState = () => {
-    // TODO: Load existing permissions from items
-    // For now, initialize with empty state
-    setUserPermissions(new Map())
+    // Reset local permissions (fetched permissions will be handled by the hook)
+    setLocalUserPermissions(new Map())
     setVisibility(items.length === 1 ? (items[0].visibility || Visibility.PRIVATE) : 'mixed')
     setNewUserInput('')
     setSearchSuggestions([])
@@ -149,18 +183,27 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
     setChangedVisibilityItems(new Map()) // Reset changed items tracker
   }
 
+  const handlePermissionsRetry = () => {
+    // SWR will automatically retry when we mutate the cache key
+    // This is handled by the useFilePermissions hook
+    setError(null)
+  }
+
+  // Combine errors from both hooks
+  const combinedError = permissionsError || userError
+
   const handleSelectUser = async (user: NDExUser) => {
     const newUser: UserPermission = {
       userUuid: user.externalId, // User's UUID from NDEx API
       username: user.userName,   // Human-readable username
-      email: user.emailAddress || user.userName,
+      email: user.emailAddress || user.userName, // Keep for compatibility but won't be displayed
       fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.userName,
       permission: 'READ' as const,
     }
 
     try {
       // Update local state first for immediate UI feedback
-      setUserPermissions(prev => new Map(prev.set(newUser.username, newUser)))
+      setLocalUserPermissions(prev => new Map(prev.set(newUser.userUuid, newUser)))
       setNewUserInput('')
       setSearchSuggestions([])
       setShowSuggestions(false)
@@ -168,7 +211,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
 
       // Make immediate API call to add user with READ permission
       const client = getNdexClient(config.ndexBaseUrl, token)
-      const newUserPermissions = new Map([[newUser.username, newUser]])
+      const newUserPermissions = new Map([[newUser.userUuid, newUser]])
       await updateMemberPermissions(client, items, newUserPermissions)
 
     } catch (error) {
@@ -176,9 +219,9 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
       console.error('Error adding user:', error)
 
       // Revert local state on error
-      setUserPermissions(prev => {
+      setLocalUserPermissions(prev => {
         const newMap = new Map(prev)
-        newMap.delete(newUser.username)
+        newMap.delete(newUser.userUuid)
         return newMap
       })
     }
@@ -200,19 +243,19 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
     }
   }
 
-  const handlePermissionChange = async (username: string, action: PermissionAction) => {
+  const handlePermissionChange = async (userUuid: string, action: PermissionAction) => {
     if (action === 'remove') {
-      // Get the user's UUID for the API call
-      const user = userPermissions.get(username)
+      // Get the user for the API call
+      const user = mergedUserPermissions.get(userUuid)
       if (!user) return
 
       // Immediately remove from permissions API
       try {
         const client = getNdexClient(config.ndexBaseUrl, token)
         await removeMemberPermissions(client, items, user.userUuid)
-        setUserPermissions(prev => {
+        setLocalUserPermissions(prev => {
           const newMap = new Map(prev)
-          newMap.delete(username)
+          newMap.delete(userUuid)
           return newMap
         })
       } catch (error) {
@@ -221,7 +264,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
       }
     } else if (action === 'read' || action === 'edit') {
       // Check if permission is actually changing
-      const currentUser = userPermissions.get(username)
+      const currentUser = mergedUserPermissions.get(userUuid)
       if (!currentUser) return
 
       const newPermission = action === 'read' ? 'READ' as const : 'EDIT' as const
@@ -230,18 +273,17 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
       if (currentUser.permission !== newPermission) {
         try {
           // Update local state first for immediate UI feedback
-          setUserPermissions(prev => {
+          setLocalUserPermissions(prev => {
             const newMap = new Map(prev)
-            const user = newMap.get(username)
-            if (user) {
-              newMap.set(username, { ...user, permission: newPermission })
-            }
+            const updatedUser = { ...currentUser, permission: newPermission }
+            newMap.set(userUuid, updatedUser)
             return newMap
           })
 
           // Make immediate API call for the permission change
           const client = getNdexClient(config.ndexBaseUrl, token)
-          const updatedPermissions = new Map([[username, { ...currentUser, permission: newPermission }]])
+          const updatedUser = { ...currentUser, permission: newPermission }
+          const updatedPermissions = new Map([[userUuid, updatedUser]])
           await updateMemberPermissions(client, items, updatedPermissions)
 
         } catch (error) {
@@ -249,19 +291,71 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
           console.error('Error updating user permission:', error)
 
           // Revert local state on error
-          setUserPermissions(prev => {
+          setLocalUserPermissions(prev => {
             const newMap = new Map(prev)
-            const user = newMap.get(username)
-            if (user) {
-              newMap.set(username, { ...user, permission: currentUser.permission })
+            if (fetchedUserPermissions.has(userUuid)) {
+              // Revert to original fetched permission
+              newMap.delete(userUuid)
+            } else {
+              // Keep the original permission
+              const originalUser = { ...currentUser, permission: currentUser.permission }
+              newMap.set(userUuid, originalUser)
             }
             return newMap
           })
         }
       }
     } else if (action === 'transfer') {
-      // TODO: Implement transfer ownership
-      console.log('Transfer ownership to', username)
+      // Transfer ownership to the selected user
+      const user = mergedUserPermissions.get(userUuid)
+      if (!user) return
+
+      try {
+        const client = getNdexClient(config.ndexBaseUrl, token)
+        await transferOwnership(client, items, user.userUuid)
+
+        // Mark that ownership has been transferred
+        setOwnershipTransferred(true)
+
+        // Update local state to reflect the ownership change
+        // We need to update ALL users' ownership status, so we'll set the complete new state
+        const newLocalState = new Map<string, UserPermission>()
+
+        // Process all current users and update their ownership status
+        mergedUserPermissions.forEach((existingUser, existingUserUuid) => {
+          if (existingUser.isOwner) {
+            // Current owner becomes regular user with Edit permission
+            newLocalState.set(existingUserUuid, {
+              ...existingUser,
+              isOwner: false,
+              permission: 'EDIT'
+            })
+          } else if (existingUserUuid === userUuid) {
+            // This user becomes the new owner
+            newLocalState.set(existingUserUuid, {
+              ...existingUser,
+              isOwner: true,
+              permission: 'EDIT'
+            })
+          } else {
+            // Keep other users as they are
+            newLocalState.set(existingUserUuid, existingUser)
+          }
+        })
+
+        setLocalUserPermissions(newLocalState)
+
+        console.log(`Successfully transferred ownership to ${user.username}`)
+        console.log('Updated local permissions:', Array.from(newLocalState.entries()).map(([uuid, user]) => ({
+          uuid,
+          username: user.username,
+          isOwner: user.isOwner,
+          permission: user.permission
+        })))
+      } catch (error) {
+        setError('Failed to transfer ownership')
+        console.error('Error transferring ownership:', error)
+      }
     }
     setOpenDropdownId(null)
   }
@@ -321,13 +415,41 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
 
   // Helper to notify parent of changes and close dialog
   const closeDialogWithChanges = () => {
-    // If there were visibility changes, notify the parent via onSuccess callback
-    if (changedVisibilityItems.size > 0 && onSuccess) {
-      const updatedItems = Array.from(changedVisibilityItems.entries()).map(([uuid, visibility]) => ({
+    // Prepare update information for the parent component
+    const updates: any[] = []
+
+    // Add visibility changes
+    if (changedVisibilityItems.size > 0) {
+      updates.push(...Array.from(changedVisibilityItems.entries()).map(([uuid, visibility]) => ({
         uuid,
         visibility
-      }))
-      onSuccess(updatedItems)
+      })))
+    }
+
+    // Check if ownership was transferred away from current user
+    if (ownershipTransferred && currentUser) {
+      // Find networks where the current user is no longer the owner
+      const currentUserUuid = currentUser.externalId
+      const transferredNetworks = items
+        .filter(item => item.type === NDExFileType.NETWORK)
+        .filter(() => {
+          // Check if this network no longer has the current user as owner
+          const userInPermissions = mergedUserPermissions.get(currentUserUuid)
+          return !userInPermissions?.isOwner
+        })
+
+      if (transferredNetworks.length > 0) {
+        updates.push({
+          type: 'ownership_transferred',
+          networks: transferredNetworks.map(network => network.uuid),
+          currentUserUuid
+        })
+      }
+    }
+
+    // Notify parent if there are any updates
+    if (updates.length > 0 && onSuccess) {
+      onSuccess(updates)
     }
 
     // Close the dialog
@@ -422,7 +544,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
                   className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto"
                 >
                   {searchSuggestions.map((user) => {
-                    const hasAccess = userPermissions.has(user.userName)
+                    const hasAccess = mergedUserPermissions.has(user.externalId)
                     return (
                       <button
                         key={user.externalId}
@@ -485,62 +607,15 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
 
           {/* People with access - hidden when shortcuts are present */}
           {!hasShortcuts && (
-          <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">People with access</h3>
-            {userPermissions.size === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 text-sm">No users added yet</p>
-            ) : (
-              <div className="space-y-1">
-                {Array.from(userPermissions.values()).map((user) => (
-                  <div key={user.username} className="flex items-center justify-between px-3 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800">
-                    <div className="flex-1">
-                      <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{user.email}</div>
-                      <div className="text-gray-500 dark:text-gray-400 text-xs">{user.fullName}</div>
-                    </div>
-                    <div className="relative">
-                      <button
-                        onClick={() => setOpenDropdownId(openDropdownId === user.username ? null : user.username)}
-                        className="flex items-center gap-1 px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
-                      >
-                        {user.permission === 'READ' ? 'Read' : 'Edit'}
-                        <ChevronDown className="h-4 w-4" />
-                      </button>
-
-                      {openDropdownId === user.username && (
-                        <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded shadow-lg z-10 min-w-[150px]">
-                          <button
-                            onClick={() => handlePermissionChange(user.username, 'read')}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center text-gray-900 dark:text-gray-100"
-                          >
-                            {user.permission === 'READ' && '✓ '}Read
-                          </button>
-                          <button
-                            onClick={() => handlePermissionChange(user.username, 'edit')}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center text-gray-900 dark:text-gray-100"
-                          >
-                            {user.permission === 'EDIT' && '✓ '}Edit
-                          </button>
-                          <hr className="my-1" />
-                          <button
-                            onClick={() => handlePermissionChange(user.username, 'transfer')}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100"
-                          >
-                            Transfer ownership
-                          </button>
-                          <button
-                            onClick={() => handlePermissionChange(user.username, 'remove')}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
-                          >
-                            Remove access
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            <PeopleWithAccessSection
+              userPermissions={mergedUserPermissions}
+              isLoading={isLoadingPermissions || isLoadingUsers}
+              error={combinedError}
+              onRetry={handlePermissionsRetry}
+              onPermissionChange={handlePermissionChange}
+              openDropdownId={openDropdownId}
+              setOpenDropdownId={setOpenDropdownId}
+            />
           )}
 
           {/* Visibility section */}

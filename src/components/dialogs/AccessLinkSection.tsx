@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Copy, Check, Loader2 } from 'lucide-react'
 import { ShareableItem, VisibilityLevel } from '@/types/sharing'
-import { generateAccessKeys, revokeAccessKeys, constructShareableUrl, copyToClipboard } from '@/lib/api/sharing'
+import { generateAccessKeys, revokeAccessKeys, copyToClipboard, getNetworkAccessKey } from '@/lib/api/sharing'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -31,6 +31,35 @@ const AccessLinkSection: React.FC<AccessLinkSectionProps> = ({
 
   // Only show for private visibility and single items (networks or folders)
   const shouldShow = visibility === Visibility.PRIVATE && items.length === 1
+
+  // Check for existing access keys when component loads for private networks
+  useEffect(() => {
+    const checkExistingAccessKeys = async () => {
+      if (!shouldShow || !token || items.length === 0) return
+
+      const item = items[0]
+      if (item.type !== NDExFileType.NETWORK) return
+
+      try {
+        setIsGenerating(true)
+        const client = getNdexClient(config.ndexBaseUrl, token)
+        const existingAccessKey = await getNetworkAccessKey(client, item.uuid)
+
+        if (existingAccessKey) {
+          setAccessKeys({ [item.uuid]: existingAccessKey })
+          // If there's an existing access key, the checkbox should be checked
+          // We'll need to call onToggle to update the parent component state
+          await onToggle(true)
+        }
+      } catch (error) {
+        console.error('Error checking existing access key:', error)
+      } finally {
+        setIsGenerating(false)
+      }
+    }
+
+    checkExistingAccessKeys()
+  }, [shouldShow, token, items, config.ndexBaseUrl]) // Removed onToggle from dependencies
 
   if (!shouldShow) {
     return null
@@ -62,21 +91,23 @@ const AccessLinkSection: React.FC<AccessLinkSectionProps> = ({
     }
   }
 
-  const handleCopyLink = async (itemUuid: string) => {
-    const accessKey = accessKeys[itemUuid]
-    if (!accessKey) return
+  const getShareableUrl = (item: ShareableItem, accessKey: string): string => {
+    const baseUrl = `https://${config.ndexBaseUrl}`
+    return item.type === NDExFileType.NETWORK
+      ? `${baseUrl}/viewer/networks/${item.uuid}?accesskey=${accessKey}`
+      : `${baseUrl}${config.urlBaseName}/folders/${item.uuid}?accesskey=${accessKey}`
+  }
 
-    const item = items[0]
-    const shareableUrl = item.type === NDExFileType.NETWORK
-      ? constructShareableUrl(config.ndexBaseUrl, itemUuid, accessKey)
-      : `${config.ndexBaseUrl}/viewer/folders/${itemUuid}?accesskey=${accessKey}`
+  const handleCopyLink = async () => {
+    const textField = document.getElementById('shareable-url-input') as HTMLInputElement
+    if (!textField) return
 
-    const success = await copyToClipboard(shareableUrl)
+    const success = await copyToClipboard(textField.value)
 
     if (success) {
-      setCopiedStates(prev => ({ ...prev, [itemUuid]: true }))
+      setCopiedStates(prev => ({ ...prev, [item.uuid]: true }))
       setTimeout(() => {
-        setCopiedStates(prev => ({ ...prev, [itemUuid]: false }))
+        setCopiedStates(prev => ({ ...prev, [item.uuid]: false }))
       }, 2000)
     }
   }
@@ -112,17 +143,16 @@ const AccessLinkSection: React.FC<AccessLinkSectionProps> = ({
           <div className="flex gap-2">
             <div className="flex-1 relative">
               <input
+                id="shareable-url-input"
                 type="text"
-                value={item.type === NDExFileType.NETWORK
-                  ? constructShareableUrl(config.ndexBaseUrl, item.uuid, accessKeys[item.uuid])
-                  : `${config.ndexBaseUrl}/viewer/folders/${item.uuid}?accesskey=${accessKeys[item.uuid]}`
-                }
+                value={getShareableUrl(item, accessKeys[item.uuid])}
                 readOnly
-                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 pr-16"
+                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 overflow-x-auto"
+                style={{ minWidth: 0 }}
               />
             </div>
             <button
-              onClick={() => handleCopyLink(item.uuid)}
+              onClick={handleCopyLink}
               className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 text-sm flex items-center gap-1"
               disabled={!hasAccessKey}
             >
