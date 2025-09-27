@@ -4,12 +4,21 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Trash2 } from 'lucide-react'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { useNetworkOperation } from '@/hooks/use-network-operation'
+import { CXDataType } from '@js4cytoscape/ndex-client'
+import RichTextEditor from '@/components/ui/rich-text-editor'
 
 interface NetworkProperty {
-  dataType: string
+  dataType: CXDataType
   propertyName: string
   propertyValue: string
 }
+
+// CX2 Property format
+interface CX2Property {
+  t: CXDataType  // type
+  v: any         // value
+}
+
 
 interface EditNetworkPropertiesDialogProps {
   isOpen: boolean
@@ -28,46 +37,112 @@ const EditNetworkPropertiesDialog: React.FC<
   const [isSubmitting, setIsSubmitting] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
+  // Debug current state values (commented out for production)
+  // console.log('Current state - name:', name, 'version:', version, 'description:', description, 'properties:', properties)
+
   // Use the hook to update properties
   const { getNetworkSummary } = useNetworkOperation()
 
   // Initialize form data when the dialog opens or network changes
   useEffect(() => {
     if (isOpen && network) {
-      getNetworkSummary(network.uuid).then((summary) => {
-        setName(summary.name)
-        console.log(summary)
+      getNetworkSummary(network.uuid)
+        .then((summary) => {
+          console.log('Network summary received:', summary)
+          console.log('Summary keys:', Object.keys(summary || {}))
+          console.log('Summary.name:', summary?.name)
+          console.log('Summary.description:', summary?.description)
+          console.log('Summary.properties:', summary?.properties)
+          console.log('Summary.properties type:', typeof summary?.properties)
 
-        // Set version from network attributes if available
-        setVersion(summary.version || '1.0')
+          // Set basic fields from summary
+          const nameValue = summary.name || network.name || ''
+          const descriptionValue = summary.description || ''
 
-        // Set description from network properties if available
-        setDescription(summary.description || '')
+          console.log('Setting name to:', nameValue)
+          console.log('Setting description to:', descriptionValue)
 
-        // Convert network properties to our format
-        const networkProperties: NetworkProperty[] = []
+          setName(nameValue)
+          setDescription(descriptionValue)
 
-        if (network.attributes && typeof network.attributes === 'object') {
-          Object.entries(network.attributes).forEach(([key, value]) => {
-            // Skip version since we handle it separately
-            if (key === 'version') return
+          // Handle version from properties if available
+          let versionValue = '1.0'
+          if (summary.properties && summary.properties.version) {
+            console.log('Found version property:', summary.properties.version)
+            versionValue = summary.properties.version.v?.toString() || '1.0'
+          }
 
-            // Determine data type
-            let dataType = 'string'
-            if (typeof value === 'number') dataType = 'number'
-            if (typeof value === 'boolean') dataType = 'boolean'
+          console.log('Setting version to:', versionValue)
+          setVersion(versionValue)
 
-            networkProperties.push({
-              dataType,
-              propertyName: key,
-              propertyValue: value?.toString() || '',
+          // Convert network properties from CX2 format to our format
+          const networkProperties: NetworkProperty[] = []
+
+          console.log('Processing CX2 network properties:', summary.properties)
+          console.log('Properties is array?', Array.isArray(summary.properties))
+          console.log('Properties is object?', typeof summary.properties === 'object')
+
+          // Handle CX2 format properties: { key: { t: "type", v: value } }
+          if (summary.properties && typeof summary.properties === 'object') {
+            Object.entries(summary.properties).forEach(([key, propData]: [string, any]) => {
+              console.log(`Processing property "${key}":`, propData)
+
+              // Skip version since we handle it separately, but keep other fields
+              if (key === 'version') return
+
+              // Handle CX2 format with t (type) and v (value)
+              if (propData && typeof propData === 'object' && 'v' in propData) {
+                // Use the actual CXDataType from the API response
+                let dataType: CXDataType = propData.t || CXDataType.STRING
+
+                // Convert value to string for editing
+                let displayValue = ''
+                if (Array.isArray(propData.v)) {
+                  displayValue = JSON.stringify(propData.v)
+                } else {
+                  displayValue = propData.v?.toString() || ''
+                }
+
+                console.log(`Adding property: ${key}, type: ${dataType}, value: ${displayValue}`)
+
+                networkProperties.push({
+                  dataType,
+                  propertyName: key,
+                  propertyValue: displayValue,
+                })
+              } else {
+                // Handle legacy format or direct values
+                let dataType: CXDataType = CXDataType.STRING
+                if (typeof propData === 'number') {
+                  dataType = Number.isInteger(propData) ? CXDataType.INTEGER : CXDataType.DOUBLE
+                } else if (typeof propData === 'boolean') {
+                  dataType = CXDataType.BOOLEAN
+                }
+
+                console.log(`Adding legacy property: ${key}, type: ${dataType}, value: ${propData}`)
+
+                networkProperties.push({
+                  dataType,
+                  propertyName: key,
+                  propertyValue: propData?.toString() || '',
+                })
+              }
             })
-          })
-        }
-        setProperties(networkProperties)
-      })
+          }
+
+          console.log('Converted network properties:', networkProperties)
+          setProperties(networkProperties)
+        })
+        .catch((error) => {
+          console.error('Error fetching network summary:', error)
+          // Fallback to basic network data if summary fails
+          setName(network.name || '')
+          setVersion('1.0')
+          setDescription('')
+          setProperties([])
+        })
     }
-  }, [isOpen, network, getNetworkSummary])
+  }, [isOpen, network]) // ✅ Removed getNetworkSummary from dependencies
 
   // Focus the name input when the dialog opens
   useEffect(() => {
@@ -84,7 +159,7 @@ const EditNetworkPropertiesDialog: React.FC<
   // Handle property type change
   const handlePropertyTypeChange = (index: number, value: string) => {
     const updatedProperties = [...properties]
-    updatedProperties[index].dataType = value
+    updatedProperties[index].dataType = value as CXDataType
     setProperties(updatedProperties)
   }
 
@@ -106,7 +181,7 @@ const EditNetworkPropertiesDialog: React.FC<
   const handleAddProperty = () => {
     setProperties([
       ...properties,
-      { dataType: 'string', propertyName: '', propertyValue: '' },
+      { dataType: CXDataType.STRING, propertyName: '', propertyValue: '' },
     ])
   }
 
@@ -119,27 +194,37 @@ const EditNetworkPropertiesDialog: React.FC<
     try {
       setIsSubmitting(true)
 
-      // Convert properties back to object format for the API
-      const propertyObject: { [key: string]: any } = {
-        version: version, // Include version
+      // Convert properties back to CX2 format for the API
+      const propertyObject: { [key: string]: CX2Property } = {
+        version: { t: CXDataType.STRING, v: version }, // Include version
       }
 
       // Add all properties except empty ones
       properties.forEach((prop) => {
         if (prop.propertyName.trim() === '') return
 
-        // Convert property value based on data type
-        let value: string | number | boolean = prop.propertyValue
+        // Convert property value based on CXDataType
+        let value: any = prop.propertyValue
 
-        if (prop.dataType === 'number') {
-          value = parseFloat(prop.propertyValue)
-          // If parseFloat fails, use the original string
-          if (isNaN(value)) value = prop.propertyValue
-        } else if (prop.dataType === 'boolean') {
+        if (prop.dataType === CXDataType.INTEGER || prop.dataType === CXDataType.LONG) {
+          const intValue = parseInt(prop.propertyValue)
+          value = isNaN(intValue) ? prop.propertyValue : intValue
+        } else if (prop.dataType === CXDataType.DOUBLE) {
+          const floatValue = parseFloat(prop.propertyValue)
+          value = isNaN(floatValue) ? prop.propertyValue : floatValue
+        } else if (prop.dataType === CXDataType.BOOLEAN) {
           value = prop.propertyValue.toLowerCase() === 'true'
+        } else if (prop.dataType.startsWith('list_of_')) {
+          try {
+            value = JSON.parse(prop.propertyValue)
+          } catch {
+            // If JSON parsing fails, keep as string
+            value = prop.propertyValue
+          }
         }
 
-        propertyObject[prop.propertyName] = value
+        // Store in CX2 format with type and value
+        propertyObject[prop.propertyName] = { t: prop.dataType, v: value }
       })
 
       // Here you would typically call your API to update the network properties
@@ -174,83 +259,59 @@ const EditNetworkPropertiesDialog: React.FC<
       ></div>
 
       {/* Dialog box */}
-      <div className="bg-white rounded-lg shadow-xl w-[800px] max-w-full z-10 max-h-[90vh] overflow-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-[800px] max-w-full z-10 max-h-[90vh] overflow-auto">
         <div className="px-6 py-5">
-          {/* Header with PRIVATE label */}
-          <div className="flex items-center mb-6">
-            <span className="bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1 rounded">
-              PRIVATE
-            </span>
-          </div>
-
           {/* Name and Version */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div className="md:col-span-2">
-              <label className="block text-sm mb-1 text-gray-600">Name</label>
+              <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">Name</label>
               <input
                 type="text"
                 ref={nameInputRef}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 disabled={isSubmitting}
+                placeholder="Network name"
               />
             </div>
             <div>
-              <label className="block text-sm mb-1 text-gray-600">
+              <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
                 Version
               </label>
               <input
                 type="text"
                 value={version}
                 onChange={(e) => setVersion(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 disabled={isSubmitting}
+                placeholder="Version"
               />
             </div>
           </div>
 
           {/* Description */}
-          <div className="mb-6">
-            <label className="block text-sm mb-1 text-gray-600">
+          <div className="mb-4">
+            <label className="block text-sm mb-2 text-gray-600 dark:text-gray-300">
               Description
             </label>
-            <div>
-              {/* Simple toolbar mockup - not functional */}
-              <div className="flex items-center border border-gray-300 border-b-0 rounded-t-md p-2 bg-white">
-                <button className="p-1 mr-1 hover:bg-gray-100 rounded">
-                  <span className="font-bold">B</span>
-                </button>
-                <button className="p-1 mr-1 hover:bg-gray-100 rounded">
-                  <span className="italic">I</span>
-                </button>
-                <button className="p-1 mr-1 hover:bg-gray-100 rounded">
-                  <span className="underline">U</span>
-                </button>
-                <button className="p-1 mr-1 hover:bg-gray-100 rounded">
-                  <span className="line-through">S</span>
-                </button>
-                {/* Add more toolbar buttons as needed */}
-              </div>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-b-md text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 min-h-[100px]"
-                disabled={isSubmitting}
-                placeholder="Enter description here"
-              />
-            </div>
+            <RichTextEditor
+              content={description}
+              onChange={setDescription}
+              placeholder="Enter description here..."
+              disabled={isSubmitting}
+            />
           </div>
 
           {/* Network Properties */}
-          <div className="mb-6">
-            <h3 className="text-lg font-medium mb-4">Network Properties</h3>
-            <div className="border border-gray-200 rounded-md overflow-hidden">
+          <div className="mb-4">
+            <h3 className="text-lg font-medium mb-3">Network Properties</h3>
+            <div className="border border-gray-200 dark:border-gray-600 rounded-md overflow-hidden">
               {/* Table Header */}
-              <div className="grid grid-cols-12 bg-gray-100 p-3 font-medium text-gray-700">
-                <div className="col-span-3">Data Type</div>
-                <div className="col-span-4">Property Name</div>
-                <div className="col-span-4">Property Value</div>
+              <div className="grid grid-cols-25 bg-gray-100 dark:bg-gray-700 px-3 py-1 font-medium text-gray-700 dark:text-gray-300 text-xs">
+                <div className="col-span-6">Property Name</div>
+                <div className="col-span-13">Property Value</div>
+                <div className="col-span-5">Data Type</div>
                 <div className="col-span-1"></div>
               </div>
 
@@ -259,20 +320,47 @@ const EditNetworkPropertiesDialog: React.FC<
                 {properties.map((property, index) => (
                   <div
                     key={index}
-                    className="grid grid-cols-12 p-2 border-t border-gray-200"
+                    className="grid grid-cols-25 px-2 py-1 border-t border-gray-200 dark:border-gray-600"
                   >
-                    <div className="col-span-3 pr-2">
+                    <div className="col-span-6 pr-2">
+                      <input
+                        type="text"
+                        value={property.propertyName}
+                        onChange={(e) =>
+                          handlePropertyNameChange(index, e.target.value)
+                        }
+                        className="w-full border border-gray-300 dark:border-gray-600 px-2 py-1 rounded leading-tight focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-xs"
+                      />
+                    </div>
+                    <div className="col-span-13 px-2">
+                      <input
+                        type="text"
+                        value={property.propertyValue}
+                        onChange={(e) =>
+                          handlePropertyValueChange(index, e.target.value)
+                        }
+                        className="w-full border border-gray-300 dark:border-gray-600 px-2 py-1 rounded leading-tight focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-xs"
+                      />
+                    </div>
+                    <div className="col-span-5 px-2">
                       <div className="relative">
                         <select
                           value={property.dataType}
                           onChange={(e) =>
                             handlePropertyTypeChange(index, e.target.value)
                           }
-                          className="appearance-none w-full bg-white border border-gray-300 text-gray-700 p-2 pr-8 rounded leading-tight focus:outline-none focus:ring-1 focus:ring-sky-500"
+                          className="appearance-none w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-2 py-1 pr-6 rounded leading-tight focus:outline-none focus:ring-1 focus:ring-sky-500 text-xs"
                         >
-                          <option value="string">string</option>
-                          <option value="number">number</option>
-                          <option value="boolean">boolean</option>
+                          <option value={CXDataType.STRING}>string</option>
+                          <option value={CXDataType.INTEGER}>integer</option>
+                          <option value={CXDataType.LONG}>long</option>
+                          <option value={CXDataType.DOUBLE}>double</option>
+                          <option value={CXDataType.BOOLEAN}>boolean</option>
+                          <option value={CXDataType.LIST_OF_STRING}>list_of_string</option>
+                          <option value={CXDataType.LIST_OF_INTEGER}>list_of_integer</option>
+                          <option value={CXDataType.LIST_OF_LONG}>list_of_long</option>
+                          <option value={CXDataType.LIST_OF_DOUBLE}>list_of_double</option>
+                          <option value={CXDataType.LIST_OF_BOOLEAN}>list_of_boolean</option>
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                           <svg
@@ -285,27 +373,7 @@ const EditNetworkPropertiesDialog: React.FC<
                         </div>
                       </div>
                     </div>
-                    <div className="col-span-4 px-2">
-                      <input
-                        type="text"
-                        value={property.propertyName}
-                        onChange={(e) =>
-                          handlePropertyNameChange(index, e.target.value)
-                        }
-                        className="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-1 focus:ring-sky-500"
-                      />
-                    </div>
-                    <div className="col-span-4 px-2">
-                      <input
-                        type="text"
-                        value={property.propertyValue}
-                        onChange={(e) =>
-                          handlePropertyValueChange(index, e.target.value)
-                        }
-                        className="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-1 focus:ring-sky-500"
-                      />
-                    </div>
-                    <div className="col-span-1 flex items-center justify-center">
+                    <div className="col-span-1 flex items-center justify-center pl-1">
                       <button
                         onClick={() => handleRemoveProperty(index)}
                         className="text-gray-500 hover:text-red-600"

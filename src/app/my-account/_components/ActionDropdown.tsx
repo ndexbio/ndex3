@@ -142,6 +142,12 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const isReadOnly = dropdownType === NDExFileType.NETWORK && isReadOnlyNetwork(item)
   const hasError = dropdownType === NDExFileType.NETWORK && networkHasError(item)
 
+  // Determine when to show Request DOI button
+  const shouldShowRequestDOI =
+    dropdownType === NDExFileType.NETWORK && // Only for networks
+    item.type !== NDExFileType.SHORTCUT && // Not for shortcuts
+    tabState !== MyAccountTabType.SHARED // Not in "Shared with me" tab (only owners can request DOI)
+
   // Determine which menu items should be disabled
   const shouldDisableRequestDOI = hasDOI
   const shouldDisableEditProperties = hasDOI || isReadOnly
@@ -392,22 +398,25 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             <ExternalLink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
             Open in Cytoscape Desktop
           </button>
-          <button
-            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-              shouldDisableRequestDOI
-                ? 'text-gray-400 cursor-not-allowed'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-            onClick={shouldDisableRequestDOI ? undefined : handleButtonClick(handleOpenShareDialog)}
-            disabled={shouldDisableRequestDOI}
-          >
-            <BookCopy className={`h-4 w-4 ${
-              shouldDisableRequestDOI
-                ? 'text-gray-400'
-                : 'text-gray-500 group-hover:text-gray-700'
-            }`} />
-            Request DOI
-          </button>
+          {/* Only show "Request DOI" for networks that aren't shortcuts and not in shared tab */}
+          {shouldShowRequestDOI && (
+            <button
+              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+                shouldDisableRequestDOI
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              onClick={shouldDisableRequestDOI ? undefined : handleButtonClick(handleOpenShareDialog)}
+              disabled={shouldDisableRequestDOI}
+            >
+              <BookCopy className={`h-4 w-4 ${
+                shouldDisableRequestDOI
+                  ? 'text-gray-400'
+                  : 'text-gray-500 group-hover:text-gray-700'
+              }`} />
+              Request DOI
+            </button>
+          )}
           <DownloadMenu
             networkId={openDropdownId}
             networkName={item.name || 'network'}

@@ -10,6 +10,7 @@ import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { Folder as FolderType } from '@/hooks/use-folder'
 import { Shortcut } from '@/hooks/use-shortcut'
 import { NetworkSummaryV2, NDExFileType } from '@js4cytoscape/ndex-client'
+import parse from 'html-react-parser'
 
 interface DetailsPanelProps {
   isOpen: boolean
@@ -261,10 +262,9 @@ export default function DetailsPanel({
                             <h5 className="text-base font-medium text-muted-foreground mb-2">
                               Description
                             </h5>
-                            <div 
-                              className="text-sm text-foreground leading-relaxed break-words"
-                              dangerouslySetInnerHTML={{ __html: detailedData.network.description }}
-                            />
+                            <div className="text-sm text-foreground leading-relaxed break-words prose prose-sm dark:prose-invert max-w-none">
+                              {parse(detailedData.network.description)}
+                            </div>
                           </div>
                         </>
                       )}
