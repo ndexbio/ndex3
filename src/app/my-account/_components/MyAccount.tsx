@@ -564,6 +564,7 @@ function MyAccountContent({
           title: 'Ownership transferred',
           description: `Successfully transferred ownership of ${totalNetworks} network(s)`,
           type: 'success',
+          duration: 4000,
         })
 
       } catch (error) {
@@ -572,6 +573,7 @@ function MyAccountContent({
           title: 'Refresh needed',
           description: 'Please refresh the page to see updated network ownership',
           type: 'warning',
+          duration: 4000,
         })
       }
     }
@@ -837,6 +839,7 @@ function MyAccountContent({
           title: 'Items restored',
           description: `${ids.length} item(s) restored from trash`,
           type: 'success',
+          duration: 4000,
         })
       } catch (error) {
         console.error('Error restoring items from trash:', error)
@@ -848,6 +851,7 @@ function MyAccountContent({
           title: 'Restore failed',
           description: 'Failed to restore items from trash',
           type: 'error',
+          duration: 4000,
         })
       }
     }
@@ -875,6 +879,7 @@ function MyAccountContent({
             title: ids.length === 1 ? 'Item deleted' : 'Items deleted',
             description: `${ids.length} item(s) deleted permanently`,
             type: 'success',
+          duration: 4000,
           })
         } else {
           // Empty entire trash
@@ -883,6 +888,7 @@ function MyAccountContent({
             title: 'Trash emptied',
             description: 'Trash emptied successfully',
             type: 'success',
+          duration: 4000,
           })
         }
       } catch (error) {
@@ -894,6 +900,7 @@ function MyAccountContent({
           title: 'Delete failed',
           description: 'Failed to permanently delete item(s)',
           type: 'error',
+          duration: 4000,
         })
       } finally {
         setLoading(false)
@@ -944,6 +951,7 @@ function MyAccountContent({
           title: 'Move failed',
           description: 'Cannot move a folder into itself',
           type: 'error',
+          duration: 4000,
         })
         return
       }
@@ -1022,6 +1030,7 @@ function MyAccountContent({
           title: 'Items moved',
           description,
           type: 'success',
+          duration: 4000,
         })
       }
 
@@ -1030,6 +1039,7 @@ function MyAccountContent({
           title: 'Move incomplete',
           description: `Failed to move ${movedItems.failed} items`,
           type: 'warning',
+          duration: 4000,
         })
       }
 
@@ -1053,6 +1063,7 @@ function MyAccountContent({
         title: 'Move failed',
         description: 'An error occurred while moving items',
         type: 'error',
+          duration: 4000,
       })
     }
   }
@@ -1073,6 +1084,7 @@ function MyAccountContent({
         title: 'Shortcut removed',
         description: 'The shortcut has been successfully removed',
         type: 'success',
+          duration: 4000,
       })
     } catch (error) {
       console.error('Error removing shortcut:', error)
@@ -1080,6 +1092,7 @@ function MyAccountContent({
         title: 'Remove failed',
         description: 'An error occurred while removing the shortcut',
         type: 'error',
+          duration: 4000,
       })
     }
   }
@@ -1094,6 +1107,7 @@ function MyAccountContent({
         title: 'Authentication required',
         description: 'Please sign in to create shortcuts',
         type: 'error',
+          duration: 4000,
       })
       return
     }
@@ -1133,6 +1147,7 @@ function MyAccountContent({
         title: 'Shortcut created',
         description: `Shortcut to ${itemToShortcut.name} created successfully`,
         type: 'success',
+          duration: 4000,
       })
 
       // Close any open dropdown
@@ -1145,6 +1160,7 @@ function MyAccountContent({
         title: 'Failed to create shortcut',
         description: error.message || 'An unexpected error occurred',
         type: 'error',
+          duration: 4000,
       })
     } finally {
       setLoading(false)

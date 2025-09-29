@@ -12,6 +12,8 @@ import {
   ChevronDown,
   DownloadIcon,
   Loader2,
+  Lock,
+  LockOpen,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -23,6 +25,7 @@ import { MyAccountTabType, FilterOptionType } from '@/types/ui/myAccount'
 import { useTrash } from '@/hooks/use-trash'
 import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
+import { useNetworkReadOnly } from '@/hooks/use-network-readonly'
 import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
 import { ShareableItem } from '@/types/sharing'
 
@@ -120,6 +123,100 @@ const BulkDownloadMenu: React.FC<{
             disabled={isDownloading || networkItems.length === 0}
           >
             <span>CX2 Format</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Add a dropdown menu for bulk readonly operations
+const BulkReadOnlyMenu: React.FC<{
+  selectedItems: Array<{ id: string; name: string; type: NDExFileType }>
+  onClose: () => void
+  onSuccess?: () => void
+}> = ({ selectedItems, onClose, onSuccess }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const { setBulkNetworkReadOnly, isUpdating } = useNetworkReadOnly()
+
+  // Filter selected items to only include regular networks (not shortcuts)
+  const networkItems = selectedItems
+    .filter((item) => item.type === NDExFileType.NETWORK)
+    .map((item) => item.id)
+
+  // Check if any network is currently being updated
+  const isAnyUpdating = networkItems.some((id) => isUpdating[id])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isOpen &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen])
+
+  const handleSetReadOnly = async (readOnly: boolean) => {
+    if (networkItems.length === 0) return
+
+    await setBulkNetworkReadOnly(networkItems, readOnly)
+    setIsOpen(false)
+    onSuccess?.()
+  }
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
+              title="Set read-only status"
+              data-action-button
+              onClick={() => setIsOpen(!isOpen)}
+              disabled={networkItems.length === 0 || isAnyUpdating}
+            >
+              {isAnyUpdating ? (
+                <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+              ) : (
+                <Lock className="h-5 w-5 text-muted-foreground" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            Set read-only status
+            {networkItems.length === 0 && ' (Only networks can be set as read-only)'}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      {isOpen && (
+        <div className="absolute top-full right-0 mt-1 w-44 rounded-md bg-popover shadow-lg z-50 border border-border">
+          <button
+            className="flex w-full items-center gap-2 px-3 py-2 text-xs text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => handleSetReadOnly(true)}
+            disabled={isAnyUpdating || networkItems.length === 0}
+          >
+            <Lock className="h-4 w-4" />
+            <span>Set as Read-only</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 px-3 py-2 text-xs text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => handleSetReadOnly(false)}
+            disabled={isAnyUpdating || networkItems.length === 0}
+          >
+            <LockOpen className="h-4 w-4" />
+            <span>Remove Read-only</span>
           </button>
         </div>
       )}
@@ -481,6 +578,16 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                     <TooltipContent>Download selected networks</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+
+                {tabState !== MyAccountTabType.SHARED && (
+                  <BulkReadOnlyMenu
+                    selectedItems={getSelectedItemObjects()}
+                    onClose={() => {}}
+                    onSuccess={() => {
+                      // Refresh will be triggered by parent component
+                    }}
+                  />
+                )}
 
                 <TooltipProvider>
                   <Tooltip>

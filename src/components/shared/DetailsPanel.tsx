@@ -255,7 +255,11 @@ export default function DetailsPanel({
                         <span className="text-muted-foreground">Certified</span>
                         <span className="text-foreground">{detailedData.network.isCertified ? 'Yes' : 'No'}</span>
                       </div>
-                      
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Read-only</span>
+                        <span className="text-foreground">{detailedData.network.isReadOnly ? 'Yes' : 'No'}</span>
+                      </div>
+
                       {detailedData.network.description && (
                         <>
                           <div className="pt-2 border-t border-border">

@@ -11,6 +11,8 @@ import {
   Copy,
   History,
   Loader2,
+  Lock,
+  LockOpen,
 } from 'lucide-react'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 import { FileItemBase } from '@/types/api/ndex/File'
@@ -19,6 +21,7 @@ import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
 import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
 import { useNetworkCopy } from '@/hooks/use-network-copy'
+import { useNetworkReadOnly } from '@/hooks/use-network-readonly'
 import { hasNetworkError, hasValidDOI as hasValidNetworkDOI, isNetworkReadOnly } from '@/lib/utils/network-status'
 
 // Add a dropdown menu for download formats
@@ -138,6 +141,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     openShareDialog,
   } = useDialogs()
   const { copyFile, isCopying } = useNetworkCopy()
+  const { setNetworkReadOnly, isUpdating } = useNetworkReadOnly()
 
   // Check DOI, readonly status, and error status for networks
   const hasDOI = dropdownType === NDExFileType.NETWORK && hasValidDOI(item)
@@ -292,6 +296,17 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     )
 
     onClose() // Close the dropdown
+  }
+
+  // Handle toggling readonly status
+  const handleToggleReadOnly = async () => {
+    if (!item || !openDropdownId) return
+
+    const success = await setNetworkReadOnly(openDropdownId, !isReadOnly)
+    if (success) {
+      // Refresh will be triggered by parent component
+      onClose()
+    }
   }
 
   // Render different options based on tabState
@@ -497,6 +512,27 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             }`} />
             Share
           </button>
+          {/* Only show readonly toggle for regular networks (not shortcuts) and not in shared tab */}
+          {item.type !== NDExFileType.SHORTCUT && tabState !== MyAccountTabType.SHARED && (
+            <button
+              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+                isUpdating[openDropdownId]
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              onClick={isUpdating[openDropdownId] ? undefined : handleButtonClick(handleToggleReadOnly)}
+              disabled={isUpdating[openDropdownId]}
+            >
+              {isUpdating[openDropdownId] ? (
+                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+              ) : isReadOnly ? (
+                <LockOpen className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              ) : (
+                <Lock className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              )}
+              {isUpdating[openDropdownId] ? 'Updating...' : isReadOnly ? 'Remove Read-only' : 'Set as Read-only'}
+            </button>
+          )}
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
             onClick={handleButtonClick(handleOpenMoveDialog)}

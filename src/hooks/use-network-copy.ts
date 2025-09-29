@@ -35,8 +35,10 @@ export const useNetworkCopy = () => {
     if (!isAuthenticated) {
       const error = new Error('Authentication required to copy files')
       addToast({
+        title: 'Authentication Required',
         description: 'You must be logged in to copy files',
-        type: 'error'
+        type: 'error',
+        duration: 4000
       })
       return { success: false, error }
     }
@@ -45,8 +47,10 @@ export const useNetworkCopy = () => {
     if (fileType !== NDExFileType.NETWORK && fileType !== NDExFileType.SHORTCUT) {
       const error = new Error(`Unsupported file type: ${fileType}`)
       addToast({
+        title: 'Error',
         description: 'Only networks and shortcuts can be copied',
-        type: 'error'
+        type: 'error',
+        duration: 4000
       })
       return { success: false, error }
     }
@@ -136,8 +140,10 @@ export const useNetworkCopy = () => {
 
       // Show success toast
       addToast({
+        title: 'Success',
         description: `Successfully copied "${fileName}"`,
-        type: 'success'
+        type: 'success',
+        duration: 4000
       })
 
       return { success: true, newFileId: result.uuid }
@@ -158,8 +164,10 @@ export const useNetworkCopy = () => {
       }
 
       addToast({
+        title: 'Error',
         description: errorMessage,
-        type: 'error'
+        type: 'error',
+        duration: 4000
       })
 
       return { success: false, error }
