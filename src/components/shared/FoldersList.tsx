@@ -169,7 +169,11 @@ const GridFolderItem = ({
             className={tableStyles.button.dropdown}
             onClick={(e) => {
               e.stopPropagation()
-              onDropdownToggle(e, folder.uuid, folder.type)
+              onDropdownToggle(e, folder.uuid,
+                folder.type === NDExFileType.SHORTCUT
+                  ? (folder.attributes?.target_type as NDExFileType) || NDExFileType.FOLDER
+                  : folder.type
+              )
             }}
             data-dropdown-trigger
             data-dropdown-id={folder.uuid}
@@ -330,7 +334,11 @@ const ListFolderItem = ({
             className={tableStyles.button.dropdown}
             onClick={(e) => {
               e.stopPropagation()
-              onDropdownToggle(e, folder.uuid, folder.type)
+              onDropdownToggle(e, folder.uuid,
+                folder.type === NDExFileType.SHORTCUT
+                  ? (folder.attributes?.target_type as NDExFileType) || NDExFileType.FOLDER
+                  : folder.type
+              )
             }}
             data-dropdown-trigger
             data-dropdown-id={folder.uuid}

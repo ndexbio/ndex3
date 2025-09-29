@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState } from 'react'
 import RenameFolderDialog from '@/app/my-account/_components/RenameFolderDialog'
 import MoveFolderDialog from '@/app/my-account/_components/MoveFolderDialog'
 import EditNetworkPropertiesDialog from '@/app/my-account/_components/EditNetworkPropertiesDialog'
+import EditFolderPropertiesDialog from '@/app/my-account/_components/EditFolderPropertiesDialog'
+import RenameShortcutDialog from '@/app/my-account/_components/RenameShortcutDialog'
 import ShareDialog from '@/components/dialogs/ShareDialog'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useFolderContents } from '@/hooks/use-folder'
@@ -23,6 +25,8 @@ interface DialogContextType {
     onMove: (targetFolderId: string) => Promise<void>,
   ) => void
   openEditNetworkPropertiesDialog: (networkId: string) => void
+  openEditFolderPropertiesDialog: (folderId: string) => void
+  openRenameShortcutDialog: (shortcutId: string) => void
   openShareDialog: (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => void
 }
 
@@ -77,6 +81,30 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     isOpen: false,
     networkId: '',
     network: null,
+  })
+
+  // Edit folder properties dialog state
+  const [
+    editFolderPropertiesDialogProps,
+    setEditFolderPropertiesDialogProps,
+  ] = useState<{
+    isOpen: boolean
+    folderId: string
+  }>({
+    isOpen: false,
+    folderId: '',
+  })
+
+  // Rename shortcut dialog state
+  const [
+    renameShortcutDialogProps,
+    setRenameShortcutDialogProps,
+  ] = useState<{
+    isOpen: boolean
+    shortcutId: string
+  }>({
+    isOpen: false,
+    shortcutId: '',
   })
 
   // Share dialog state
@@ -188,6 +216,34 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     }))
   }
 
+  const openEditFolderPropertiesDialog = (folderId: string) => {
+    setEditFolderPropertiesDialogProps({
+      isOpen: true,
+      folderId,
+    })
+  }
+
+  const closeEditFolderPropertiesDialog = () => {
+    setEditFolderPropertiesDialogProps((prev) => ({
+      ...prev,
+      isOpen: false,
+    }))
+  }
+
+  const openRenameShortcutDialog = (shortcutId: string) => {
+    setRenameShortcutDialogProps({
+      isOpen: true,
+      shortcutId,
+    })
+  }
+
+  const closeRenameShortcutDialog = () => {
+    setRenameShortcutDialogProps((prev) => ({
+      ...prev,
+      isOpen: false,
+    }))
+  }
+
   const handleRenameSuccess = async () => {
     // Refresh parent folder contents
     await refreshParentFolder()
@@ -195,6 +251,16 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleEditNetworkPropertiesSuccess = async () => {
     // Refresh the parent folder contents to show updated network information
+    await refreshParentFolder()
+  }
+
+  const handleEditFolderPropertiesSuccess = async () => {
+    // Refresh the parent folder contents to show updated folder information
+    await refreshParentFolder()
+  }
+
+  const handleRenameShortcutSuccess = async () => {
+    // Refresh the parent folder contents to show updated shortcut information
     await refreshParentFolder()
   }
 
@@ -220,6 +286,8 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         openRenameFolderDialog,
         openMoveFolderDialog,
         openEditNetworkPropertiesDialog,
+        openEditFolderPropertiesDialog,
+        openRenameShortcutDialog,
         openShareDialog,
       }}
     >
@@ -248,6 +316,20 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         onClose={closeEditNetworkPropertiesDialog}
         network={editNetworkPropertiesDialogProps.network}
         onSuccess={handleEditNetworkPropertiesSuccess}
+      />
+
+      <EditFolderPropertiesDialog
+        isOpen={editFolderPropertiesDialogProps.isOpen}
+        onClose={closeEditFolderPropertiesDialog}
+        folderId={editFolderPropertiesDialogProps.folderId}
+        onSuccess={handleEditFolderPropertiesSuccess}
+      />
+
+      <RenameShortcutDialog
+        isOpen={renameShortcutDialogProps.isOpen}
+        onClose={closeRenameShortcutDialog}
+        shortcutId={renameShortcutDialogProps.shortcutId}
+        onSuccess={handleRenameShortcutSuccess}
       />
 
       <ShareDialog

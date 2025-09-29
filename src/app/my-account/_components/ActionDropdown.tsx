@@ -133,6 +133,8 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     openRenameFolderDialog,
     openMoveFolderDialog,
     openEditNetworkPropertiesDialog,
+    openEditFolderPropertiesDialog,
+    openRenameShortcutDialog,
     openShareDialog,
   } = useDialogs()
   const { copyFile, isCopying } = useNetworkCopy()
@@ -218,20 +220,31 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     callback()
   }
 
-  // Handle opening the rename dialog
+  // Handle opening the rename dialog - differentiate shortcuts from folders
   const handleOpenRenameDialog = () => {
-    // Use the dialog context to open the rename dialog
-    openRenameFolderDialog(
-      openDropdownId,
-      item.name,
-      (item as Folder)?.parent || '',
-    )
+    if (item.type === NDExFileType.SHORTCUT) {
+      // For shortcuts, use the shortcut rename dialog
+      openRenameShortcutDialog(openDropdownId)
+    } else {
+      // For regular folders, use the folder rename dialog
+      openRenameFolderDialog(
+        openDropdownId,
+        item.name,
+        (item as Folder)?.parent || '',
+      )
+    }
     onClose() // Close the dropdown
   }
 
   // Handle opening the edit properties dialog
   const handleOpenEditPropertiesDialog = () => {
     openEditNetworkPropertiesDialog(openDropdownId)
+    onClose() // Close the dropdown
+  }
+
+  // Handle opening the edit folder properties dialog
+  const handleOpenEditFolderPropertiesDialog = () => {
+    openEditFolderPropertiesDialog(openDropdownId)
     onClose() // Close the dropdown
   }
 
@@ -317,20 +330,24 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       ) : dropdownType === NDExFileType.FOLDER ? (
         // Regular folder options
         <div className="py-2">
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(handleOpenShareDialog)}
-          >
-            <Download className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Download
-          </button>
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(handleOpenRenameDialog)}
-          >
-            <FileEdit className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Rename
-          </button>
+          {/* Show Rename for shortcuts, Edit Properties for regular folders */}
+          {item.type === NDExFileType.SHORTCUT ? (
+            <button
+              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={handleButtonClick(handleOpenRenameDialog)}
+            >
+              <FileEdit className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              Rename
+            </button>
+          ) : (
+            <button
+              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={handleButtonClick(handleOpenEditFolderPropertiesDialog)}
+            >
+              <FileEdit className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              Edit Properties
+            </button>
+          )}
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
             onClick={handleButtonClick(handleOpenShareDialog)}
@@ -422,34 +439,48 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             networkName={item.name || 'network'}
             onClose={onClose}
           />
-          <button
-            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-              shouldDisableEditProperties
-                ? 'text-gray-400 cursor-not-allowed'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-            onClick={shouldDisableEditProperties ? undefined : handleButtonClick(handleOpenEditPropertiesDialog)}
-            disabled={shouldDisableEditProperties}
-          >
-            <FileEdit className={`h-4 w-4 ${
-              shouldDisableEditProperties
-                ? 'text-gray-400'
-                : 'text-gray-500 group-hover:text-gray-700'
-            }`} />
-            Edit Properties
-          </button>
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(handleCopyFile)}
-            disabled={isCopying[openDropdownId]}
-          >
-            {isCopying[openDropdownId] ? (
-              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-            ) : (
-              <Copy className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            )}
-            {isCopying[openDropdownId] ? 'Copying...' : 'Make a Copy'}
-          </button>
+          {/* Show Rename for shortcuts, Edit Properties for regular networks */}
+          {item.type === NDExFileType.SHORTCUT ? (
+            <button
+              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={handleButtonClick(handleOpenRenameDialog)}
+            >
+              <FileEdit className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              Rename
+            </button>
+          ) : (
+            <button
+              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+                shouldDisableEditProperties
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              onClick={shouldDisableEditProperties ? undefined : handleButtonClick(handleOpenEditPropertiesDialog)}
+              disabled={shouldDisableEditProperties}
+            >
+              <FileEdit className={`h-4 w-4 ${
+                shouldDisableEditProperties
+                  ? 'text-gray-400'
+                  : 'text-gray-500 group-hover:text-gray-700'
+              }`} />
+              Edit Properties
+            </button>
+          )}
+          {/* Only show Make a Copy for regular networks, not shortcuts */}
+          {item.type !== NDExFileType.SHORTCUT && (
+            <button
+              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={handleButtonClick(handleCopyFile)}
+              disabled={isCopying[openDropdownId]}
+            >
+              {isCopying[openDropdownId] ? (
+                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+              ) : (
+                <Copy className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              )}
+              {isCopying[openDropdownId] ? 'Copying...' : 'Make a Copy'}
+            </button>
+          )}
           <button
             className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
               shouldDisableShare
