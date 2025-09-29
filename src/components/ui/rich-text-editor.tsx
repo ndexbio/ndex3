@@ -11,7 +11,7 @@ import Highlight from '@tiptap/extension-highlight'
 import TextAlign from '@tiptap/extension-text-align'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import {
   Bold,
   Italic,
@@ -93,8 +93,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   }
 
   return (
-    <TooltipProvider>
-      <div className="border border-gray-300 dark:border-gray-600 rounded-md">
+    <div className="border border-gray-300 dark:border-gray-600 rounded-md">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-1 p-2 border-b border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
         {/* Text Formatting */}
@@ -417,8 +416,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           placeholder={placeholder}
         />
       </div>
-      </div>
-    </TooltipProvider>
+    </div>
   )
 }
 

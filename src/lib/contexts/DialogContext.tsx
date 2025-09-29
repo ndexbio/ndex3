@@ -194,8 +194,8 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
   }
 
   const handleEditNetworkPropertiesSuccess = async () => {
-    // In a real implementation, you would refresh the network properties here
-    console.log('Network properties updated successfully')
+    // Refresh the parent folder contents to show updated network information
+    await refreshParentFolder()
   }
 
   const openShareDialog = (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => {

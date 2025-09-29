@@ -35,13 +35,52 @@ const EditNetworkPropertiesDialog: React.FC<
   const [description, setDescription] = useState('')
   const [properties, setProperties] = useState<NetworkProperty[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [originalSummary, setOriginalSummary] = useState<any>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
+
+  // Original state for change tracking
+  const [originalState, setOriginalState] = useState({
+    name: '',
+    version: '1.0',
+    description: '',
+    properties: [] as NetworkProperty[],
+    visibility: '' // Store original visibility
+  })
+
 
   // Debug current state values (commented out for production)
   // console.log('Current state - name:', name, 'version:', version, 'description:', description, 'properties:', properties)
 
   // Use the hook to update properties
-  const { getNetworkSummary } = useNetworkOperation()
+  const { getNetworkSummary, updateNetworkSummary } = useNetworkOperation()
+
+  // Change detection functions
+  const hasFieldChanges = () => {
+    return (
+      name !== originalState.name ||
+      version !== originalState.version ||
+      description !== originalState.description
+    )
+  }
+
+  const hasPropertyChanges = () => {
+    if (properties.length !== originalState.properties.length) {
+      return true
+    }
+
+    return properties.some(prop => {
+      const originalProp = originalState.properties.find(orig =>
+        orig.propertyName === prop.propertyName
+      )
+      return !originalProp ||
+        originalProp.propertyValue !== prop.propertyValue ||
+        originalProp.dataType !== prop.dataType
+    })
+  }
+
+  const hasAnyChanges = () => {
+    return hasFieldChanges() || hasPropertyChanges()
+  }
 
   // Initialize form data when the dialog opens or network changes
   useEffect(() => {
@@ -132,14 +171,43 @@ const EditNetworkPropertiesDialog: React.FC<
 
           console.log('Converted network properties:', networkProperties)
           setProperties(networkProperties)
+
+          // Store the original summary for preserving non-editable attributes
+          setOriginalSummary(summary)
+
+          // Store original state for change tracking
+          setOriginalState({
+            name: nameValue,
+            version: versionValue,
+            description: descriptionValue,
+            properties: [...networkProperties], // Deep copy
+            visibility: summary.visibility || ''
+          })
         })
         .catch((error) => {
           console.error('Error fetching network summary:', error)
           // Fallback to basic network data if summary fails
-          setName(network.name || '')
-          setVersion('1.0')
-          setDescription('')
-          setProperties([])
+          const fallbackName = network.name || ''
+          const fallbackVersion = '1.0'
+          const fallbackDescription = ''
+          const fallbackProperties: NetworkProperty[] = []
+
+          setName(fallbackName)
+          setVersion(fallbackVersion)
+          setDescription(fallbackDescription)
+          setProperties(fallbackProperties)
+
+          // Store original state for change tracking
+          setOriginalState({
+            name: fallbackName,
+            version: fallbackVersion,
+            description: fallbackDescription,
+            properties: [...fallbackProperties],
+            visibility: ''
+          })
+
+          // No original summary in fallback case
+          setOriginalSummary(null)
         })
     }
   }, [isOpen, network]) // ✅ Removed getNetworkSummary from dependencies
@@ -191,6 +259,11 @@ const EditNetworkPropertiesDialog: React.FC<
       return
     }
 
+    // Only proceed if there are changes
+    if (!hasAnyChanges()) {
+      return
+    }
+
     try {
       setIsSubmitting(true)
 
@@ -227,23 +300,34 @@ const EditNetworkPropertiesDialog: React.FC<
         propertyObject[prop.propertyName] = { t: prop.dataType, v: value }
       })
 
-      // Here you would typically call your API to update the network properties
-      // await ndexClient.updateNetworkProperties(network.uuid, {
-      //   name: name,
-      //   description: description,
-      //   properties: propertyObject
-      // })
+      // Prepare the network summary update, preserving only visibility
+      const updatedSummary = {
+        name: name,
+        description: description,
+        properties: propertyObject,
+        visibility: originalState.visibility // Only preserve visibility
+      }
 
-      // For now, just simulate a successful update
-      setTimeout(() => {
-        if (onSuccess) {
-          onSuccess()
-        }
-        onClose()
-        setIsSubmitting(false)
-      }, 500)
+      // Call the API to update the network summary
+      await updateNetworkSummary(network.uuid, updatedSummary)
+
+      // Update original state to reflect the new saved state
+      setOriginalState({
+        name,
+        version,
+        description,
+        properties: [...properties],
+        visibility: originalState.visibility // Keep the same visibility
+      })
+
+      // Refresh the network list to show updated information
+      if (onSuccess) {
+        onSuccess() // This should trigger a refresh of the network list
+      }
+      onClose()
     } catch (error) {
       console.error('Error updating network properties:', error)
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -408,10 +492,14 @@ const EditNetworkPropertiesDialog: React.FC<
             </button>
             <button
               onClick={handleSubmit}
-              className="px-5 py-2 bg-sky-600 text-white text-sm font-medium rounded hover:bg-sky-700"
-              disabled={isSubmitting}
+              className={`px-5 py-2 text-sm font-medium rounded transition-colors ${
+                hasAnyChanges() && !isSubmitting
+                  ? 'bg-sky-600 text-white hover:bg-sky-700'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              disabled={!hasAnyChanges() || isSubmitting}
             >
-              {isSubmitting ? 'SAVING...' : 'CONFIRM'}
+              {isSubmitting ? 'SAVING...' : hasAnyChanges() ? 'CONFIRM' : 'NO CHANGES'}
             </button>
           </div>
         </div>

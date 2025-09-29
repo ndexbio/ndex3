@@ -1,14 +1,41 @@
-import { useState } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { FileItemBase } from '@/types/api/ndex/File'
+import { NetworkSummaryV2 } from '@js4cytoscape/ndex-client'
 
-// Define Network interface
+// Define Network interface that maps NetworkSummaryV2 to FileItemBase structure
 export interface Network extends FileItemBase {
   parent: string
   // Additional network-specific properties can be added here
+}
+
+// Helper function to convert NetworkSummaryV2 to Network
+const networkSummaryToNetwork = (summary: NetworkSummaryV2): Network => {
+  return {
+    uuid: summary.externalId,
+    name: summary.name,
+    type: 'NETWORK' as any, // NDExFileType.NETWORK
+    modificationTime: summary.modificationTime,
+    parent: summary.parentDirUUID || '',
+    attributes: {
+      edges: summary.edgeCount,
+      nodes: summary.nodeCount,
+      edgeCount: summary.edgeCount,
+      nodeCount: summary.nodeCount,
+      visibility: summary.visibility,
+      owner: summary.owner,
+      updatedBy: summary.updatedBy,
+      description: summary.description,
+      version: summary.version,
+      creationTime: summary.creationTime,
+      ...summary.properties?.reduce((acc, prop) => {
+        acc[prop.predicateString] = prop.value
+        return acc
+      }, {} as any) || {}
+    }
+  }
 }
 
 /**
@@ -32,13 +59,14 @@ export const useNetworkOperation = (
     : null
 
   // Fetcher function that uses ndexClient
-  const fetcher = async () => {
+  const fetcher = async (): Promise<Network | null> => {
     const ndexClient = getNdexClient(config.ndexBaseUrl, token)
 
     try {
       if (networkId) {
         // Get network summary using new client API
-        return await ndexClient.networks.v2.getNetworkSummary(networkId, { accesskey: accessKey })
+        const summary = await ndexClient.networks.v2.getNetworkSummary(networkId, { accesskey: accessKey })
+        return networkSummaryToNetwork(summary)
       }
       return null
     } catch (error) {
@@ -74,7 +102,6 @@ export const useNetworkOperation = (
   const getNetworkSummary = async (
     networkIdToFetch: string,
     summaryAccessKey?: string,
-    format?: string,
   ): Promise<any> => {
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
@@ -109,14 +136,13 @@ export const useNetworkOperation = (
    * @param networkId ID of the network to get DOI for
    * @returns Promise that resolves to the network DOI
    */
-  const getNetworkDOI = async (networkId:string): Promise<string> => {
+  const getNetworkDOI = async (networkIdForDOI: string): Promise<string> => {
     try {
-      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
       // TODO: New API requires key and email parameters for DOI creation
       // This needs to be updated to collect user input
       throw new Error('DOI creation requires additional parameters in new API')
     } catch (error) {
-      console.error('Error fetching network DOI:', error)       
+      console.error('Error fetching network DOI:', error)
       return ''
     }
   }
@@ -261,6 +287,61 @@ export const useNetworkOperation = (
   }
 
   /**
+   * Updates a network summary
+   * @param networkIdToUpdate ID of the network to update
+   * @param summary The network summary data to update
+   * @returns Promise that resolves when update is complete
+   */
+  const updateNetworkSummary = async (
+    networkIdToUpdate: string,
+    summary: any
+  ): Promise<void> => {
+    if (!isAuthenticated) {
+      throw new Error('Authentication required to update network summary')
+    }
+
+    try {
+      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+      await ndexClient.networks.updateNetworkSummary(networkIdToUpdate, summary)
+
+      // If this is the network we're currently viewing, refresh it
+      if (networkId === networkIdToUpdate) {
+        await refresh()
+      }
+
+      // If we have the current network data, refresh its parent folder
+      if (data && data.parent) {
+        globalMutate(
+          (key) =>
+            Array.isArray(key) &&
+            key[0] === 'folderContents' &&
+            key[1] === data.parent &&
+            key[2] === token,
+        )
+      } else {
+        // If we don't have the current network data, get the network summary to find its parent
+        try {
+          const networkSummary = await getNetworkSummary(networkIdToUpdate)
+          if (networkSummary && networkSummary.parent) {
+            globalMutate(
+              (key) =>
+                Array.isArray(key) &&
+                key[0] === 'folderContents' &&
+                key[1] === networkSummary.parent &&
+                key[2] === token,
+            )
+          }
+        } catch (refreshError) {
+          console.warn('Could not refresh parent folder:', refreshError)
+        }
+      }
+    } catch (error) {
+      console.error('Error updating network summary:', error)
+      throw error
+    }
+  }
+
+  /**
    * Deletes a network
    * @param networkIdToDelete ID of the network to delete
    * @returns Promise that resolves when deletion is complete
@@ -282,7 +363,7 @@ export const useNetworkOperation = (
         const networkData = await ndexClient.networks.getNetworkSummary(
           networkIdToDelete
         )
-        parentFolderId = networkData.parent
+        parentFolderId = networkData.parentDirUUID
       }
 
       // Delete the network
@@ -316,6 +397,7 @@ export const useNetworkOperation = (
     downloadRawNetwork,
     downloadCX2Network,
     updateNetworkWithCX2,
+    updateNetworkSummary,
     deleteNetwork,
   }
 }
@@ -335,5 +417,6 @@ export const fetchNetwork = async (
   accessKey?: string,
 ): Promise<Network> => {
   const ndexClient = getNdexClient(ndexBaseUrl, token)
-  return ndexClient.networks.v2.getNetworkSummary(networkId, { accesskey: accessKey })
+  const summary = await ndexClient.networks.v2.getNetworkSummary(networkId, { accesskey: accessKey })
+  return networkSummaryToNetwork(summary)
 }
