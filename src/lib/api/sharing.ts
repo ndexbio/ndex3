@@ -155,6 +155,29 @@ export const getNetworkAccessKey = async (
 }
 
 /**
+ * Check if access keys already exist for folders by getting folder access key
+ */
+export const getFolderAccessKey = async (
+  client: NDExClient,
+  folderUuid: string
+): Promise<string | null> => {
+  try {
+    // Use the proper NDEx client method to get folder access key
+    const result = await client.files.getFolderAccessKey(folderUuid)
+
+    if (result && typeof result === 'object' && 'accessKey' in result) {
+      const accessKey = (result as { accessKey: string }).accessKey
+      return accessKey
+    }
+
+    return null
+  } catch (error) {
+    console.log(`No access key found for folder ${folderUuid}`)
+    return null
+  }
+}
+
+/**
  * Generate access keys for sharing files publicly
  */
 export const generateAccessKeys = async (

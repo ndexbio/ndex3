@@ -113,16 +113,21 @@ export const useShortcut = (
   /**
    * Updates an existing shortcut
    * @param shortcutIdToUpdate ID of the shortcut to update
-   * @param name Updated name
-   * @param parentFolderId Updated parent folder ID
-   * @param targetId Updated target ID
+   * @param shortcutObject Object containing shortcut properties to update
+   * @param shortcutObject.name The new name for the shortcut
+   * @param shortcutObject.target UUID of the target object the shortcut points to
+   * @param shortcutObject.targetType Type of the target object ('NETWORK', 'FOLDER', or 'SHORTCUT')
+   * @param shortcutObject.parent Optional UUID of the parent folder
    * @returns The updated shortcut
    */
   const updateShortcut = async (
     shortcutIdToUpdate: string,
-    name: string,
-    parentFolderId: string,
-    targetId: string
+    shortcutObject: {
+      name: string
+      target: string
+      targetType: NDExFileType
+      parent?: string
+    }
   ): Promise<Shortcut> => {
     if (!isAuthenticated) {
       throw new Error('Authentication required to update shortcuts')
@@ -132,24 +137,22 @@ export const useShortcut = (
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
       const result = await ndexClient.files.updateShortcut(
         shortcutIdToUpdate,
-        name,
-        parentFolderId,
-        targetId
+        shortcutObject
       )
-      
+
       // If this is the shortcut we're currently viewing, refresh it
       if (shortcutId === shortcutIdToUpdate) {
         await refresh()
       }
-      
+
       // Refresh parent folder contents if it's being viewed
       globalMutate((key) =>
         Array.isArray(key) &&
         key[0] === 'folderContents' &&
-        key[1] === parentFolderId &&
+        key[1] === shortcutObject.parent &&
         key[2] === token
       )
-      
+
       return result
     } catch (error) {
       console.error('Error updating shortcut:', error)

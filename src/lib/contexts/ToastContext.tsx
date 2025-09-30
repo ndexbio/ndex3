@@ -53,13 +53,13 @@ export function ToastContextProvider({
             duration={duration || 5000}
             className={`${
               type === 'success'
-                ? 'border-green-500 bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-200'
+                ? 'border-green-500 bg-green-50 dark:bg-slate-800 dark:border-green-500 text-green-800 dark:text-green-300'
                 : type === 'error'
-                ? 'border-red-500 bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200'
+                ? 'border-red-500 bg-red-50 dark:bg-slate-800 dark:border-red-500 text-red-800 dark:text-red-300'
                 : type === 'warning'
-                ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-200'
+                ? 'border-yellow-500 bg-yellow-50 dark:bg-slate-800 dark:border-yellow-500 text-yellow-800 dark:text-yellow-300'
                 : type === 'info'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200'
+                ? 'border-blue-500 bg-blue-50 dark:bg-slate-800 dark:border-blue-500 text-blue-800 dark:text-blue-300'
                 : ''
             }`}
             onOpenChange={(open: boolean) => {

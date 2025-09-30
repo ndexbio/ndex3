@@ -22,6 +22,7 @@ import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
 import { useNetworkCopy } from '@/hooks/use-network-copy'
 import { useNetworkReadOnly } from '@/hooks/use-network-readonly'
+import { useCyNDEx } from '@/hooks/use-cyndex'
 import { hasNetworkError, hasValidDOI as hasValidNetworkDOI, isNetworkReadOnly } from '@/lib/utils/network-status'
 
 // Add a dropdown menu for download formats
@@ -142,6 +143,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   } = useDialogs()
   const { copyFile, isCopying } = useNetworkCopy()
   const { setNetworkReadOnly, isUpdating } = useNetworkReadOnly()
+  const { openInCytoscape, isOpening } = useCyNDEx()
 
   // Check DOI, readonly status, and error status for networks
   const hasDOI = dropdownType === NDExFileType.NETWORK && hasValidDOI(item)
@@ -309,6 +311,21 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     }
   }
 
+  // Handle opening network in Cytoscape Desktop
+  const handleOpenInCytoscape = () => {
+    if (!item || !openDropdownId) return
+
+    // Fire and forget - close menu immediately to prevent double-clicks
+    openInCytoscape(
+      openDropdownId,
+      item.name || 'Unnamed network',
+      dropdownType || NDExFileType.NETWORK, // Pass the item type
+      item.attributes || {} // Pass all attributes for shortcut resolution
+    )
+
+    onClose()
+  }
+
   // Render different options based on tabState
   return (
     <div
@@ -424,11 +441,20 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
         // Regular network options (no errors)
         <div className="py-2">
           <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(handleOpenShareDialog)}
+            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+              isOpening[openDropdownId]
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+            onClick={isOpening[openDropdownId] ? undefined : handleButtonClick(handleOpenInCytoscape)}
+            disabled={isOpening[openDropdownId]}
           >
-            <ExternalLink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Open in Cytoscape Desktop
+            {isOpening[openDropdownId] ? (
+              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+            ) : (
+              <ExternalLink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+            )}
+            {isOpening[openDropdownId] ? 'Opening...' : 'Open in Cytoscape Desktop'}
           </button>
           {/* Only show "Request DOI" for networks that aren't shortcuts and not in shared tab */}
           {shouldShowRequestDOI && (

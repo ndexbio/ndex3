@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Copy, Check, Loader2 } from 'lucide-react'
 import { ShareableItem, VisibilityLevel } from '@/types/sharing'
-import { generateAccessKeys, revokeAccessKeys, copyToClipboard, getNetworkAccessKey } from '@/lib/api/sharing'
+import { generateAccessKeys, revokeAccessKeys, copyToClipboard, getNetworkAccessKey, getFolderAccessKey } from '@/lib/api/sharing'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -32,18 +32,25 @@ const AccessLinkSection: React.FC<AccessLinkSectionProps> = ({
   // Only show for private visibility and single items (networks or folders)
   const shouldShow = visibility === Visibility.PRIVATE && items.length === 1
 
-  // Check for existing access keys when component loads for private networks
+  // Check for existing access keys when component loads for private networks and folders
   useEffect(() => {
     const checkExistingAccessKeys = async () => {
       if (!shouldShow || !token || items.length === 0) return
 
       const item = items[0]
-      if (item.type !== NDExFileType.NETWORK) return
+      // Only check for networks and folders
+      if (item.type !== NDExFileType.NETWORK && item.type !== NDExFileType.FOLDER) return
 
       try {
         setIsGenerating(true)
         const client = getNdexClient(config.ndexBaseUrl, token)
-        const existingAccessKey = await getNetworkAccessKey(client, item.uuid)
+
+        let existingAccessKey: string | null = null
+        if (item.type === NDExFileType.NETWORK) {
+          existingAccessKey = await getNetworkAccessKey(client, item.uuid)
+        } else if (item.type === NDExFileType.FOLDER) {
+          existingAccessKey = await getFolderAccessKey(client, item.uuid)
+        }
 
         if (existingAccessKey) {
           setAccessKeys({ [item.uuid]: existingAccessKey })

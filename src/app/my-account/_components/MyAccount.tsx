@@ -990,12 +990,12 @@ function MyAccountContent({
             networksToMove.push(item.uuid)
           } else if (item.type === NDExFileType.SHORTCUT) {
             // Update shortcut parent
-            await updateShortcut(
-              item.uuid,
-              item.name,
-              targetFolderId,
-              item.attributes.target as string,
-            )
+            await updateShortcut(item.uuid, {
+              name: item.name,
+              target: item.attributes.target as string,
+              targetType: item.attributes.targetType as NDExFileType,
+              parent: targetFolderId,
+            })
             movedItems.successful++
             movedItems.names.push(item.name)
           }
