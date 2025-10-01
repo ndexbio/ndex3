@@ -136,14 +136,49 @@ export const useNetworkOperation = (
    * @param networkId ID of the network to get DOI for
    * @returns Promise that resolves to the network DOI
    */
-  const getNetworkDOI = async (networkIdForDOI: string): Promise<string> => {
+  /**
+   * Creates a DOI for a network
+   * @param networkIdForDOI ID of the network to create DOI for
+   * @param contactEmail Contact email address for DOI registration
+   * @param isCertified If true, network will be permanently locked and made public
+   * @returns Promise that resolves when DOI request is submitted
+   */
+  const createNetworkDOI = async (
+    networkIdForDOI: string,
+    contactEmail: string,
+    isCertified: boolean,
+  ): Promise<void> => {
+    if (!isAuthenticated) {
+      throw new Error('Authentication required to create DOI')
+    }
+
     try {
-      // TODO: New API requires key and email parameters for DOI creation
-      // This needs to be updated to collect user input
-      throw new Error('DOI creation requires additional parameters in new API')
+      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+
+      await ndexClient.networks.createNetworkDOI({
+        networkId: networkIdForDOI,
+        isCertified,
+        contactEmail,
+      })
+
+      // Refresh the network data if this is the current network
+      if (networkId === networkIdForDOI) {
+        await refresh()
+      }
+
+      // Refresh parent folder contents to update network DOI status
+      if (data && data.parent) {
+        globalMutate(
+          (key) =>
+            Array.isArray(key) &&
+            key[0] === 'folderContents' &&
+            key[1] === data.parent &&
+            key[2] === token,
+        )
+      }
     } catch (error) {
-      console.error('Error fetching network DOI:', error)
-      return ''
+      console.error('Error creating network DOI:', error)
+      throw error
     }
   }
 
@@ -392,7 +427,7 @@ export const useNetworkOperation = (
     refresh,
     getNetworkSummary,
     copyNetwork,
-    getNetworkDOI,
+    createNetworkDOI,
     moveNetworks,
     downloadRawNetwork,
     downloadCX2Network,

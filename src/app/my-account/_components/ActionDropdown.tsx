@@ -139,6 +139,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     openEditNetworkPropertiesDialog,
     openEditFolderPropertiesDialog,
     openRenameShortcutDialog,
+    openCreateDOIDialog,
     openShareDialog,
   } = useDialogs()
   const { copyFile, isCopying } = useNetworkCopy()
@@ -153,7 +154,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   // Determine when to show Request DOI button
   const shouldShowRequestDOI =
     dropdownType === NDExFileType.NETWORK && // Only for networks
-    item.type !== NDExFileType.SHORTCUT && // Not for shortcuts
+    item?.type !== NDExFileType.SHORTCUT && // Not for shortcuts
     tabState !== MyAccountTabType.SHARED // Not in "Shared with me" tab (only owners can request DOI)
 
   // Determine which menu items should be disabled
@@ -280,6 +281,12 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     }
 
     openShareDialog([shareableItem], 'single', onShareSuccess)
+    onClose() // Close the dropdown
+  }
+
+  const handleOpenCreateDOIDialog = () => {
+    if (!item || !openDropdownId) return
+    openCreateDOIDialog(openDropdownId)
     onClose() // Close the dropdown
   }
 
@@ -464,7 +471,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
                   ? 'text-gray-400 cursor-not-allowed'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
-              onClick={shouldDisableRequestDOI ? undefined : handleButtonClick(handleOpenShareDialog)}
+              onClick={shouldDisableRequestDOI ? undefined : handleButtonClick(handleOpenCreateDOIDialog)}
               disabled={shouldDisableRequestDOI}
             >
               <BookCopy className={`h-4 w-4 ${

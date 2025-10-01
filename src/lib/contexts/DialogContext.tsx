@@ -6,6 +6,7 @@ import MoveFolderDialog from '@/app/my-account/_components/MoveFolderDialog'
 import EditNetworkPropertiesDialog from '@/app/my-account/_components/EditNetworkPropertiesDialog'
 import EditFolderPropertiesDialog from '@/app/my-account/_components/EditFolderPropertiesDialog'
 import RenameShortcutDialog from '@/app/my-account/_components/RenameShortcutDialog'
+import CreateDOIDialog from '@/app/my-account/_components/CreateDOIDialog'
 import ShareDialog from '@/components/dialogs/ShareDialog'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useFolderContents } from '@/hooks/use-folder'
@@ -27,6 +28,7 @@ interface DialogContextType {
   openEditNetworkPropertiesDialog: (networkId: string) => void
   openEditFolderPropertiesDialog: (folderId: string) => void
   openRenameShortcutDialog: (shortcutId: string) => void
+  openCreateDOIDialog: (networkId: string) => void
   openShareDialog: (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => void
 }
 
@@ -118,6 +120,15 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     items: [],
     mode: 'single',
     onSuccess: undefined,
+  })
+
+  // Create DOI dialog state
+  const [createDOIDialogProps, setCreateDOIDialogProps] = useState<{
+    isOpen: boolean
+    networkId: string
+  }>({
+    isOpen: false,
+    networkId: '',
   })
 
   // Get network operation functions (no specific network ID)
@@ -280,6 +291,25 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     }))
   }
 
+  const openCreateDOIDialog = (networkId: string) => {
+    setCreateDOIDialogProps({
+      isOpen: true,
+      networkId,
+    })
+  }
+
+  const closeCreateDOIDialog = () => {
+    setCreateDOIDialogProps((prev) => ({
+      ...prev,
+      isOpen: false,
+    }))
+  }
+
+  const handleCreateDOISuccess = async () => {
+    // Refresh the parent folder contents to show updated network status
+    await refreshParentFolder()
+  }
+
   return (
     <DialogContext.Provider
       value={{
@@ -288,6 +318,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         openEditNetworkPropertiesDialog,
         openEditFolderPropertiesDialog,
         openRenameShortcutDialog,
+        openCreateDOIDialog,
         openShareDialog,
       }}
     >
@@ -338,6 +369,13 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         items={shareDialogProps.items}
         mode={shareDialogProps.mode}
         onSuccess={shareDialogProps.onSuccess}
+      />
+
+      <CreateDOIDialog
+        isOpen={createDOIDialogProps.isOpen}
+        onClose={closeCreateDOIDialog}
+        networkId={createDOIDialogProps.networkId}
+        onSuccess={handleCreateDOISuccess}
       />
     </DialogContext.Provider>
   )
