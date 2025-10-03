@@ -95,9 +95,12 @@ interface ActionDropdownProps {
   item: FileItemBase | null
   tabState: MyAccountTabType
   currentFolderId: string | null
+  currentFolderName?: string
   onClose: () => void
   onDelete: (itemIds: string[]) => Promise<void>
   onRestore: (itemIds: string[]) => Promise<void>
+  onRefreshFolder?: () => Promise<void>
+  onClearSelection?: () => void
   onCreateShortcut: (itemId: string, targetFolderId?: string) => Promise<void>
   onMoveItems?: (itemIds: string[], targetFolderId: string) => Promise<void>
   onShareSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void
@@ -125,9 +128,12 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   item,
   tabState,
   currentFolderId,
+  currentFolderName,
   onClose,
   onDelete,
   onRestore,
+  onRefreshFolder,
+  onClearSelection,
   onCreateShortcut,
   onMoveItems,
   onShareSuccess,
@@ -257,13 +263,30 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
 
   // Handle opening the move dialog
   const handleOpenMoveDialog = () => {
-    if (onMoveItems) {
+    if (onMoveItems && item) {
+      // Create itemDataMap for the dialog
+      const itemData = {
+        name: item.name || 'Unnamed item',
+        type: item.type,
+        visibility: (item as any).attributes?.visibility || (item as any).visibility
+      }
+
       // Open the move dialog with the current item ID
       openMoveFolderDialog(
         [openDropdownId],
-        (item as Folder)?.parent || null,
-        (targetFolderId: string) =>
-          onMoveItems([openDropdownId], targetFolderId),
+        { [openDropdownId]: itemData },
+        currentFolderId,
+        currentFolderName,
+        async () => {
+          // Refresh the current folder after successful move
+          if (onRefreshFolder) {
+            await onRefreshFolder()
+          }
+          // Clear selection after successful move
+          if (onClearSelection) {
+            onClearSelection()
+          }
+        }
       )
       onClose() // Close the dropdown
     }

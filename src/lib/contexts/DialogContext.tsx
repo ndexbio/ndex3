@@ -22,8 +22,10 @@ interface DialogContextType {
   ) => void
   openMoveFolderDialog: (
     itemsToMove: string[],
+    itemDataMap: Record<string, { name: string; type: NDExFileType; visibility?: string }>,
     currentFolderId: string | null,
-    onMove: (targetFolderId: string) => Promise<void>,
+    currentFolderName: string | undefined,
+    onMoveComplete: () => Promise<void>,
   ) => void
   openEditNetworkPropertiesDialog: (networkId: string) => void
   openEditFolderPropertiesDialog: (folderId: string) => void
@@ -62,13 +64,17 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
   const [moveFolderDialogProps, setMoveFolderDialogProps] = useState<{
     isOpen: boolean
     itemsToMove: string[]
+    itemDataMap: Record<string, { name: string; type: NDExFileType; visibility?: string }>
     currentFolderId: string | null
-    onMove: (targetFolderId: string) => Promise<void>
+    currentFolderName: string | undefined
+    onMoveComplete: () => Promise<void>
   }>({
     isOpen: false,
     itemsToMove: [],
+    itemDataMap: {},
     currentFolderId: null,
-    onMove: async () => {},
+    currentFolderName: undefined,
+    onMoveComplete: async () => {},
   })
 
   // Edit network properties dialog state
@@ -163,14 +169,18 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const openMoveFolderDialog = (
     itemsToMove: string[],
+    itemDataMap: Record<string, { name: string; type: NDExFileType; visibility?: string }>,
     currentFolderId: string | null,
-    onMove: (targetFolderId: string) => Promise<void>,
+    currentFolderName: string | undefined,
+    onMoveComplete: () => Promise<void>,
   ) => {
     setMoveFolderDialogProps({
       isOpen: true,
       itemsToMove,
+      itemDataMap,
       currentFolderId,
-      onMove,
+      currentFolderName,
+      onMoveComplete,
     })
   }
 
@@ -338,8 +348,10 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         isOpen={moveFolderDialogProps.isOpen}
         onClose={closeMoveFolderDialog}
         itemsToMove={moveFolderDialogProps.itemsToMove}
+        itemDataMap={moveFolderDialogProps.itemDataMap}
         currentFolderId={moveFolderDialogProps.currentFolderId}
-        onMove={moveFolderDialogProps.onMove}
+        currentFolderName={moveFolderDialogProps.currentFolderName}
+        onMoveComplete={moveFolderDialogProps.onMoveComplete}
       />
 
       <EditNetworkPropertiesDialog

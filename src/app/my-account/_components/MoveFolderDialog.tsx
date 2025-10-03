@@ -1,234 +1,493 @@
-import React, { useState, useEffect } from 'react'
-import { Folder, ArrowRight, X, FolderInput } from 'lucide-react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { X, Folder, Users, ChevronLeft, ChevronRight } from 'lucide-react'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
-import { useFolder, useFolderContents } from '@/hooks/use-folder'
-import { useConfig } from '@/lib/contexts/ConfigContext'
-import { useAuth } from '@/lib/contexts/KeycloakContext'
-import { getNdexClient } from '@/lib/api/ndex-client-manager'
+import { useFolderContents } from '@/hooks/use-folder'
+import { useSharedFiles } from '@/hooks/use-shared-files'
+import { useFileMoveOperation } from '@/hooks/use-file-move-operation'
 
 interface MoveFolderDialogProps {
   isOpen: boolean
   onClose: () => void
-  onMove: (targetFolderId: string) => Promise<void>
-  currentFolderId: string | null
   itemsToMove: string[]
+  itemDataMap: Record<string, { name: string; type: NDExFileType; visibility?: string }>
+  currentFolderId: string | null
+  currentFolderName?: string
+  onMoveComplete: () => Promise<void>
+}
+
+type ViewMode = 'all' | 'myDrive' | 'shared'
+
+interface NavigationItem {
+  id: string
+  name: string
 }
 
 const MoveFolderDialog: React.FC<MoveFolderDialogProps> = ({
   isOpen,
   onClose,
-  onMove,
-  currentFolderId,
   itemsToMove,
+  itemDataMap,
+  currentFolderId,
+  currentFolderName,
+  onMoveComplete
 }) => {
-  // State to track current folder being viewed in the dialog
-  const [browserFolderId, setBrowserFolderId] = useState<string | null>(null)
-  const [folderPath, setFolderPath] = useState<
-    { name: string; id: string | null }[]
-  >([{ name: 'My Drive', id: null }])
-  const [isMoving, setIsMoving] = useState(false)
+  // State
+  const [viewMode, setViewMode] = useState<ViewMode>('all')
+  const [browseFolderId, setBrowseFolderId] = useState<string | null>(null)
+  const [navigationStack, setNavigationStack] = useState<NavigationItem[]>([])
+  const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null)
+  const [hoveredFolderId, setHoveredFolderId] = useState<string | null>(null)
 
-  const { token } = useAuth()
-  const config = useConfig()
+  // Data fetching - always call hooks but conditionally use results
+  const myDriveFoldersResult = useFolderContents(
+    viewMode === 'myDrive' ? browseFolderId : null
+  )
+  const sharedFilesResult = useSharedFiles()
 
-  // Fetch folder contents for navigation
-  const {
-    items: folderContents,
-    isLoading,
-    error,
-    refresh: refreshFolderContents,
-  } = useFolderContents(browserFolderId)
+  const myDriveFolders = viewMode === 'myDrive' ? myDriveFoldersResult.items : []
+  const sharedItems = viewMode === 'shared' ? sharedFilesResult.items : []
 
-  // Filter only folders from the contents
-  const foldersOnly = folderContents.filter(
-    (item) => item.type === NDExFileType.FOLDER,
+  // Get display items for the move hook
+  // Include items being moved so they're available for the move operation
+  const displayItems = useMemo(() => {
+    const items = [...myDriveFolders, ...sharedItems]
+
+    // Add items being moved if not already in the list
+    itemsToMove.forEach(itemId => {
+      if (!items.find(item => item.uuid === itemId) && itemDataMap[itemId]) {
+        const itemData = itemDataMap[itemId]
+        items.push({
+          uuid: itemId,
+          name: itemData.name,
+          type: itemData.type,
+          attributes: { visibility: itemData.visibility }
+        } as any)
+      }
+    })
+
+    return items
+  }, [myDriveFolders, sharedItems, itemsToMove, itemDataMap])
+
+  // Move operation using the shared hook
+  const { moveFiles, isMoving } = useFileMoveOperation(
+    currentFolderId,
+    displayItems,
+    async () => {
+      await onMoveComplete()
+      onClose()
+    }
   )
 
-  // Reset to home folder when dialog opens
+  // Computed values
+  const dialogTitle = useMemo(() => {
+    if (itemsToMove.length === 1) {
+      const item = itemDataMap[itemsToMove[0]]
+      return `Move "${item?.name || 'item'}"`
+    }
+    return `Move ${itemsToMove.length} items`
+  }, [itemsToMove, itemDataMap])
+
+  // Current location shows where the file currently is (source location)
+  const currentLocationName = useMemo(() => {
+    // This shows where the item is currently located (not where we're navigating)
+    if (currentFolderId === null) {
+      return 'My Drive'
+    }
+    // Use the provided folder name, or fall back to a placeholder
+    return currentFolderName || 'Current Folder'
+  }, [currentFolderId, currentFolderName])
+
+  const currentNavigationFolderName = useMemo(() => {
+    if (navigationStack.length > 0) {
+      return navigationStack[navigationStack.length - 1].name
+    }
+    return ''
+  }, [navigationStack])
+
+  const displayFolders = useMemo(() => {
+    if (viewMode === 'all') {
+      return [] // Show location items, not folders
+    } else if (viewMode === 'shared' && !browseFolderId) {
+      // Show only folders from shared items
+      return sharedItems.filter(item =>
+        item.type === NDExFileType.FOLDER ||
+        (item.type === NDExFileType.SHORTCUT && item.attributes?.target_type === NDExFileType.FOLDER)
+      )
+    } else {
+      // Show folders from current folder
+      return myDriveFolders.filter(item =>
+        item.type === NDExFileType.FOLDER ||
+        (item.type === NDExFileType.SHORTCUT && item.attributes?.target_type === NDExFileType.FOLDER)
+      )
+    }
+  }, [viewMode, browseFolderId, myDriveFolders, sharedItems])
+
+  // Reset on open
   useEffect(() => {
     if (isOpen) {
-      setBrowserFolderId(null)
-      setFolderPath([{ name: 'My Drive', id: null }])
+      setViewMode('all')
+      setBrowseFolderId(null)
+      setNavigationStack([])
+      setSelectedTargetId(null)
+      setHoveredFolderId(null)
     }
   }, [isOpen])
 
-  // Handle navigation into a folder
-  const handleNavigateInto = async (folderId: string, folderName: string) => {
-    // Don't allow navigation into one of the items being moved
-    if (itemsToMove.includes(folderId)) {
-      return
-    }
-
-    setBrowserFolderId(folderId)
-    setFolderPath([...folderPath, { name: folderName, id: folderId }])
-  }
-
-  // Handle breadcrumb navigation
-  const handleBreadcrumbClick = (index: number) => {
-    if (index < folderPath.length) {
-      const newPath = folderPath.slice(0, index + 1)
-      setFolderPath(newPath)
-      setBrowserFolderId(newPath[newPath.length - 1].id)
+  // Handlers
+  const handleLocationSingleClick = (location: 'myDrive' | 'shared') => {
+    if (isValidTarget(location)) {
+      setSelectedTargetId(location)
     }
   }
 
-  // Handle moving items to the selected folder
-  const handleMoveHere = async (targetFolderId: string | null) => {
-    try {
-      setIsMoving(true)
-      // Don't allow moving to the same folder
-      if (targetFolderId === currentFolderId) {
-        return
-      }
+  const handleLocationDoubleClick = (location: 'myDrive' | 'shared') => {
+    setViewMode(location)
+    setBrowseFolderId(null)
+    setNavigationStack([{
+      id: location,
+      name: location === 'myDrive' ? 'My Drive' : 'Shared with me'
+    }])
+    setSelectedTargetId(null)
+  }
 
-      // Don't allow moving to one of the items being moved
-      if (targetFolderId && itemsToMove.includes(targetFolderId)) {
-        return
-      }
-
-      // Call the onMove callback with the target folder ID
-      await onMove(targetFolderId || '')
-      onClose()
-    } catch (error) {
-      console.error('Error moving items:', error)
-    } finally {
-      setIsMoving(false)
+  const handleFolderSingleClick = (folderId: string) => {
+    if (isValidTarget(folderId)) {
+      setSelectedTargetId(folderId)
     }
+  }
+
+  const handleFolderDoubleClick = (folderId: string, folderName: string) => {
+    // Navigate into folder
+    if (!itemsToMove.includes(folderId)) {
+      setBrowseFolderId(folderId)
+      setNavigationStack([...navigationStack, { id: folderId, name: folderName }])
+      setSelectedTargetId(folderId) // Also set as target
+    }
+  }
+
+  const handleBackClick = () => {
+    if (navigationStack.length > 1) {
+      const newStack = navigationStack.slice(0, -1)
+      const parent = newStack[newStack.length - 1]
+
+      setNavigationStack(newStack)
+      setBrowseFolderId(parent.id === 'myDrive' || parent.id === 'shared' ? null : parent.id)
+      setSelectedTargetId(null)
+    } else {
+      // Back to all locations
+      setViewMode('all')
+      setBrowseFolderId(null)
+      setNavigationStack([])
+      setSelectedTargetId(null)
+    }
+  }
+
+  const handleQuickMove = async (targetId: string) => {
+    if (isValidTarget(targetId)) {
+      try {
+        // Convert 'myDrive' to null for home folder
+        const actualTargetId = targetId === 'myDrive' ? null : targetId
+        const result = await moveFiles(itemsToMove, actualTargetId)
+        console.log('[Move Dialog] Quick move result:', result)
+
+        if (!result.success) {
+          console.error('[Move Dialog] Move failed:', result.errors)
+          alert(`Move failed: ${result.errors.join(', ')}`)
+        }
+      } catch (err) {
+        console.error('[Move Dialog] Quick move error:', err)
+        alert(`Move error: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+  }
+
+  const handleMove = async () => {
+    if (selectedTargetId && isValidTarget(selectedTargetId)) {
+      try {
+        // Convert 'myDrive' to null for home folder
+        const actualTargetId = selectedTargetId === 'myDrive' ? null : selectedTargetId
+        const result = await moveFiles(itemsToMove, actualTargetId)
+        console.log('[Move Dialog] Move result:', result)
+
+        if (!result.success) {
+          console.error('[Move Dialog] Move failed:', result.errors)
+          alert(`Move failed: ${result.errors.join(', ')}`)
+        }
+      } catch (err) {
+        console.error('[Move Dialog] Move error:', err)
+        alert(`Move error: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+  }
+
+  const isValidTarget = (targetId: string | null): boolean => {
+    if (!targetId) return false
+    if (targetId === 'shared') return false // Can't move to "Shared with me" root
+    // Allow 'myDrive' only if not already in home folder
+    if (targetId === 'myDrive') return currentFolderId !== null
+    if (targetId === currentFolderId) return false
+    if (itemsToMove.includes(targetId)) return false
+    // TODO: Check circular reference (folder into descendant)
+    return true
   }
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col">
-        {/* Dialog Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Move items</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-[600px] max-h-[70vh] flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{dialogTitle}</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Breadcrumb navigation */}
-        <div className="px-6 py-3 border-b border-gray-200 flex items-center">
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-            {folderPath.map((crumb, index) => (
-              <React.Fragment key={index}>
-                {index > 0 && <span className="text-gray-400 mx-1">/</span>}
-                <button
-                  className={`text-sm hover:underline truncate max-w-[150px] ${
-                    index === folderPath.length - 1
-                      ? 'font-semibold text-sky-600'
-                      : 'font-normal text-gray-700'
-                  }`}
-                  onClick={() => handleBreadcrumbClick(index)}
-                >
-                  {crumb.name}
-                </button>
-              </React.Fragment>
-            ))}
-          </div>
+        {/* Current Location - Always displayed */}
+        <div className="px-6 py-2 text-sm text-gray-500 dark:text-gray-400">
+          Current location: {currentLocationName}
         </div>
 
-        {/* Folder Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-32">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-sky-600"></div>
-            </div>
-          ) : error ? (
-            <div className="text-red-500 text-center py-4">
-              Failed to load folders. Please try again.
-            </div>
-          ) : foldersOnly.length === 0 ? (
-            <div className="text-gray-500 text-center py-4">
-              No folders found in this location.
-            </div>
+        {/* Reserved Navigation Row */}
+        {navigationStack.length > 0 && viewMode !== 'all' && (
+          <div className="px-6 py-2 border-b border-gray-200 dark:border-gray-700">
+            <button
+              onClick={handleBackClick}
+              className="flex items-center gap-2 text-sm font-medium text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {currentNavigationFolderName}
+            </button>
+          </div>
+        )}
+
+        {navigationStack.length === 0 && viewMode !== 'all' && (
+          <div className="px-6 py-2 border-b border-gray-200 dark:border-gray-700">
+            <div className="h-6"></div>
+          </div>
+        )}
+
+        <div className="border-b border-gray-200 dark:border-gray-700" />
+
+        {/* Folder List */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-[300px]">
+          {viewMode === 'all' ? (
+            <>
+              {/* Location Items */}
+              <LocationItem
+                icon={<Folder className="h-5 w-5" />}
+                name="My Drive"
+                isSelected={selectedTargetId === 'myDrive'}
+                isDisabled={!isValidTarget('myDrive')}
+                onClick={() => handleLocationSingleClick('myDrive')}
+                onDoubleClick={() => handleLocationDoubleClick('myDrive')}
+                onNavigate={() => handleLocationDoubleClick('myDrive')}
+                onQuickMove={() => handleQuickMove('myDrive')}
+              />
+              <LocationItem
+                icon={<Users className="h-5 w-5" />}
+                name="Shared with me"
+                isSelected={selectedTargetId === 'shared'}
+                isDisabled={!isValidTarget('shared')}
+                onClick={() => handleLocationSingleClick('shared')}
+                onDoubleClick={() => handleLocationDoubleClick('shared')}
+                onNavigate={() => handleLocationDoubleClick('shared')}
+                onQuickMove={() => handleQuickMove('shared')}
+              />
+            </>
           ) : (
-            <div className="space-y-2">
-              {/* List of folders to navigate into */}
-              {foldersOnly.map((folder) => (
-                <div
-                  key={folder.uuid}
-                  className={`p-3 rounded-md border border-gray-200 flex items-center justify-between ${
-                    itemsToMove.includes(folder.uuid)
-                      ? 'bg-gray-50 opacity-50'
-                      : 'hover:bg-gray-50 group'
-                  }`}
-                >
-                  <div
-                    className="flex items-center gap-3 flex-1 cursor-pointer"
-                    onClick={() => handleNavigateInto(folder.uuid, folder.name)}
-                  >
-                    <Folder className="h-5 w-5 text-gray-600" />
-                    <span className="truncate max-w-[200px]">
-                      {folder.name}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleMoveHere(folder.uuid)}
-                      disabled={
-                        isMoving ||
-                        folder.uuid === currentFolderId ||
-                        itemsToMove.includes(folder.uuid)
-                      }
-                      className={`px-3 py-1 rounded-md text-sm transition-opacity ${
-                        isMoving ||
-                        folder.uuid === currentFolderId ||
-                        itemsToMove.includes(folder.uuid)
-                          ? 'opacity-0'
-                          : 'opacity-0 group-hover:opacity-100 bg-sky-600 text-white hover:bg-sky-700'
-                      }`}
-                    >
-                      Move
-                    </button>
-                    <button
-                      onClick={() =>
-                        handleNavigateInto(folder.uuid, folder.name)
-                      }
-                      disabled={itemsToMove.includes(folder.uuid)}
-                      className={`p-1 rounded-md transition-opacity ${
-                        itemsToMove.includes(folder.uuid)
-                          ? 'opacity-0'
-                          : 'opacity-0 group-hover:opacity-100 text-gray-500 hover:bg-gray-100'
-                      }`}
-                    >
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
-                  </div>
+            <>
+              {/* Folder Items */}
+              {myDriveFoldersResult.isLoading || sharedFilesResult.isLoading ? (
+                <div className="flex justify-center items-center h-32">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 dark:border-gray-600 border-t-sky-600 dark:border-t-sky-400"></div>
                 </div>
-              ))}
-            </div>
+              ) : displayFolders.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  No folders in this location
+                </div>
+              ) : (
+                displayFolders.map(folder => (
+                  <FolderItem
+                    key={folder.uuid}
+                    folder={folder}
+                    isSelected={selectedTargetId === folder.uuid}
+                    isHovered={hoveredFolderId === folder.uuid}
+                    isDisabled={!isValidTarget(folder.uuid)}
+                    onSingleClick={() => handleFolderSingleClick(folder.uuid)}
+                    onDoubleClick={() => handleFolderDoubleClick(folder.uuid, folder.name)}
+                    onHover={setHoveredFolderId}
+                    onQuickMove={() => handleQuickMove(folder.uuid)}
+                    onNavigate={() => handleFolderDoubleClick(folder.uuid, folder.name)}
+                  />
+                ))
+              )}
+            </>
           )}
         </div>
 
-        {/* Dialog Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-2">
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancel
           </button>
           <button
-            onClick={() => handleMoveHere(browserFolderId)}
-            disabled={isMoving || browserFolderId === currentFolderId}
+            onClick={handleMove}
+            disabled={!selectedTargetId || !isValidTarget(selectedTargetId) || isMoving}
             className={`px-4 py-2 rounded-md text-sm font-medium ${
-              isMoving || browserFolderId === currentFolderId
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-sky-600 text-white hover:bg-sky-700'
+              !selectedTargetId || !isValidTarget(selectedTargetId) || isMoving
+                ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                : 'bg-sky-600 dark:bg-sky-500 text-white hover:bg-sky-700 dark:hover:bg-sky-600'
             }`}
           >
-            Move
+            {isMoving ? 'Moving...' : 'Move'}
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// LocationItem Sub-component
+interface LocationItemProps {
+  icon: React.ReactNode
+  name: string
+  isSelected: boolean
+  isDisabled: boolean
+  onClick: () => void
+  onDoubleClick: () => void
+  onNavigate: () => void
+  onQuickMove: () => void
+}
+
+const LocationItem: React.FC<LocationItemProps> = ({
+  icon,
+  name,
+  isSelected,
+  isDisabled,
+  onClick,
+  onDoubleClick,
+  onNavigate,
+  onQuickMove
+}) => {
+  const [isHovered, setIsHovered] = useState(false)
+
+  return (
+    <div
+      className={`
+        p-3 rounded-md border flex items-center justify-between
+        ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+        ${isSelected ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400' : 'border-gray-200 dark:border-gray-700'}
+        ${!isSelected && isHovered ? 'bg-gray-50 dark:bg-gray-800' : ''}
+      `}
+      onClick={isDisabled ? undefined : onClick}
+      onDoubleClick={isDisabled ? undefined : onDoubleClick}
+      onMouseEnter={() => !isDisabled && setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
+        {icon}
+        <span className="text-sm font-medium">{name}</span>
+      </div>
+      {isHovered && !isDisabled && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onQuickMove()
+            }}
+            className="px-3 py-1 bg-sky-600 dark:bg-sky-500 text-white text-sm rounded hover:bg-sky-700 dark:hover:bg-sky-600"
+          >
+            Move
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onNavigate()
+            }}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+          >
+            <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// FolderItem Sub-component
+interface FolderItemProps {
+  folder: FileItemBase
+  isSelected: boolean
+  isHovered: boolean
+  isDisabled: boolean
+  onSingleClick: () => void
+  onDoubleClick: () => void
+  onHover: (folderId: string | null) => void
+  onQuickMove: () => void
+  onNavigate: () => void
+}
+
+const FolderItem: React.FC<FolderItemProps> = ({
+  folder,
+  isSelected,
+  isHovered,
+  isDisabled,
+  onSingleClick,
+  onDoubleClick,
+  onHover,
+  onQuickMove,
+  onNavigate
+}) => {
+  return (
+    <div
+      className={`
+        p-3 rounded-md border flex items-center justify-between
+        ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+        ${isSelected ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400' : 'border-gray-200 dark:border-gray-700'}
+        ${!isSelected && isHovered ? 'bg-gray-50 dark:bg-gray-800' : ''}
+      `}
+      onClick={isDisabled ? undefined : onSingleClick}
+      onDoubleClick={isDisabled ? undefined : onDoubleClick}
+      onMouseEnter={() => !isDisabled && onHover(folder.uuid)}
+      onMouseLeave={() => onHover(null)}
+    >
+      <div className="flex items-center gap-3">
+        <Folder className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+        <span className="text-sm text-gray-900 dark:text-gray-100">{folder.name}</span>
+      </div>
+
+      {isHovered && !isDisabled && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onQuickMove()
+            }}
+            className="px-3 py-1 bg-sky-600 dark:bg-sky-500 text-white text-sm rounded hover:bg-sky-700 dark:hover:bg-sky-600"
+          >
+            Move
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onNavigate()
+            }}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+          >
+            <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

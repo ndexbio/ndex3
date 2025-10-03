@@ -171,41 +171,43 @@ export const useFolder = (
   /**
    * Updates an existing folder
    * @param folderIdToUpdate ID of the folder to update
-   * @param name Updated name
-   * @param parentFolderId Updated parent folder ID
-   * @returns The updated folder
+   * @param folderData Object containing folder properties to update
+   * @param folderData.name Updated name
+   * @param folderData.description Updated description
+   * @param folderData.parent Updated parent folder ID (undefined for home folder)
+   * @returns Promise that resolves when the folder is updated
    */
   const updateFolder = async (
     folderIdToUpdate: string,
-    name: string,
-    parentFolderId: string
-  ): Promise<Folder> => {
+    folderData: {
+      name: string
+      description: string
+      parent?: string
+    }
+  ): Promise<void> => {
     if (!isAuthenticated) {
       throw new Error('Authentication required to update folders')
     }
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const result = await ndexClient.files.updateFolder(
+      await ndexClient.files.updateFolder(
         folderIdToUpdate,
-        name,
-        parentFolderId
+        folderData
       )
-      
+
       // If this is the folder we're currently viewing, refresh it
       if (folderId === folderIdToUpdate) {
         await refresh()
       }
-      
+
       // Refresh parent folder contents if it's being viewed
       globalMutate((key) =>
         Array.isArray(key) &&
         key[0] === 'folderContents' &&
-        key[1] === parentFolderId &&
+        key[1] === folderData.parent &&
         key[2] === token
       )
-      
-      return result
     } catch (error) {
       console.error('Error updating folder:', error)
       throw error

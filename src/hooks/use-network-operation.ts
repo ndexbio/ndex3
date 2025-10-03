@@ -185,12 +185,12 @@ export const useNetworkOperation = (
   /**
    * Moves networks to a different folder
    * @param networkIds Array of network IDs to move
-   * @param targetFolderId Target folder ID
+   * @param targetFolderId Target folder ID (null for home folder)
    * @returns Promise that resolves when operation is complete
    */
   const moveNetworks = async (
     networkIds: string[],
-    targetFolderId: string,
+    targetFolderId: string | null,
   ): Promise<any> => {
     if (!isAuthenticated) {
       throw new Error('Authentication required to move networks')
@@ -198,7 +198,7 @@ export const useNetworkOperation = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      const result = await ndexClient.networks.moveNetworks(networkIds, targetFolderId)
+      const result = await ndexClient.networks.moveNetworks(networkIds, targetFolderId || undefined)
 
       // If we're moving the current network, refresh it
       if (networkId && networkIds.includes(networkId)) {

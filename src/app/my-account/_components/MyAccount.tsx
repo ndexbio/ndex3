@@ -31,6 +31,7 @@ import { useTrash } from '@/hooks/use-trash' // Import the useTrash hook
 import { useNetworkOperation } from '@/hooks/use-network-operation'
 import ActionDropdown from './ActionDropdown' // Import the new ActionDropdown component
 import { DialogProvider } from '@/lib/contexts/DialogContext' // Import DialogProvider
+import { useFileMoveOperation } from '@/hooks/use-file-move-operation' // Import the new shared move hook
 
 // Define the props for MyAccount component
 interface MyAccountProps {
@@ -58,9 +59,6 @@ function MyAccountContent({
     storageKey: 'detailsPanel.myAccount.width'
   })
 
-  // Add the useFolder hook
-  const { deleteFolder, updateFolder } = useFolder()
-
   const { moveNetworks, deleteNetwork } = useNetworkOperation()
 
   // Always call hooks but conditionally use results based on the active tab
@@ -87,6 +85,9 @@ function MyAccountContent({
 
   // Convert UUID string to null for home folder
   const folderId = uuid || null
+
+  // Add the useFolder hook to get folder details and operations
+  const { folder, deleteFolder } = useFolder(folderId)
 
   // State for UI controls
   const [loading, setLoading] = useState(false)
@@ -322,6 +323,33 @@ function MyAccountContent({
       : tabState === MyAccountTabType.TRASH
       ? trashItems
       : folderContents
+
+  // Use the shared file move operation hook for drag-and-drop
+  const { moveFiles: moveFilesViaHook, isMoving: isMovingFiles } = useFileMoveOperation(
+    folderId,
+    displayItems,
+    async () => {
+      // Success callback - refresh and clear selection
+      setSelectedItems([])
+      if (tabState === MyAccountTabType.TRASH) {
+        await refreshTrash()
+      } else if (tabState === MyAccountTabType.SHARED) {
+        await refreshSharedFiles()
+      } else {
+        await refreshFolderContents()
+      }
+    },
+    (error) => {
+      // Error callback
+      console.error('Move failed:', error)
+      addToast({
+        title: 'Move failed',
+        description: error.message,
+        type: 'error',
+        duration: 4000
+      })
+    }
+  )
 
   // Create itemDataMap for the selection toolbar
   const itemDataMap = useMemo(() => {
@@ -734,6 +762,11 @@ function MyAccountContent({
     setShowSelectionToolbar(false)
   }
 
+  // Clear selection
+  const handleClearSelection = () => {
+    setSelectedItems([])
+  }
+
   // Display a user-friendly error message
   const renderErrorMessage = (errorMsg: string) => {
     // Check for specific error types
@@ -936,135 +969,41 @@ function MyAccountContent({
     }
   }
 
-  // Update the handleMoveItems function to refresh trash when needed
+  // Simplified handleMoveItems using the shared hook
   const handleMoveItems = async (itemIds: string[], targetFolderId: string) => {
     try {
-      // Skip if trying to move to the same folder
-      if (targetFolderId === folderId) {
-        return
-      }
+      const result = await moveFilesViaHook(itemIds, targetFolderId)
 
-      // First check if any of the selected items is the target folder to prevent circular references
-      if (itemIds.includes(targetFolderId)) {
-        console.error('Cannot move a folder into itself')
-        addToast({
-          title: 'Move failed',
-          description: 'Cannot move a folder into itself',
-          type: 'error',
-          duration: 4000,
+      // Show success toast with item names
+      if (result.success) {
+        const itemNames = itemIds.slice(0, 3).map(id => {
+          const item = displayItems.find(i => i.uuid === id)
+          return item?.name || 'item'
         })
-        return
-      }
 
-      // Show loading state
-      setLoading(true)
-
-      // TODO: Get NdexClient when move network functionality is implemented
-      // const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-
-      // Find the items to move
-      const itemsToMove = displayItems.filter((item) =>
-        itemIds.includes(item.uuid),
-      )
-
-      // Keep track of items moved
-      const movedItems = {
-        total: itemsToMove.length,
-        successful: 0,
-        failed: 0,
-        names: [] as string[],
-      }
-
-      const networksToMove: string[] = []
-      // Move each item to the target folder based on its type
-      for (const item of itemsToMove) {
-        try {
-          if (item.type === NDExFileType.FOLDER) {
-            // Move folder
-            await updateFolder(item.uuid, item.name, targetFolderId)
-            movedItems.successful++
-            movedItems.names.push(item.name)
-          } else if (item.type === NDExFileType.NETWORK) {
-            // Move network
-            // TODO: Implement the updateNetwork method in ndexClient
-            networksToMove.push(item.uuid)
-          } else if (item.type === NDExFileType.SHORTCUT) {
-            // Update shortcut parent
-            await updateShortcut(item.uuid, {
-              name: item.name,
-              target: item.attributes.target as string,
-              targetType: item.attributes.targetType as NDExFileType,
-              parent: targetFolderId,
-            })
-            movedItems.successful++
-            movedItems.names.push(item.name)
-          }
-        } catch (error) {
-          console.error(`Error moving item ${item.name}:`, error)
-          movedItems.failed++
-        }
-      }
-      if (networksToMove.length > 0) {
-        try {
-          await moveNetworks(networksToMove, targetFolderId)
-        } catch (error) {
-          console.error('Error moving networks:', error)
-        }
-      }
-
-      // Clear selection after move
-      setSelectedItems([])
-
-      // Show success/error toast
-      if (movedItems.successful > 0) {
-        let description = ''
-        if (movedItems.names.length <= 3) {
-          // Show individual item names if there are 3 or fewer
-          description = `Moved ${movedItems.names.join(', ')} to folder`
-        } else {
-          // Otherwise just show the count
-          description = `Moved ${movedItems.successful} items to folder`
-        }
+        const description = itemIds.length <= 3
+          ? `Moved ${itemNames.join(', ')}`
+          : `Moved ${result.movedCount} items`
 
         addToast({
           title: 'Items moved',
           description,
           type: 'success',
-          duration: 4000,
+          duration: 4000
         })
-      }
-
-      if (movedItems.failed > 0) {
+      } else {
+        // Show partial success toast
         addToast({
           title: 'Move incomplete',
-          description: `Failed to move ${movedItems.failed} items`,
+          description: `Moved ${result.movedCount} items, failed ${result.failedCount}`,
           type: 'warning',
-          duration: 4000,
+          duration: 4000
         })
       }
-
-      // Refresh the data based on current view
-      if (tabState === MyAccountTabType.TRASH) {
-        await refreshTrash()
-      } else if (tabState === MyAccountTabType.SHARED) {
-        await refreshSharedFiles()
-      } else {
-        await refreshFolderContents()
-      }
-
-      setLoading(false)
     } catch (error) {
-      console.error('Error moving items:', error)
-      setErrorMessage('Failed to move items')
-      setLoading(false)
-
-      // Show error toast
-      addToast({
-        title: 'Move failed',
-        description: 'An error occurred while moving items',
-        type: 'error',
-          duration: 4000,
-      })
+      // Error already handled by hook callback
+      // Just log it here for debugging
+      console.error('Move operation failed:', error)
     }
   }
 
@@ -1279,6 +1218,9 @@ function MyAccountContent({
             handleDeleteItems={handleDeleteItems}
             handleMoveItems={handleMoveItems}
             currentFolderId={folderId}
+            currentFolderName={folder?.name}
+            onRefreshFolder={refreshFolderContents}
+            onClearSelection={handleClearSelection}
             onFiltersChange={handleFiltersChange}
             initialFilterState={{
               selectedFilters,
@@ -1315,12 +1257,15 @@ function MyAccountContent({
                 }
                 tabState={tabState}
                 currentFolderId={folderId}
+                currentFolderName={folder?.name}
                 onClose={() => {
                   setOpenDropdownId(null)
                   setDropdownType(null)
                 }}
                 onDelete={handleDeleteItems}
                 onRestore={handleRestoreFromTrash}
+                onRefreshFolder={refreshFolderContents}
+                onClearSelection={handleClearSelection}
                 onCreateShortcut={handleCreateShortcut}
                 onMoveItems={handleMoveItems}
                 onShareSuccess={handleShareDialogSuccess}

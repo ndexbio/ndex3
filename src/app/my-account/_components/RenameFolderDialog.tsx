@@ -23,7 +23,7 @@ const RenameFolderDialog: React.FC<RenameFolderDialogProps> = ({
   const [folderName, setFolderName] = useState(currentName)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const { updateFolder } = useFolder()
+  const { folder, updateFolder } = useFolder(folderId)
   const { refresh: refreshParentFolder } = useFolderContents(
     parentFolderId || null,
   )
@@ -67,7 +67,11 @@ const RenameFolderDialog: React.FC<RenameFolderDialogProps> = ({
 
     try {
       setIsSubmitting(true)
-      await updateFolder(folderId, folderName, parentFolderId)
+      await updateFolder(folderId, {
+        name: folderName,
+        description: (folder as any)?.description || '',
+        parent: parentFolderId || undefined
+      })
 
       // Refresh parent folder contents
       await refreshParentFolder()

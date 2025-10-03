@@ -290,6 +290,9 @@ interface SelectionToolbarAndFiltersProps {
   handleDeleteItems: (ids: string[]) => void
   handleMoveItems?: (ids: string[], targetFolderId: string) => Promise<void>
   currentFolderId?: string | null
+  currentFolderName?: string
+  onRefreshFolder?: () => Promise<void>
+  onClearSelection?: () => void
   onFiltersChange?: (
     selectedFilters: Set<FilterOptionType>,
     filterValues: FilterState,
@@ -326,6 +329,9 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
   handleDeleteItems,
   handleMoveItems,
   currentFolderId = null,
+  currentFolderName,
+  onRefreshFolder,
+  onClearSelection,
   onFiltersChange,
   initialFilterState,
   onShareSuccess,
@@ -445,9 +451,19 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
     if (handleMoveItems && selectedItems.length > 0) {
       openMoveFolderDialog(
         selectedItems,
+        itemDataMap,
         currentFolderId,
-        (targetFolderId: string) =>
-          handleMoveItems(selectedItems, targetFolderId),
+        currentFolderName,
+        async () => {
+          // Refresh the current folder after successful move
+          if (onRefreshFolder) {
+            await onRefreshFolder()
+          }
+          // Clear selection after successful move
+          if (onClearSelection) {
+            onClearSelection()
+          }
+        }
       )
     }
   }
