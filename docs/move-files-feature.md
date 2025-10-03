@@ -473,6 +473,7 @@ src/
 | 6 | Silent failures | Add error logging and user alerts | `use-file-move-operation.ts`, `MoveFolderDialog.tsx` |
 | 7 | displayItems empty causing failures | Include items from itemDataMap in displayItems | `MoveFolderDialog.tsx` |
 | 8 | Shortcut move missing target/targetType | Fetch shortcut details before moving | `use-file-move-operation.ts` |
+| 9 | "Shared with me" disabled, cannot navigate | Separate `canSelect`, `canNavigate`, `canQuickMove` capabilities in LocationItem | `MoveFolderDialog.tsx` |
 
 ### 6.2 Detailed Change Descriptions
 
@@ -561,6 +562,51 @@ export interface Shortcut {
   targetType: NDExFileType; // Direct property
 }
 ```
+
+#### Change #9: "Shared with me" Navigation Fix
+**Root Cause**: Single `isDisabled` prop controlled ALL interactions (selection, navigation, hover), causing "Shared with me" to be completely disabled since it's not a valid move target.
+
+**Problem**:
+```typescript
+// Before - single prop disabled everything
+<LocationItem
+  isDisabled={!isValidTarget('shared')}  // Always true, blocks all interactions
+/>
+```
+
+**Solution**: Separated interaction capabilities into three independent props:
+```typescript
+// After - granular control
+interface LocationItemProps {
+  canSelect: boolean      // Can single-click to select as target
+  canNavigate: boolean    // Can double-click or use chevron to navigate
+  canQuickMove: boolean   // Can use "Move" button
+  // ... other props
+}
+```
+
+**Implementation**:
+1. Added `canNavigateInto()` validation function (returns `true` for both locations)
+2. Updated `LocationItemProps` interface with three capability flags
+3. Updated `LocationItem` component to respect each capability independently:
+   - `onClick` only fires if `canSelect={true}`
+   - `onDoubleClick` only fires if `canNavigate={true}`
+   - "Move" button only shows if `canQuickMove={true}`
+   - Chevron button only shows if `canNavigate={true}`
+   - Row only grayed out if no capabilities enabled
+
+4. Updated "Shared with me" usage:
+```typescript
+<LocationItem
+  name="Shared with me"
+  canSelect={false}        // ❌ Cannot select as move target
+  canNavigate={true}       // ✅ Can double-click or use chevron
+  canQuickMove={false}     // ❌ No "Move" button
+  // ... handlers
+/>
+```
+
+**Result**: Users can now navigate into "Shared with me" to view and select shared folders, but cannot move files to the "Shared with me" root itself (as per requirements).
 
 ---
 
@@ -748,6 +794,6 @@ const { items } = useSharedFiles()
 
 ---
 
-**Document Version**: 2.0
-**Last Updated**: 2025-10-02
+**Document Version**: 2.1
+**Last Updated**: 2025-10-03
 **Status**: Production Ready

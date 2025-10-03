@@ -232,6 +232,11 @@ const MoveFolderDialog: React.FC<MoveFolderDialogProps> = ({
     return true
   }
 
+  const canNavigateInto = (locationId: 'myDrive' | 'shared'): boolean => {
+    // Both My Drive and Shared with me can be navigated into
+    return true
+  }
+
   if (!isOpen) return null
 
   return (
@@ -284,7 +289,9 @@ const MoveFolderDialog: React.FC<MoveFolderDialogProps> = ({
                 icon={<Folder className="h-5 w-5" />}
                 name="My Drive"
                 isSelected={selectedTargetId === 'myDrive'}
-                isDisabled={!isValidTarget('myDrive')}
+                canSelect={isValidTarget('myDrive')}
+                canNavigate={canNavigateInto('myDrive')}
+                canQuickMove={isValidTarget('myDrive')}
                 onClick={() => handleLocationSingleClick('myDrive')}
                 onDoubleClick={() => handleLocationDoubleClick('myDrive')}
                 onNavigate={() => handleLocationDoubleClick('myDrive')}
@@ -294,7 +301,9 @@ const MoveFolderDialog: React.FC<MoveFolderDialogProps> = ({
                 icon={<Users className="h-5 w-5" />}
                 name="Shared with me"
                 isSelected={selectedTargetId === 'shared'}
-                isDisabled={!isValidTarget('shared')}
+                canSelect={false}
+                canNavigate={canNavigateInto('shared')}
+                canQuickMove={false}
                 onClick={() => handleLocationSingleClick('shared')}
                 onDoubleClick={() => handleLocationDoubleClick('shared')}
                 onNavigate={() => handleLocationDoubleClick('shared')}
@@ -362,7 +371,9 @@ interface LocationItemProps {
   icon: React.ReactNode
   name: string
   isSelected: boolean
-  isDisabled: boolean
+  canSelect: boolean      // Can single-click to select as target
+  canNavigate: boolean    // Can double-click or use chevron to navigate
+  canQuickMove: boolean   // Can use "Move" button
   onClick: () => void
   onDoubleClick: () => void
   onNavigate: () => void
@@ -373,7 +384,9 @@ const LocationItem: React.FC<LocationItemProps> = ({
   icon,
   name,
   isSelected,
-  isDisabled,
+  canSelect,
+  canNavigate,
+  canQuickMove,
   onClick,
   onDoubleClick,
   onNavigate,
@@ -381,43 +394,64 @@ const LocationItem: React.FC<LocationItemProps> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false)
 
+  // Determine if the row should be interactive at all
+  const isInteractive = canSelect || canNavigate
+
+  // Determine cursor style based on capabilities
+  const getCursorStyle = () => {
+    if (!isInteractive) return 'cursor-not-allowed'
+    if (canSelect) return 'cursor-pointer'
+    if (canNavigate) return 'cursor-pointer'
+    return 'cursor-default'
+  }
+
+  // Determine opacity - only fully disabled if can't do anything
+  const getOpacity = () => {
+    return isInteractive ? 'opacity-100' : 'opacity-50'
+  }
+
   return (
     <div
       className={`
         p-3 rounded-md border flex items-center justify-between
-        ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+        ${getCursorStyle()}
+        ${getOpacity()}
         ${isSelected ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400' : 'border-gray-200 dark:border-gray-700'}
         ${!isSelected && isHovered ? 'bg-gray-50 dark:bg-gray-800' : ''}
       `}
-      onClick={isDisabled ? undefined : onClick}
-      onDoubleClick={isDisabled ? undefined : onDoubleClick}
-      onMouseEnter={() => !isDisabled && setIsHovered(true)}
+      onClick={canSelect ? onClick : undefined}
+      onDoubleClick={canNavigate ? onDoubleClick : undefined}
+      onMouseEnter={() => isInteractive && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
         {icon}
         <span className="text-sm font-medium">{name}</span>
       </div>
-      {isHovered && !isDisabled && (
+      {isHovered && isInteractive && (
         <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onQuickMove()
-            }}
-            className="px-3 py-1 bg-sky-600 dark:bg-sky-500 text-white text-sm rounded hover:bg-sky-700 dark:hover:bg-sky-600"
-          >
-            Move
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onNavigate()
-            }}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-          >
-            <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-          </button>
+          {canQuickMove && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onQuickMove()
+              }}
+              className="px-3 py-1 bg-sky-600 dark:bg-sky-500 text-white text-sm rounded hover:bg-sky-700 dark:hover:bg-sky-600"
+            >
+              Move
+            </button>
+          )}
+          {canNavigate && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onNavigate()
+              }}
+              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            >
+              <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+            </button>
+          )}
         </div>
       )}
     </div>
