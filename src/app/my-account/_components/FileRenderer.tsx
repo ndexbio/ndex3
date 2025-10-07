@@ -14,6 +14,7 @@ interface ContentRendererProps {
   viewMode: 'grid' | 'list'
   selectedItems: string[]
   currentFolderId: string | null
+  uuid?: string
   handleItemSelect: (
     event: React.MouseEvent,
     id: string,
@@ -36,6 +37,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
   viewMode,
   selectedItems,
   currentFolderId,
+  uuid,
   handleItemSelect,
   handleOutsideClick,
   handleMoveItems,
@@ -144,6 +146,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               selectedItems={selectedItems}
               showOwnerColumn={true}
               showVisibilityColumn={true}
+              showPermissionColumn={true}
               onSelect={(e, id, index, type, sortedItems) =>
                 handleItemSelect(e, id, index, type, sortedItems)
               }
@@ -163,6 +166,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               selectedItems={selectedItems}
               showOwnerColumn={true}
               showVisibilityColumn={true}
+              showPermissionColumn={true}
               onSelect={(e, id, index, type, sortedItems) =>
                 handleItemSelect(e, id, index, type, sortedItems)
               }
@@ -224,6 +228,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               viewMode={viewMode}
               tabState={tabState}
               selectedItems={selectedItems}
+              showOwnerColumn={!!uuid}
               onSelect={(e, id, index, type, sortedItems) =>
                 handleItemSelect(e, id, index, type, sortedItems)
               }
@@ -241,6 +246,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               tabState={tabState}
               viewMode={viewMode}
               selectedItems={selectedItems}
+              showOwnerColumn={!!uuid}
               onSelect={(e, id, index, type, sortedItems) =>
                 handleItemSelect(e, id, index, type, sortedItems)
               }
