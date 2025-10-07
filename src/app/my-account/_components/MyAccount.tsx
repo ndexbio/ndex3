@@ -189,7 +189,7 @@ function MyAccountContent({
             : null
 
           // Get edge count - since this property might not exist on all items, safely access it
-          const edgeCount = (item as any).attributes?.edges || 0
+          const edgeCount = (item as any).edges || 0
 
           // Check if item's edge count is outside the filter range
           if (min !== null && edgeCount < min) {
@@ -358,7 +358,7 @@ function MyAccountContent({
       map[item.uuid] = {
         name: item.name || item.networkName || 'Unnamed item',
         type: item.type,
-        visibility: item.visibility || item.attributes?.visibility
+        visibility: item.visibility
       }
     })
     return map
@@ -1239,6 +1239,7 @@ function MyAccountContent({
               viewMode={viewMode}
               selectedItems={selectedItems}
               currentFolderId={folderId}
+              uuid={uuid}
               handleItemSelect={handleItemSelect}
               handleOutsideClick={handleOutsideClick}
               handleMoveItems={handleMoveItems}

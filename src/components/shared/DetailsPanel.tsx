@@ -288,10 +288,10 @@ export default function DetailsPanel({
                           {detailedData.folder.modificationTime ? formatDate(detailedData.folder.modificationTime) : 'N/A'}
                         </span>
                       </div>
-                      {detailedData.folder.attributes?.updatedBy && (
+                      {detailedData.folder.updatedBy && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Updated By</span>
-                          <span className="text-foreground">{detailedData.folder.attributes.updatedBy}</span>
+                          <span className="text-foreground">{detailedData.folder.updatedBy}</span>
                         </div>
                       )}
                     </>

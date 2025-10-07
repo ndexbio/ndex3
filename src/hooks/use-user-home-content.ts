@@ -58,7 +58,7 @@ function filterUserContent(
 
   return content.filter(item => {
     // Always show public content
-    const visibility = item.attributes?.visibility
+    const visibility = item.visibility
     if (visibility === Visibility.PUBLIC) {
       return true
     }
@@ -90,11 +90,11 @@ export function useUserContentStats(content: FileListItem[]) {
     networks: content.filter(item => item.type === 'NETWORK').length,
     folders: content.filter(item => item.type === 'FOLDER').length,
     shortcuts: content.filter(item => item.type === 'SHORTCUT').length,
-    publicItems: content.filter(item => 
-      item.attributes?.visibility === Visibility.PUBLIC
+    publicItems: content.filter(item =>
+      item.visibility === Visibility.PUBLIC
     ).length,
-    privateItems: content.filter(item => 
-      item.attributes?.visibility === Visibility.PRIVATE
+    privateItems: content.filter(item =>
+      item.visibility === Visibility.PRIVATE
     ).length,
   }
 

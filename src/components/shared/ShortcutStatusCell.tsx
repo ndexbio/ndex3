@@ -36,12 +36,7 @@ export const ShortcutStatusCell: React.FC<ShortcutStatusCellProps> = ({ network 
       <td className={getTdClasses('right')}>
         <div className="flex items-center justify-end w-full text-sm text-muted-foreground">
           <span className="truncate">
-            {formatCount(
-              network.attributes?.edges ||
-              network.attributes?.edgeCount ||
-              (network as any).edgeCount ||
-              0
-            )}
+            {formatCount(network.edges || 0)}
           </span>
         </div>
       </td>

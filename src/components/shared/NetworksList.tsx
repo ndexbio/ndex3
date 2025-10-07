@@ -16,13 +16,19 @@ import { FileItemBase } from '@/types/api/ndex/File'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { ItemTypes } from '@/types/dnd/DndTypes'
 import { MyAccountTabType } from '@/types/ui/myAccount'
-import { NDExFileType } from '@js4cytoscape/ndex-client'
+import { NDExFileType, Permission } from '@js4cytoscape/ndex-client'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClasses } from '@/components/shared/table-styles'
 import { formatDate, formatCount, getDisplayName } from '@/components/shared/table-utils'
 import { NetworkStatusDialog } from '@/components/dialogs/NetworkStatusDialog'
 import { hasNetworkError } from '@/lib/utils/network-status'
+
+// Helper function to format permission display text
+const formatPermission = (permission?: Permission): string => {
+  if (!permission) return 'READ'
+  return permission === Permission.WRITE ? 'EDIT' : permission
+}
 
 // Props for the component
 interface NetworksListProps {
@@ -32,6 +38,7 @@ interface NetworksListProps {
   readOnly?: boolean
   showOwnerColumn?: boolean
   showVisibilityColumn?: boolean
+  showPermissionColumn?: boolean
   selectedItems?: string[]
   onSelect?: (
     event: React.MouseEvent,
@@ -271,6 +278,7 @@ const ListNetworkItem = ({
   onErrorClick,
   showOwnerColumn,
   showVisibilityColumn,
+  showPermissionColumn,
   readOnly,
 }: {
   network: NetworkItem
@@ -295,6 +303,7 @@ const ListNetworkItem = ({
   onErrorClick: (network: FileItemBase) => void
   showOwnerColumn?: boolean
   showVisibilityColumn?: boolean
+  showPermissionColumn?: boolean
   readOnly?: boolean
 }) => {
   const isSelected = selectedItems.includes(network.uuid)
@@ -367,11 +376,11 @@ const ListNetworkItem = ({
           </div>
         </div>
       </td>
-      {showOwnerColumn && tabState === MyAccountTabType.SHARED && (
-        <td className={getTdClasses('center')}>
-          <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
+      {showOwnerColumn && (
+        <td className={getTdClasses('left')}>
+          <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
             <span className="truncate">
-              {network.attributes?.owner || 'Me'}
+              {network.owner || 'Me'}
             </span>
           </div>
         </td>
@@ -390,12 +399,7 @@ const ListNetworkItem = ({
           <td className={getTdClasses('right')}>
             <div className="flex items-center justify-end w-full text-sm text-muted-foreground">
               <span className="truncate">
-                {formatCount(
-                  network.attributes?.edges ||
-                  network.attributes?.edgeCount ||
-                  (network as any).edgeCount ||
-                  0
-                )}
+                {formatCount(network.edges || 0)}
               </span>
             </div>
           </td>
@@ -430,16 +434,25 @@ const ListNetworkItem = ({
             ) : (
               <span
                 className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
-                  network.attributes?.visibility === 'PUBLIC'
+                  network.visibility === 'PUBLIC'
                     ? 'bg-green-200 dark:bg-green-700/80'
-                    : network.attributes?.visibility === 'UNLISTED'
+                    : network.visibility === 'UNLISTED'
                     ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
                     : 'bg-blue-300 dark:bg-blue-700/70'
                 }`}
               >
-                {network.attributes?.visibility || 'PRIVATE'}
+                {network.visibility || 'PRIVATE'}
               </span>
             )}
+          </div>
+        </td>
+      )}
+      {showPermissionColumn && (
+        <td className={getTdClasses('center')}>
+          <div className="flex justify-center w-full">
+            <span className="text-sm text-muted-foreground">
+              {formatPermission(network.permission)}
+            </span>
           </div>
         </td>
       )}
@@ -469,6 +482,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
   readOnly = false,
   showOwnerColumn = false,
   showVisibilityColumn = true,
+  showPermissionColumn = false,
   selectedItems = [],
   onSelect,
   onDropdownToggle,
@@ -726,10 +740,10 @@ const NetworksList: React.FC<NetworksListProps> = ({
                     {renderSortIcon('name')}
                   </button>
                 </th>
-                {showOwnerColumn && tabState === MyAccountTabType.SHARED && (
+                {showOwnerColumn && (
                   <th
                     scope="col"
-                    className={getThClasses('center')}
+                    className={getThClasses('left')}
                     style={{ width: '160px', minWidth: '160px' }}
                   >
                     Owner
@@ -764,6 +778,15 @@ const NetworksList: React.FC<NetworksListProps> = ({
                     Visibility
                   </th>
                 )}
+                {showPermissionColumn && (
+                  <th
+                    scope="col"
+                    className={getThClasses('center')}
+                    style={{ width: '100px', minWidth: '100px' }}
+                  >
+                    Permission
+                  </th>
+                )}
                 <th
                   scope="col"
                   className={getThClasses('center')}
@@ -791,6 +814,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
                   onErrorClick={handleErrorClick}
                   showOwnerColumn={showOwnerColumn}
                   showVisibilityColumn={showVisibilityColumn}
+                  showPermissionColumn={showPermissionColumn}
                   readOnly={readOnly}
                 />
               ))}

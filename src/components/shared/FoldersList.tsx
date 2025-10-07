@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation'
 import { useDrag, useDrop } from 'react-dnd'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { ItemTypes } from '@/types/dnd/DndTypes'
-import { NDExFileType } from '@js4cytoscape/ndex-client'
+import { NDExFileType, Permission } from '@js4cytoscape/ndex-client'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
@@ -25,6 +25,12 @@ const isSharedFolder = (folder: FileItemBase): boolean => {
   return Boolean((folder as any).isShared)
 }
 
+// Helper function to format permission display text
+const formatPermission = (permission?: Permission): string => {
+  if (!permission) return 'READ'
+  return permission === Permission.WRITE ? 'EDIT' : permission
+}
+
 // Props for the component
 interface FoldersListProps {
   folders: FileItemBase[]
@@ -33,6 +39,7 @@ interface FoldersListProps {
   readOnly?: boolean
   showOwnerColumn?: boolean
   showVisibilityColumn?: boolean
+  showPermissionColumn?: boolean
   selectedItems?: string[]
   onSelect?: (
     event: React.MouseEvent,
@@ -203,6 +210,7 @@ const ListFolderItem = ({
   onDropdownToggle,
   showOwnerColumn,
   showVisibilityColumn,
+  showPermissionColumn,
   readOnly,
 }: {
   folder: FolderItem
@@ -225,6 +233,7 @@ const ListFolderItem = ({
   ) => void
   showOwnerColumn?: boolean
   showVisibilityColumn?: boolean
+  showPermissionColumn?: boolean
   readOnly?: boolean
 }) => {
   const isSelected = selectedItems.includes(folder.uuid)
@@ -295,11 +304,11 @@ const ListFolderItem = ({
           </div>
         </div>
       </td>
-      {showOwnerColumn && tabState === MyAccountTabType.SHARED && (
-        <td className={getTdClasses('center')}>
-          <div className="flex items-center justify-center w-full text-sm text-muted-foreground">
+      {showOwnerColumn && (
+        <td className={getTdClasses('left')}>
+          <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
             <span className="truncate">
-              {folder.attributes?.owner || 'Me'}
+              {folder.owner || 'Me'}
             </span>
           </div>
         </td>
@@ -316,14 +325,23 @@ const ListFolderItem = ({
           <div className="flex justify-center w-full">
             <span
               className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
-                folder.attributes?.visibility === 'PUBLIC'
+                folder.visibility === 'PUBLIC'
                   ? 'bg-green-200 dark:bg-green-700/80'
-                  : folder.attributes?.visibility === 'UNLISTED'
+                  : folder.visibility === 'UNLISTED'
                   ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
                   : 'bg-blue-300 dark:bg-blue-700/70'
               }`}
             >
-              {folder.attributes?.visibility || 'PRIVATE'}
+              {folder.visibility || 'PRIVATE'}
+            </span>
+          </div>
+        </td>
+      )}
+      {showPermissionColumn && (
+        <td className={getTdClasses('center')}>
+          <div className="flex justify-center w-full">
+            <span className="text-sm text-muted-foreground">
+              {formatPermission(folder.permission)}
             </span>
           </div>
         </td>
@@ -358,6 +376,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
   readOnly = false,
   showOwnerColumn = false,
   showVisibilityColumn = true,
+  showPermissionColumn = false,
   selectedItems = [],
   onSelect,
   onDrop,
@@ -541,10 +560,10 @@ const FoldersList: React.FC<FoldersListProps> = ({
                     {renderSortIcon('name')}
                   </button>
                 </th>
-                {showOwnerColumn && tabState === MyAccountTabType.SHARED && (
+                {showOwnerColumn && (
                   <th
                     scope="col"
-                    className={getThClasses('center')}
+                    className={getThClasses('left')}
                     style={{ width: '160px', minWidth: '160px' }}
                   >
                     Owner
@@ -572,6 +591,15 @@ const FoldersList: React.FC<FoldersListProps> = ({
                     Visibility
                   </th>
                 )}
+                {showPermissionColumn && (
+                  <th
+                    scope="col"
+                    className={getThClasses('center')}
+                    style={{ width: '100px', minWidth: '100px' }}
+                  >
+                    Permission
+                  </th>
+                )}
                 <th
                   scope="col"
                   className={getThClasses('center')}
@@ -597,6 +625,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
                   onDropdownToggle={onDropdownToggle}
                   showOwnerColumn={showOwnerColumn}
                   showVisibilityColumn={showVisibilityColumn}
+                  showPermissionColumn={showPermissionColumn}
                   readOnly={readOnly}
                 />
               ))}

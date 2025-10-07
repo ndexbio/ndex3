@@ -17,13 +17,14 @@ import {
 import { MyAccountTabType } from '@/types/ui/myAccount'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { Folder } from '@/hooks/use-folder'
-import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
+import { NDExFileType, Visibility, Permission } from '@js4cytoscape/ndex-client'
 import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
 import { useNetworkCopy } from '@/hooks/use-network-copy'
 import { useNetworkReadOnly } from '@/hooks/use-network-readonly'
 import { useCyNDEx } from '@/hooks/use-cyndex'
 import { hasNetworkError, hasValidDOI as hasValidNetworkDOI, isNetworkReadOnly } from '@/lib/utils/network-status'
+import { useAuth } from '@/lib/contexts/KeycloakContext'
 
 // Add a dropdown menu for download formats
 const DownloadMenu: React.FC<{
@@ -139,6 +140,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   onShareSuccess,
 }) => {
   const actionDropdownRef = useRef<HTMLDivElement>(null)
+  const { user } = useAuth()
   const {
     openRenameFolderDialog,
     openMoveFolderDialog,
@@ -157,6 +159,12 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const isReadOnly = dropdownType === NDExFileType.NETWORK && isReadOnlyNetwork(item)
   const hasError = dropdownType === NDExFileType.NETWORK && networkHasError(item)
 
+  // Check if the current user is the owner
+  const isOwner = item?.owner === user?.userName
+
+  // Check permission - in Shared tab, user needs WRITE permission to edit
+  const hasWritePermission = item?.permission === Permission.WRITE
+
   // Determine when to show Request DOI button
   const shouldShowRequestDOI =
     dropdownType === NDExFileType.NETWORK && // Only for networks
@@ -165,9 +173,15 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
 
   // Determine which menu items should be disabled
   const shouldDisableRequestDOI = hasDOI
-  const shouldDisableEditProperties = hasDOI || isReadOnly
+  const shouldDisableEditProperties =
+    hasDOI ||
+    isReadOnly ||
+    (tabState === MyAccountTabType.SHARED && !hasWritePermission)
   const shouldDisableShare = false  // Share is always enabled
   const shouldDisableMoveToTrash = hasDOI || isReadOnly
+
+  // Hide Move to Trash if not the owner in Shared tab
+  const shouldHideMoveToTrash = tabState === MyAccountTabType.SHARED && !isOwner
 
   // Tooltip messages for disabled items
   const getMoveToTrashTooltip = (): string => {
@@ -268,7 +282,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       const itemData = {
         name: item.name || 'Unnamed item',
         type: item.type,
-        visibility: (item as any).attributes?.visibility || (item as any).visibility
+        visibility: (item as any).visibility
       }
 
       // Open the move dialog with the current item ID
@@ -300,7 +314,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       name: item.name || 'Unnamed item',
       type: item.type, // Use the item's type directly
       currentPermissions: [], // TODO: Load existing permissions
-      visibility: (item.attributes?.visibility as Visibility) || Visibility.PRIVATE,
+      visibility: (item.visibility as Visibility) || Visibility.PRIVATE,
     }
 
     openShareDialog([shareableItem], 'single', onShareSuccess)
@@ -437,16 +451,19 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               Add Shortcut
             </button>
           )}
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => {
-              onDelete([openDropdownId])
-              onClose()
-            })}
-          >
-            <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Move to Trash
-          </button>
+          {/* Only show "Move to Trash" if user is the owner in Shared tab */}
+          {!shouldHideMoveToTrash && (
+            <button
+              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={handleButtonClick(() => {
+                onDelete([openDropdownId])
+                onClose()
+              })}
+            >
+              <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              Move to Trash
+            </button>
+          )}
         </div>
       ) : hasError ? (
         // Networks with errors - only show Download and Move to Trash
@@ -456,16 +473,19 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             networkName={item.name || 'network'}
             onClose={onClose}
           />
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => {
-              onDelete([openDropdownId])
-              onClose()
-            })}
-          >
-            <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Move to Trash
-          </button>
+          {/* Only show "Move to Trash" if user is the owner in Shared tab */}
+          {!shouldHideMoveToTrash && (
+            <button
+              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={handleButtonClick(() => {
+                onDelete([openDropdownId])
+                onClose()
+              })}
+            >
+              <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              Move to Trash
+            </button>
+          )}
         </div>
       ) : (
         // Regular network options (no errors)
@@ -609,27 +629,30 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               Add a Shortcut
             </button>
           )}
-          <div title={shouldDisableMoveToTrash ? getMoveToTrashTooltip() : ""}>
-            <button
-              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                shouldDisableMoveToTrash
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={shouldDisableMoveToTrash ? undefined : handleButtonClick(() => {
-                onDelete([openDropdownId])
-                onClose()
-              })}
-              disabled={shouldDisableMoveToTrash}
-            >
-              <Trash2 className={`h-4 w-4 ${
-                shouldDisableMoveToTrash
-                  ? 'text-gray-400'
-                  : 'text-gray-500 group-hover:text-gray-700'
-              }`} />
-              Move to Trash
-            </button>
-          </div>
+          {/* Only show "Move to Trash" if user is the owner in Shared tab */}
+          {!shouldHideMoveToTrash && (
+            <div title={shouldDisableMoveToTrash ? getMoveToTrashTooltip() : ""}>
+              <button
+                className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+                  shouldDisableMoveToTrash
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                onClick={shouldDisableMoveToTrash ? undefined : handleButtonClick(() => {
+                  onDelete([openDropdownId])
+                  onClose()
+                })}
+                disabled={shouldDisableMoveToTrash}
+              >
+                <Trash2 className={`h-4 w-4 ${
+                  shouldDisableMoveToTrash
+                    ? 'text-gray-400'
+                    : 'text-gray-500 group-hover:text-gray-700'
+                }`} />
+                Move to Trash
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

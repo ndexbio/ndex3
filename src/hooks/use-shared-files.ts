@@ -40,36 +40,20 @@ export const useSharedFiles = (): SharedContents => {
         name: item.name,
         type: item.type,
         modificationTime: item.modificationTime || item.modifiedTime || item.creationTime,
+        // Top-level attributes (moved from nested in ndex-client v2)
+        owner: item.owner,
+        ownerUUID: item.ownerUUID,
+        visibility: item.visibility,
+        updatedBy: item.updatedBy,
+        edges: item.edges,
+        permission: item.permission,
         attributes: {
           ...item.attributes,
-          // Network-specific attributes mapping
-          ...(item.type === 'NETWORK' && {
-            edges: item.attributes?.edges || item.attributes?.edgeCount || item.edgeCount || 0,
-            nodes: item.attributes?.nodes || item.attributes?.nodeCount || item.nodeCount || 0,
-            edgeCount: item.attributes?.edges || item.attributes?.edgeCount || item.edgeCount || 0,
-            nodeCount: item.attributes?.nodes || item.attributes?.nodeCount || item.nodeCount || 0,
-            visibility: item.attributes?.visibility || item.visibility || 'PRIVATE',
-            owner: item.attributes?.owner || item.owner || item.updatedBy,
-            updatedBy: item.updatedBy || item.attributes?.updatedBy,
-          }),
-          // Folder-specific attributes mapping
-          ...(item.type === 'FOLDER' && {
-            visibility: item.attributes?.visibility || item.visibility || 'PRIVATE',
-            owner: item.attributes?.owner || item.owner || item.updatedBy,
-            updatedBy: item.updatedBy || item.attributes?.updatedBy,
-          }),
           // Shortcut-specific attributes mapping
           ...(item.type === 'SHORTCUT' && {
             target: item.attributes?.target || item.target,
             target_type: item.attributes?.target_type || item.targetType,
-            visibility: item.attributes?.visibility || item.visibility || 'PRIVATE',
-            owner: item.attributes?.owner || item.owner || item.updatedBy,
-            updatedBy: item.updatedBy || item.attributes?.updatedBy,
           }),
-          // Common attributes for all types
-          visibility: item.attributes?.visibility || item.visibility || 'PRIVATE',
-          owner: item.attributes?.owner || item.owner || item.updatedBy,
-          updatedBy: item.updatedBy || item.attributes?.updatedBy,
         }
       }))
     } catch (error) {
