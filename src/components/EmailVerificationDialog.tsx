@@ -35,21 +35,18 @@ export function EmailVerificationDialog({
             {userName ? ` for User: ${userName}` : ''}
           </DialogTitle>
           <DialogDescription>
-            Your account must be verified before accessing certain features.
+            Please check the email address{' '}
+            <span className="font-semibold">
+              {userEmail || 'associated with your username'}
+            </span>{' '}
+            to verify your account.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2 py-2">
           <p>
-            Please check the email address
-            <span className="font-semibold mx-1">
-              {userEmail || 'associated with your username'}
-            </span>
-            to verify your account.
-          </p>
-          <p>
-            Once verified, click <strong>Already Verified</strong> below.
-            Otherwise, click <strong>Log Out</strong> to continue as an
+            Once verified, click <strong>Already Verified</strong> to continue.
+            Alternatively, click <strong>Log Out</strong> to browse NDEx as an
             anonymous user.
           </p>
         </div>

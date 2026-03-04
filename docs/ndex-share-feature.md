@@ -655,6 +655,188 @@ The share feature now provides **immediate server consistency** with these key i
 
 This implementation ensures that users can trust the sharing interface to immediately and reliably manage access to their scientific data, providing the reliability expected in professional collaborative tools.
 
+## 20. Permission Display in Shared With Me Tab ✅ COMPLETED
+
+### 20.1 Overview
+The "Shared with me" tab now displays a dedicated **Permission** column showing each user's access level to shared items, providing immediate visibility into sharing permissions without opening the ShareDialog.
+
+### 20.2 Implementation Details
+
+#### Permission Column Features
+- **Location**: Between Visibility and Actions columns in NetworksList and FoldersList
+- **Display Format**:
+  - `Permission.WRITE` → "EDIT"
+  - `Permission.READ` → "READ"
+  - No permission → "READ" (default fallback)
+- **Data Source**: `item.permission` (from NDEx Client v2 API)
+- **Visual Style**: Plain text, center-aligned
+- **Conditional Display**: Only visible in "Shared with me" tab
+
+#### Helper Function
+```typescript
+const formatPermission = (permission?: Permission): string => {
+  if (!permission) return 'READ'
+  return permission === Permission.WRITE ? 'EDIT' : permission
+}
+```
+
+### 20.3 Component Updates
+
+#### FileItemBase Type Extension
+```typescript
+import { NDExFileType, Permission } from '@js4cytoscape/ndex-client'
+
+export interface FileItemBase {
+  // ... other properties
+  permission?: Permission  // New in v2
+}
+```
+
+#### NetworksList Component
+```typescript
+interface NetworksListProps {
+  // ... other props
+  showPermissionColumn?: boolean  // Defaults to false
+}
+
+// Column rendering
+{showPermissionColumn && (
+  <td className={getTdClasses('center')}>
+    <span className="text-sm text-muted-foreground">
+      {formatPermission(network.permission)}
+    </span>
+  </td>
+)}
+```
+
+#### FoldersList Component
+```typescript
+// Same structure as NetworksList
+interface FoldersListProps {
+  showPermissionColumn?: boolean
+}
+```
+
+### 20.4 Data Flow
+
+#### API Integration (use-shared-files.ts)
+```typescript
+// Maps FileListItem from ndex-client to FileItemBase
+return items.map((item: any) => ({
+  uuid: item.uuid,
+  name: item.name,
+  type: item.type,
+  // ... other properties
+  permission: item.permission,  // Passed through from API
+}))
+```
+
+#### FileRenderer Usage
+```typescript
+// Only enabled for Shared tab
+<NetworksList
+  items={filteredItems}
+  tabState={tabState}
+  showPermissionColumn={true}  // Only for SHARED tab
+  // ... other props
+/>
+```
+
+### 20.5 Owner Column Integration
+
+The Permission column works alongside the Owner column in the "Shared with me" tab:
+
+**Column Order**:
+1. Selection checkbox
+2. Icon
+3. Name
+4. Owner (username of file owner)
+5. Edges (for networks only)
+6. Last Modified
+7. Visibility (PUBLIC/PRIVATE/UNLISTED badge)
+8. **Permission** (READ/EDIT)
+9. Actions (dropdown menu)
+
+### 20.6 Permission-Based Action Controls
+
+The Permission column integrates with ActionDropdown restrictions:
+
+**Edit Properties Button**:
+- Disabled when `permission === Permission.READ`
+- Enabled when `permission === Permission.WRITE`
+- Visual feedback: Greyed out when disabled
+
+```typescript
+const hasWritePermission = item?.permission === Permission.WRITE
+const shouldDisableEditProperties =
+  hasDOI ||
+  isReadOnly ||
+  (tabState === MyAccountTabType.SHARED && !hasWritePermission)
+```
+
+**Move to Trash Button**:
+- Hidden when user is not the file owner
+- Ownership check: `item?.owner === user?.userName`
+
+```typescript
+const isOwner = item?.owner === user?.userName
+const shouldHideMoveToTrash = tabState === MyAccountTabType.SHARED && !isOwner
+```
+
+### 20.7 User Experience Benefits
+
+1. **Immediate Visibility**: Users can see their permission level at a glance
+2. **Context Awareness**: No need to open ShareDialog to check permissions
+3. **Decision Support**: Helps users understand what actions they can perform
+4. **Consistent Labeling**: "EDIT" terminology matches ShareDialog permission names
+5. **Clear Hierarchy**: READ vs EDIT distinction is immediately apparent
+
+### 20.8 Integration with Existing Features
+
+#### ShareDialog Consistency
+- Permission column uses same READ/EDIT terminology as ShareDialog
+- Permission changes in ShareDialog update the column display
+- Cache synchronization ensures immediate UI updates
+
+#### Owner Column Relationship
+- Owner column shows who owns the file
+- Permission column shows current user's access level
+- Together they provide complete sharing context
+
+#### Visibility Column Relationship
+- Visibility shows public accessibility (PUBLIC/PRIVATE/UNLISTED)
+- Permission shows individual user's access level
+- Complementary information for complete security picture
+
+### 20.9 NDEx Client v2 Migration
+
+This feature leverages NDEx Client v2's improved API structure:
+
+**Previous (v1)**:
+```typescript
+// Permission not available in file list responses
+// Had to call separate API to check permissions
+```
+
+**Current (v2)**:
+```typescript
+// Permission included directly in listShares() response
+interface FileListItem {
+  permission?: Permission  // Available immediately
+}
+```
+
+### 20.10 Files Modified
+
+- ✅ `src/types/api/ndex/File.ts` - Added `permission` to FileItemBase
+- ✅ `src/hooks/use-shared-files.ts` - Maps permission from API response
+- ✅ `src/components/shared/NetworksList.tsx` - Renders permission column
+- ✅ `src/components/shared/FoldersList.tsx` - Renders permission column
+- ✅ `src/app/my-account/_components/FileRenderer.tsx` - Enables column for SHARED tab
+- ✅ `src/app/my-account/_components/ActionDropdown.tsx` - Uses permission for access control
+
+This Permission column enhancement completes the sharing visibility features, providing users with comprehensive at-a-glance information about their access rights to shared scientific data.
+
 ## 17. Immediate Visibility Updates Implementation ✅ COMPLETED
 
 ### 17.1 Overview

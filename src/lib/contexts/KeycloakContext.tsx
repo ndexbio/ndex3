@@ -10,9 +10,9 @@ import React, {
 import Keycloak, { KeycloakTokenParsed } from 'keycloak-js'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { EmailVerificationDialog } from '@/components/EmailVerificationDialog'
-//import { NDEx } from '@js4cytoscape/ndex-client'
+import { SignInErrorDialog } from '@/components/SignInErrorDialog'
 import { getNdexClient } from '../api/ndex-client-manager'
-import { NDExUser } from '@js4cytoscape/ndex-client'
+import { NDExUser, NDExAuthError } from '@js4cytoscape/ndex-client'
 
 type AuthContextType = {
   keycloak: Keycloak | null
@@ -58,44 +58,50 @@ export const KeycloakProvider = ({
   const [userName, setUserName] = useState('')
   const [userEmail, setUserEmail] = useState('')
 
+  // State for sign-in errors (non-unverified failures)
+  const [signInError, setSignInError] = useState<string | null>(null)
+
   /**
-   * checkUserVerification will try an NDEx sign-in from ID token
-   * If NDEx returns an "unverified" error, we set emailUnverified, userName, userEmail
+   * Attempt NDEx sign-in with the given ID token.
+   *
+   * Returns:
+   *   'verified'   – sign-in succeeded; caller should expose auth state to children
+   *   'unverified' – account exists but email is not yet verified; dialog is shown
+   *   'failed'     – sign-in failed for any other reason; treat user as anonymous
    */
-  const checkUserVerification = async (ndexBaseUrl: string, token: string) => {
+  const checkUserVerification = async (
+    ndexBaseUrl: string,
+    token: string
+  ): Promise<'verified' | 'unverified' | 'failed'> => {
     try {
       const ndexClient = getNdexClient(ndexBaseUrl, token)
       const userInfo = await ndexClient.user.authenticate()
-      // Store the user object for future use
       setUser(userInfo)
-      // TODO: Need to determine how to get disk usage with new client
-      // For now, using placeholder values until we can get disk usage info
       setDiskUsed((userInfo as any).diskUsed || 0)
       setDiskQuota((userInfo as any).diskQuota || 0)
-      // If it succeeds, user is verified
       setEmailUnverified(false)
+      return 'verified'
     } catch (e: unknown) {
-      if (
-        typeof e === 'object' &&
-        e !== null &&
-        'statusCode' in e &&
-        (e as { statusCode: number }).statusCode === 401 &&
-        'message' in e &&
-        typeof (e as { message: string }).message === 'string' &&
-        (e as { message: string }).message.includes('NDEx_User_Account_Not_Verified')
-      ) {
-        // Extract name/email from NDEx's error message
-        const pattern = /NDEx user account ([\w.]+) <([\w.]+@[\w.]+)>/
-        const message = (e as { message: string }).message
-        const match = message.match(pattern)
-        if (match) {
-          setUserName(match[1])
-          setUserEmail(match[2])
+      if (e instanceof NDExAuthError && e.errorCode === 'NDEx_User_Account_Not_Verified') {
+        // Get user info from Keycloak's /userinfo endpoint, not from the error message
+        try {
+          const kcUserInfo = await keycloakRef.current?.loadUserInfo() as
+            | { preferred_username?: string; email?: string }
+            | undefined
+          setUserName(kcUserInfo?.preferred_username ?? '')
+          setUserEmail(kcUserInfo?.email ?? '')
+        } catch {
+          setUserName('')
+          setUserEmail('')
         }
         setEmailUnverified(true)
+        return 'unverified'
       } else {
-        // some other error -- treat them as verified to avoid an infinite loop
+        // Any other error: do not expose auth state — show error dialog, then anonymous
         setEmailUnverified(false)
+        const message = e instanceof Error ? e.message : 'An unexpected error occurred during sign-in.'
+        setSignInError(message)
+        return 'failed'
       }
     }
   }
@@ -139,26 +145,32 @@ export const KeycloakProvider = ({
       silentCheckSsoRedirectUri: silentCheckUri,
     })
       .then(async (authenticated) => {
-        setIsAuthenticated(authenticated)
         if (authenticated && kc.token) {
-          setToken(kc.token)
-          setTokenParsed(kc.tokenParsed)
-          // Check if user is verified
-          await checkUserVerification(config.ndexBaseUrl, kc.token)
-        }
+          // Resolve sign-in BEFORE exposing auth state to children.
+          // While this call is in-flight, children see isAuthenticated=false
+          // and no token, so they cannot fire authenticated API requests.
+          const result = await checkUserVerification(config.ndexBaseUrl, kc.token)
 
-        // Refresh token periodically
-        if (authenticated) {
-          setInterval(() => {
-            kc.updateToken(60)
-              .then((refreshed) => {
-                if (refreshed && kc.token) {
-                  setToken(kc.token)
-                  setTokenParsed(kc.tokenParsed)
-                }
-              })
-              .catch(() => kc.logout())
-          }, 60000)
+          if (result === 'verified' || result === 'unverified') {
+            // 'verified'   → children render normally as authenticated user
+            // 'unverified' → dialog blocks children; token kept for the retry call
+            setIsAuthenticated(true)
+            setToken(kc.token)
+            setTokenParsed(kc.tokenParsed)
+
+            // Keep token fresh (needed for both normal use and the verify retry)
+            setInterval(() => {
+              kc.updateToken(60)
+                .then((refreshed) => {
+                  if (refreshed && kc.token) {
+                    setToken(kc.token)
+                    setTokenParsed(kc.tokenParsed)
+                  }
+                })
+                .catch(() => kc.logout())
+            }, 60000)
+          }
+          // 'failed' → leave isAuthenticated=false, token=''; app runs as anonymous
         }
 
         // Mark initialization as complete
@@ -182,16 +194,16 @@ export const KeycloakProvider = ({
         tokenParsed,
         login: (fromHomePage?: boolean) => {
           console.log('🚀 Login initiated, fromHomePage:', fromHomePage)
-          
+
           if (fromHomePage) {
             // Use redirectUri to go directly to my-account after successful login
             // The redirectUri should match the full URL as seen by the browser
             const myAccountUri = window.location.origin + window.location.pathname.replace(/\/$/, '') + '/my-account'
             console.log('🎯 Redirecting to my-account after login:', myAccountUri)
-            console.log('🔍 Current location details:', { 
+            console.log('🔍 Current location details:', {
               origin: window.location.origin,
               pathname: window.location.pathname,
-              href: window.location.href 
+              href: window.location.href
             })
             keycloakRef.current?.login({ redirectUri: myAccountUri })
           } else {
@@ -209,17 +221,25 @@ export const KeycloakProvider = ({
         user,
       }}
     >
-      {/* Normal app children */}
-      {children}
-
-      {/* If the user is authenticated but email is unverified, show the modal */}
-      {isAuthenticated && emailUnverified && (
+      {isAuthenticated && emailUnverified ? (
+        /* Block the app when email is unverified */
         <EmailVerificationDialog
           onVerify={handleVerify}
           onCancel={handleCancel}
           userName={userName}
           userEmail={userEmail}
         />
+      ) : signInError ? (
+        /* Block the app when sign-in failed — dismiss logs out and returns to anonymous home */
+        <SignInErrorDialog
+          errorMessage={signInError}
+          onDismiss={() => {
+            setSignInError(null)
+            keycloakRef.current?.logout()
+          }}
+        />
+      ) : (
+        children
       )}
     </AuthContext.Provider>
   )

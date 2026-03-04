@@ -173,6 +173,7 @@ interface NetworksListProps {
   readOnly?: boolean
   showOwnerColumn?: boolean
   showVisibilityColumn?: boolean
+  showPermissionColumn?: boolean  // New in v2: Shows READ/EDIT permissions
   selectedItems?: string[]
   onSelect?: (event, id, index, type, sortedItems) => void
   onDropdownToggle?: (event, id, type) => void
@@ -519,25 +520,133 @@ Both view modes support enhanced selection styling:
 - SWR for caching and revalidation
 - Optimistic updates for better UX
 
-### Attribute Access Pattern
-Network and folder attributes are accessed using type assertion:
+### NDEx Client v2 API Migration
+
+#### Attribute Structure Changes
+Starting with NDEx Client v2, several commonly used attributes have been moved from the nested `attributes` object to top-level properties in `FileItemBase`:
+
+**Top-Level Attributes (v2)**:
+```typescript
+interface FileItemBase {
+  uuid: string
+  name: string
+  type: NDExFileType
+  modificationTime: string | Date | number
+
+  // Moved to top-level in v2
+  owner?: string          // Previously: item.attributes.owner
+  ownerUUID?: string      // Previously: Not available
+  visibility?: string     // Previously: item.attributes.visibility
+  updatedBy?: string      // Previously: item.attributes.updatedBy
+  edges?: number          // Previously: item.attributes.edges
+  permission?: Permission // New in v2: User's permission level (READ/WRITE)
+
+  attributes: {
+    [key: string]: any
+    // Shortcut-specific attributes remain nested
+    target_status?: ShortcutTargetStatus
+    target_type?: NDExFileType
+  }
+}
+```
+
+**Migration Notes**:
+- ✅ All code updated to access attributes from top-level
+- ✅ `permission` attribute provides user's access level for shared items
+- ✅ `owner` and `ownerUUID` available for ownership checks
+- ✅ `edges` attribute no longer nested in attributes object
+
+#### Legacy Attribute Access Pattern
+For attributes still accessed from the nested object, use type assertion:
 ```typescript
 const attribute = (item as any).attributeName
 ```
 
-Common attributes checked:
+Common attributes still checked:
 - `doi`: DOI identifier
 - `isReadOnly`: Read-only status
 - `isShared`: Sharing status
 - `isValid`: Data validation status
 - `warnings`: Array of validation warnings
 - `errorMessage`: Critical error message
+- `target_status`: Shortcut target status (for shortcuts)
+- `target_type`: Shortcut target type (for shortcuts)
 
 ### Drag & Drop Implementation
 - React DnD with HTML5 backend
 - Supports network/folder movement between folders
 - Visual feedback during drag operations
 - Respects read-only restrictions
+
+## Table Columns & Display Logic
+
+### Column Visibility Rules
+
+The NetworksList and FoldersList components support conditional column display based on the current context:
+
+#### Owner Column
+- **Displayed in**:
+  - "Shared with me" tab (always shown)
+  - Folder navigation pages (`/folders/<uuid>`)
+- **Hidden in**:
+  - "My networks" tab
+  - Trash tab
+- **Data Source**: `item.owner` (username of the file owner)
+- **Alignment**: Left-aligned for better readability
+
+#### Permission Column
+- **Displayed in**:
+  - "Shared with me" tab only
+- **Hidden in**: All other contexts
+- **Data Source**: `item.permission` (Permission enum: READ or WRITE)
+- **Display Format**:
+  - `Permission.WRITE` → "EDIT"
+  - `Permission.READ` → "READ"
+  - No permission → "READ" (default)
+- **Purpose**: Shows the current user's access level for shared items
+- **Alignment**: Center-aligned
+
+#### Visibility Column
+- **Displayed in**: All tabs and contexts (default)
+- **Can be hidden**: Via `showVisibilityColumn={false}` prop
+- **Data Source**: `item.visibility`
+- **Display Format**: Badge with color coding:
+  - PUBLIC: Green background (`bg-green-200 dark:bg-green-700/80`)
+  - UNLISTED: Purple background (`bg-purple-100 dark:bg-purple-900`)
+  - PRIVATE: Blue background (`bg-blue-300 dark:bg-blue-700/70`)
+- **Alignment**: Center-aligned
+
+### Permission-Based Action Restrictions
+
+#### Shared With Me Tab Restrictions
+
+When viewing items in the "Shared with me" tab, the ActionDropdown menu applies these restrictions based on user permissions and ownership:
+
+**Edit Properties Button**:
+- **Disabled when**:
+  - User has READ permission only (not WRITE)
+  - Network has a DOI
+  - Network is read-only
+- **Visual State**: Greyed out with disabled cursor
+- **Implementation**:
+  ```typescript
+  const shouldDisableEditProperties =
+    hasDOI ||
+    isReadOnly ||
+    (tabState === MyAccountTabType.SHARED && !hasWritePermission)
+  ```
+
+**Move to Trash Button**:
+- **Hidden when**: Current user is not the owner of the item
+- **Displayed when**: Current user is the owner (even in shared tab)
+- **Rationale**: Only file owners should be able to delete files
+- **Implementation**:
+  ```typescript
+  const isOwner = item?.owner === user?.userName
+  const shouldHideMoveToTrash = tabState === MyAccountTabType.SHARED && !isOwner
+  ```
+
+**Other Actions**: Share, Download, Make a Copy remain available regardless of permission level
 
 ## UI/UX Features
 
@@ -608,19 +717,35 @@ Common attributes checked:
 - Error handling for malformed network data
 
 ### Mock Data Requirements
-Network objects should include:
+Network and folder objects should include:
 ```typescript
 {
   uuid: string
   name: string
   type: NDExFileType
-  // Status attributes
-  isValid?: boolean
-  isReadOnly?: boolean
-  isShared?: boolean
-  doi?: string
-  warnings?: string[]
-  errorMessage?: string
+  modificationTime: string | Date | number
+
+  // Top-level attributes (v2 structure)
+  owner?: string
+  ownerUUID?: string
+  visibility?: string        // 'PUBLIC' | 'PRIVATE' | 'UNLISTED'
+  updatedBy?: string
+  edges?: number
+  permission?: Permission    // For shared items: Permission.READ | Permission.WRITE
+
+  attributes: {
+    // Status attributes (still nested)
+    isValid?: boolean
+    isReadOnly?: boolean
+    isShared?: boolean
+    doi?: string
+    warnings?: string[]
+    errorMessage?: string
+
+    // Shortcut attributes
+    target_status?: 'ACTIVE' | 'IN_TRASH' | 'DELETED'
+    target_type?: NDExFileType
+  }
 }
 ```
 
