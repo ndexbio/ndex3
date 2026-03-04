@@ -962,10 +962,10 @@ This implementation completes the visibility management functionality by providi
 After implementing immediate visibility API calls, users reported that changes weren't reflecting in the My Account table, requiring page refresh to see updates. This indicated a cache synchronization issue.
 
 ### 18.2 Root Cause Analysis
-The issue was incorrect SWR cache key matching:
-- **Problem**: Using string-based cache keys for SWR `mutate()` function
-- **Actual Keys**: SWR was using array-based keys for network/folder data
-- **Result**: Cache updates weren't matching the actual cached data
+The issue was a property path mismatch in the SWR cache update logic:
+- **Problem**: `handleShareDialogSuccess` was updating `item.attributes.visibility` in the cache
+- **Actual Path**: `FileItemBase` stores `visibility` as a top-level property, not inside `attributes`
+- **Result**: The UI reads `item.visibility` (top-level), so cache updates to `attributes.visibility` had no visible effect
 
 ### 18.3 Solution Implementation
 
@@ -992,10 +992,7 @@ const handleShareDialogSuccess = async (updatedItems: { uuid: string; visibility
       if (newVisibility !== undefined) {
         return {
           ...item,
-          attributes: {
-            ...item.attributes,
-            visibility: newVisibility
-          }
+          visibility: newVisibility  // top-level property, not item.attributes.visibility
         }
       }
       return item
@@ -1085,6 +1082,20 @@ const handleClose = () => {
 5. No page refresh needed
 
 This cache synchronization implementation ensures a seamless user experience where visibility changes are immediately reflected throughout the application interface.
+
+### 18.7 Bulk Action Single-Select Fix ✅
+
+A second instance of the same bug was found in `SelectionToolbarAndFilters.tsx`. When exactly one network was selected and Share was triggered from the bulk action toolbar, the `onSuccess` callback was not passed to `openShareDialog`:
+
+```typescript
+// Bug: onSuccess omitted for single-item path
+openShareDialog([shareableItem], 'single')
+
+// Fix: pass onShareSuccess in all branches
+openShareDialog([shareableItem], 'single', onShareSuccess)
+```
+
+The multi-item bulk path already passed `onShareSuccess` correctly. To prevent recurrence, `onSuccess` was made required (non-optional) in both `openShareDialog` (in `DialogContext`) and the `onShareSuccess` prop of `SelectionToolbarAndFilters`. This means the TypeScript compiler will catch any future call site that omits the callback.
 
 ## 19. Visibility Color Styling ✅ COMPLETED
 

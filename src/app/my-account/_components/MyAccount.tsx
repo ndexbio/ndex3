@@ -529,10 +529,7 @@ function MyAccountContent({
           if (newVisibility !== undefined) {
             return {
               ...item,
-              attributes: {
-                ...item.attributes,
-                visibility: newVisibility
-              }
+              visibility: newVisibility,
             }
           }
           return item
@@ -778,6 +775,7 @@ function MyAccountContent({
             Your session may have expired
           </p>
           <button
+            type="button"
             className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
             onClick={() => {
               // Relogin
@@ -1155,6 +1153,7 @@ function MyAccountContent({
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     )}
                     <button
+                      type="button"
                       className={`text-${
                         index === breadcrumbPath.length - 1
                           ? 'xl font-semibold text-foreground'
@@ -1173,6 +1172,7 @@ function MyAccountContent({
               {/* View Mode Toggle */}
               <div className="flex rounded-full overflow-hidden border border-border">
                 <button
+                  type="button"
                   className={`flex items-center justify-center p-2 w-10 transition-colors ${
                     viewMode === 'list'
                       ? 'bg-accent text-accent-foreground'
@@ -1184,6 +1184,7 @@ function MyAccountContent({
                   <List className="h-5 w-5" />
                 </button>
                 <button
+                  type="button"
                   className={`flex items-center justify-center p-2 w-10 transition-colors ${
                     viewMode === 'grid'
                       ? 'bg-accent text-accent-foreground'
@@ -1196,6 +1197,8 @@ function MyAccountContent({
                 </button>
               </div>
               <button
+                type="button"
+                aria-label="Toggle details panel"
                 className={`p-3 rounded-full transition-colors ${
                   detailsOpen ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                 }`}

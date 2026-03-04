@@ -31,7 +31,7 @@ interface DialogContextType {
   openEditFolderPropertiesDialog: (folderId: string) => void
   openRenameShortcutDialog: (shortcutId: string) => void
   openCreateDOIDialog: (networkId: string) => void
-  openShareDialog: (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => void
+  openShareDialog: (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => void
 }
 
 const DialogContext = createContext<DialogContextType | undefined>(undefined)
@@ -285,7 +285,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     await refreshParentFolder()
   }
 
-  const openShareDialog = (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => {
+  const openShareDialog = (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => {
     setShareDialogProps({
       isOpen: true,
       items,

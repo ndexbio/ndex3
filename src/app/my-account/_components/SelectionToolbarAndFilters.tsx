@@ -301,7 +301,7 @@ interface SelectionToolbarAndFiltersProps {
     selectedFilters: Set<FilterOptionType>
     filterValues: FilterState
   }
-  onShareSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void
+  onShareSuccess: (updatedItems: { uuid: string; visibility: Visibility }[]) => void
 }
 
 // Filter labels
@@ -485,7 +485,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
         visibility: (item?.visibility as Visibility) || Visibility.PRIVATE,
       }
 
-      openShareDialog([shareableItem], 'single')
+      openShareDialog([shareableItem], 'single', onShareSuccess)
     } else {
       // For bulk selection, use simpler format
       const shareableItems: ShareableItem[] = selectedItems.map((id) => {
