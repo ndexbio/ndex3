@@ -1,6 +1,3 @@
-// import { getNdexClient } from '@/lib/api/ndex-client-manager'
-
-import { useState } from 'react'
 import useSWR from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -107,42 +104,3 @@ export const useNetwork = (networkIds: string | string[]) => {
   }
 }
 
-/**
- * Helper function to fetch user networks directly
- * @param ndexBaseUrl The NDEx API base URL
- * @param token The authentication token
- * @param offset Starting position for pagination
- * @param limit Maximum number of networks to fetch
- * @returns Promise that resolves to user networks
- */
-export const fetchUserNetworks = async (
-  ndexBaseUrl: string,
-  token: string,
-  userExternalId: string,
-  offset: number = 0,
-  limit: number = 500
-): Promise<NetworkSummaryV2[]> => {
-  const ndexClient = getNdexClient(ndexBaseUrl, token)
-  // Use provided user UUID instead of calling getCurrentUser()
-  return ndexClient.user.getAccountPageNetworks(userExternalId, offset, limit)
-}
-
-/**
- * Helper function to fetch a network by its UUID
- * @param ndexBaseUrl The NDEx API base URL
- * @param networkId The UUID of the network to fetch
- * @param token The authentication token (optional)
- * @returns Promise that resolves to the network
- */
-export const fetchNetworkById = async (
-  ndexBaseUrl: string,
-  networkId: string,
-  token?: string
-): Promise<NetworkSummaryV2> => {
-  const ndexClient = getNdexClient(ndexBaseUrl, token)
-  const response = await ndexClient.networks.v2.getNetworkSummariesByUUIDs([networkId])
-  if (!response || response.length === 0) {
-    throw new Error(`Network with ID ${networkId} not found`)
-  }
-  return response[0]
-}

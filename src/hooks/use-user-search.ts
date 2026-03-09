@@ -1,5 +1,6 @@
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { UserSearchParams, UserSearchResponse } from '../types/api/ndex'
+import { mapNDExUserToUser } from '../types/api/ndex/User'
 import { getNdexClient } from '../lib/api/ndex-client-manager'
 import useSWR from 'swr'
 
@@ -10,18 +11,17 @@ const EMPTY_USER_RESULT: UserSearchResponse = {
 }
 const createFetcher = (baseUrl: string) => async (params: UserSearchParams): Promise<UserSearchResponse> => {
   const ndexClient = getNdexClient(baseUrl)
-  
-  const users = await ndexClient.user.searchUsers(
+
+  const result = await ndexClient.user.searchUsers(
     params.searchString || '',
     0, // start
     2000 // size
   )
 
-  // Adapt the response format to match what the UI expects
   return {
-    resultList: users,
-    numFound: users.length,
-    start: 0
+    resultList: result.ResultList.map(mapNDExUserToUser),
+    numFound: result.numFound,
+    start: result.start,
   }
 }
 

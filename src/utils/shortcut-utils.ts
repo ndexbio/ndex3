@@ -32,14 +32,10 @@ export const isUnavailableShortcut = (item: FileItemBase): boolean => {
          status === SHORTCUT_TARGET_STATUS.DELETED
 }
 
-export const getShortcutTargetStatus = (item: FileItemBase): ShortcutTargetStatus | null => {
-  if (!isShortcut(item)) return null
-  return (item.attributes?.target_status as ShortcutTargetStatus) || null
-}
-
 // Message helpers
 export const getUnavailableShortcutMessage = (item: FileItemBase): string => {
-  const status = getShortcutTargetStatus(item)
+  if (!isShortcut(item)) return ''
+  const status = (item.attributes?.target_status as ShortcutTargetStatus) || null
 
   switch (status) {
     case SHORTCUT_TARGET_STATUS.IN_TRASH:
@@ -49,11 +45,4 @@ export const getUnavailableShortcutMessage = (item: FileItemBase): string => {
     default:
       return ''
   }
-}
-
-// Styling helpers
-export const getShortcutTextClass = (item: FileItemBase): string => {
-  return isUnavailableShortcut(item)
-    ? SHORTCUT_STYLES.UNAVAILABLE_TEXT
-    : SHORTCUT_STYLES.NORMAL_TEXT
 }

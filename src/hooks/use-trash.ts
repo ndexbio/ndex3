@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -152,18 +151,4 @@ export const useTrash = (): TrashContents => {
     restoreItems,
     permanentDelete,
   }
-}
-
-/**
- * Helper function to fetch trash contents directly without using the hook
- * @param ndexBaseUrl The NDEx API base URL
- * @param token The authentication token
- * @returns Promise that resolves to trash contents
- */
-export const fetchTrashContents = async (
-  ndexBaseUrl: string,
-  token: string,
-): Promise<FileItemBase[]> => {
-  const ndexClient = getNdexClient(ndexBaseUrl, token)
-  return ndexClient.files.getTrash()
 }

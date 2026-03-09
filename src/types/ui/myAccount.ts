@@ -14,10 +14,3 @@ export const FilterOptionType = {
 
 export type FilterOptionType = (typeof FilterOptionType)[keyof typeof FilterOptionType]
 
-export const FilterStateType = {
-    CHOOSE: 'choose',
-    NULL: null,
-} as const
-
-export type FilterStateType = (typeof FilterStateType)[keyof typeof FilterStateType]
-

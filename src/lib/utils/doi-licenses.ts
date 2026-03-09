@@ -34,10 +34,3 @@ export const LICENSE_OPTIONS: LicenseOption[] = [
   // All other items have value === label
   ...LICENSE_NAMES.map((name) => ({ value: name, label: name })),
 ]
-
-/**
- * Get license label by value
- */
-export const getLicenseLabel = (value: string): string => {
-  return LICENSE_OPTIONS.find((opt) => opt.value === value)?.label || value
-}

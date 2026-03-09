@@ -38,12 +38,6 @@ export type PermissionLevel = 'READ' | 'EDIT';
 export type PermissionAction = 'read' | 'edit' | 'transfer' | 'remove';
 export type VisibilityLevel = Visibility;
 
-export interface User {
-  username: string;
-  email: string;
-  fullName: string;
-}
-
 /**
  * Permission details for a file including its type and member permissions
  */

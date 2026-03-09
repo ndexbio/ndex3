@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -209,22 +208,4 @@ export const useShortcut = (
     updateShortcut,
     deleteShortcut,
   }
-}
-
-/**
- * Helper function to fetch shortcut directly without hook
- * @param ndexBaseUrl The NDEx API base URL
- * @param token The authentication token
- * @param shortcutId UUID of the shortcut to fetch
- * @param accessKey Optional access key for shared shortcuts
- * @returns Promise that resolves to shortcut data
- */
-export const fetchShortcut = async (
-  ndexBaseUrl: string,
-  token: string,
-  shortcutId: string,
-  accessKey?: string
-): Promise<Shortcut> => {
-  const ndexClient = getNdexClient(ndexBaseUrl, token)
-  return ndexClient.files.getShortcut(shortcutId, accessKey)
 }

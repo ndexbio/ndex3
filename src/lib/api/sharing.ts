@@ -249,17 +249,6 @@ export const transferOwnership = async (
 }
 
 /**
- * Construct shareable URL using access key
- */
-export const constructShareableUrl = (
-  baseUrl: string,
-  networkUuid: string,
-  accessKey: string
-): string => {
-  return `${baseUrl}/viewer/networks/${networkUuid}?accesskey=${accessKey}`
-}
-
-/**
  * Copy text to clipboard
  */
 export const copyToClipboard = async (text: string): Promise<boolean> => {

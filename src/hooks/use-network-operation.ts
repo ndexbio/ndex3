@@ -436,22 +436,3 @@ export const useNetworkOperation = (
     deleteNetwork,
   }
 }
-
-/**
- * Helper function to fetch network directly without hook
- * @param ndexBaseUrl The NDEx API base URL
- * @param token The authentication token
- * @param networkId UUID of the network to fetch
- * @param accessKey Optional access key for shared networks
- * @returns Promise that resolves to network data
- */
-export const fetchNetwork = async (
-  ndexBaseUrl: string,
-  token: string,
-  networkId: string,
-  accessKey?: string,
-): Promise<Network> => {
-  const ndexClient = getNdexClient(ndexBaseUrl, token)
-  const summary = await ndexClient.networks.v2.getNetworkSummary(networkId, { accesskey: accessKey })
-  return networkSummaryToNetwork(summary)
-}
