@@ -13,7 +13,8 @@
 10. [Implementation Plan](#implementation-plan)
 11. [Files Reference](#files-reference)
 12. [Performance Considerations](#performance-considerations)
-13. [Known Code Consistency Observations](#known-code-consistency-observations)
+13. [Error Handling](#error-handling)
+14. [Known Code Consistency Observations](#known-code-consistency-observations)
 
 ---
 
@@ -79,7 +80,7 @@ The search results page reuses the My Account page layout pattern (without the s
 |  NavBar with SearchBox                                                 |
 +-----------------------------------------------------------------------+
 |  +-------------------------------------------------------------------+|
-|  | [My Networks (55)] [Public (2,341)] [Private (47)] [Users (12)]  Sort  L/G  i ||
+|  | [My Networks (55)] [Public (2,341)] [Private (47)] [Users (12)]  [Sorted by relevance]  L/G  i ||
 |  +-------------------------------------------------------------------+|
 |  | All filters  [Edge: 200-400 x]                                    ||
 |  +-------------------------------------------------------------------+|
@@ -136,7 +137,7 @@ The My Networks calls use `accountName` for server-side filtering, so `numFound`
 
 1. **Tab header**: The count shows a `+` suffix — e.g., "My Networks (5,533+)" where 5,533 = `publicNumFound + privateNumFound`. The `+` signals that not all matching results are displayed.
 2. **Inline message**: A message appears above the results list: "Showing 4,533 of 5,533 results — refine your search to see all matches." (where 4,533 = actual loaded items from both calls).
-3. **Info icon on filter bar**: When truncation is active, an info icon (ℹ) appears next to the filter controls with a tooltip: "Filters, sorting, and actions apply only to the loaded results, not the full match count." This is only shown when results are truncated — in the common case (no truncation), the icon is hidden.
+3. **Info icon on filter bar** (My Networks tab only): When truncation is active, an info icon (ℹ) appears next to the filter controls with a tooltip: "Filters, sorting, and actions apply only to the loaded results, not the full match count." This is only shown when results are truncated — in the common case (no truncation), the icon is hidden. This icon does not appear on the Users tab because the filter bar is hidden there (see Section 3.4); instead, the Users tab's inline message (item 2) is the sole truncation indicator beyond the `+` suffix.
 
 **Truncated results contract**: When the My Networks or Users tab is truncated, all client-side operations — filtering, sorting, selection, and bulk actions — operate exclusively on the loaded subset. They do not apply to the items beyond the fetch limit. This means:
 - A filter that hides 500 items from the loaded 4,533 shows 4,033 results, not `numFound` minus 500.
@@ -144,11 +145,11 @@ The My Networks calls use `accountName` for server-side filtering, so `numFound`
 - "Select all" selects only loaded items. Bulk actions (e.g., change visibility) apply only to the selection.
 - The tab header count (`N+`) always reflects the server's `numFound` sum, regardless of client-side filters. The inline message updates to reflect filtered counts: "Showing 4,033 of 5,533 results (filtered from 4,533 loaded)."
 
-When all results fit within the 3,000-per-call limit (the common case for ~98% of users), the count is exact and none of the truncation indicators (the `+` suffix, inline message, or filter info icon) are shown.
+When all results fit within the 3,000-per-call limit (the common case for ~98% of users), the count is exact and none of the truncation indicators (the `+` suffix, inline message, or filter bar info icon) are shown.
 
 The Public and Private calls use a page size of 500 with infinite scroll for additional pages, since these tabs can return tens of thousands of results.
 
-The Users tab uses the same truncation pattern as My Networks: single fetch of up to 2,000 results with the server's `numFound` for the tab count. When results are truncated (loaded < `numFound`), the same `+` suffix, inline message, and filter info icon are shown. **Implementation note**: the current `useUserSearch` hook fabricates `numFound` as `users.length` — it must be updated to pass through the server's actual `numFound` (see Section 6.3).
+The Users tab uses the same truncation pattern as My Networks for the `+` suffix and inline message: single fetch of up to 2,000 results with the server's `numFound` for the tab count. When results are truncated (loaded < `numFound`), the `+` suffix and inline message are shown. The filter bar info icon is **not** shown on the Users tab because the filter bar is hidden there (Section 3.4) — no filters, sorting, or bulk actions apply to user results, so the icon's warning is not relevant. **Implementation note**: the current `useUserSearch` hook fabricates `numFound` as `users.length` — it must be updated to pass through the server's actual `numFound` (see Section 6.3).
 
 #### Tab Data Summary
 
@@ -182,12 +183,12 @@ Sorting behavior differs by tab based on whether results are paginated:
 
 | Tab | Sort behavior | Rationale |
 |-----|--------------|-----------|
-| My Networks | **Column-header sorting.** Users click Name, Edge count, or Last modified column headers to sort (asc/desc toggle). Default: Last modified descending. | All results are loaded in a single fetch (up to 3,000 per call), so client-side sorting of the full result set works correctly. |
+| My Networks | **Column-header sorting.** Users click Name or Last modified column headers in `FoldersList`, and Name, Edge count, or Last modified column headers in `NetworksList`, to sort (asc/desc toggle). Default: Last modified descending. **The two panes have independent sort contexts** — sorting folders by Name does not affect the networks pane, and vice versa. This is intentional: folders and networks have different column sets (e.g., folders have no Edge count), and each pane's sort state is owned by its own component (`useState`), consistent with how My Account already works. | All results are loaded in a single fetch (up to 3,000 per call), so client-side sorting of the full result set works correctly. |
 | Public | **Fixed: Relevance (server order).** A static green badge `Sorted by relevance` is shown in the header bar. No sort controls. | Uses infinite scroll pagination (500 per page). Client-side sorting would only reorder the currently loaded pages, not the full result set — producing misleading results. |
 | Private | **Fixed: Relevance (server order).** Same as Public. | Same pagination concern as Public. |
 | Users | **Fixed: Relevance (server order).** Same badge, no sort controls. | Keeps UI consistent with Public/Private tabs. Although all results are loaded (single page), adding sort UI for a tab that may be refactored later (see Section 13) is unnecessary complexity. |
 
-The `FoldersList` and `NetworksList` components already support clickable column headers with sort toggle (asc/desc/none) for Name and Last Modified. However, both components own their sort state internally (`useState`), which means the sort controls always render. For search, a new `sortable` prop is needed (see Section 6.3): on the My Networks tab, `sortable={true}` enables column-header sorting (with Edge count added to `NetworksList`); on Public and Private tabs, `sortable={false}` suppresses sort icons and click handlers so the server-order relevance is preserved.
+The `FoldersList` and `NetworksList` components already support clickable column headers with sort toggle (asc/desc/none) for Name and Last Modified. Each component owns its sort state internally via `useState` (FoldersList line 389, NetworksList line 495), creating two independent sort contexts — this is intentional and no shared parent sort state is needed. For search, a new `sortable` prop is needed (see Section 6.3): on the My Networks tab, `sortable={true}` enables column-header sorting (with Edge count added to `NetworksList`); on Public and Private tabs, `sortable={false}` suppresses sort icons and click handlers so the server-order relevance is preserved.
 
 See `docs/search-feature-ui-mock.svg` for the visual mockup of the relevance badge and tab layouts.
 
@@ -449,7 +450,6 @@ src/app/search/
     SearchResultsPage.tsx           # Main orchestrator: tabs, header, content
     SearchEmptyState.tsx            # Initial state + no results state
     SearchFilters.tsx               # Filter bar (edge count filter)
-    SearchResultActions.tsx         # Read-oriented action dropdown (Public tab, anonymous)
     UserTable.tsx                   # Existing component for Users tab (minor changes needed — see Section 6.3)
 ```
 
@@ -462,7 +462,7 @@ src/app/search/
 | `useResizablePanel` | `src/hooks/useResizablePanel.ts` | Details panel width management |
 | `table-styles` | `src/components/shared/table-styles.ts` | Row/grid styling |
 | `table-utils` | `src/components/shared/table-utils.ts` | `formatDate`, `formatCount` |
-| `SearchBox` | `src/components/SearchBox.tsx` | NavBar search input |
+| `SearchBox` | `src/components/SearchBox.tsx` | NavBar search input (modified in Phase 4 for history dropdown — see Section 11 Modified Files) |
 | `NetworkStatusDialog` | `src/components/dialogs/NetworkStatusDialog.tsx` | Warning/error display |
 | `ShareDialog` | `src/components/dialogs/ShareDialog.tsx` | Sharing management |
 | `Tabs` | `src/components/ui/tabs.tsx` | Tab switching (My Networks / Public / Private / Users) |
@@ -629,11 +629,10 @@ Key bulk action use case: Select multiple owned private networks and change thei
 12. Update `loading.tsx` skeleton
 
 ### Phase 2: Toolbar & Actions
-1. Add `SEARCH` to `MyAccountTabType` — this lets `SelectionToolbarAndFilters` work immediately for bulk actions (share, download, move, delete) since `SEARCH` won't match `TRASH` or `SHARED` guards
+1. Integrate `SelectionToolbarAndFilters` for signed-in users (bulk actions only — filters come in Phase 3). The `SEARCH` value added to `MyAccountTabType` in Phase 1 lets this work immediately since `SEARCH` won't match `TRASH` or `SHARED` guards
 2. Refactor `ActionDropdown` from tab-based to permission-based conditionals: replace the 5 `tabState === SHARED` / `tabState === TRASH` checks with direct `isOwner` and `item.permission` checks (see Section 6.3 for details). This benefits both search and My Account
-3. Integrate `SelectionToolbarAndFilters` for signed-in users (bulk actions only — filters come in Phase 3)
-4. Integrate `ActionDropdown` for item-level actions with permission-gated availability per Section 9.2
-5. Integrate `DetailsPanel`
+3. Integrate `ActionDropdown` for item-level actions with permission-gated availability per Section 9.2
+4. Integrate `DetailsPanel`
 
 ### Phase 3: Filters
 1. Extract filter UI (~lines 647–1072 of `SelectionToolbarAndFilters`) into a standalone `SearchFilters` component. The `FilterState` interface and `onFiltersChange` callback pattern are already clean and can be lifted out directly
@@ -735,7 +734,118 @@ The `UserTable` component uses `@tanstack/react-table` and renders **all rows in
 
 ---
 
-## 13. Known Code Consistency Observations
+## 13. Error Handling
+
+The search feature fires up to 5 parallel API calls, any of which can fail independently. This section specifies how failures surface to the user, following patterns already established in the codebase (`PeopleWithAccessSection` inline error pattern, SWR retry conventions, toast system for user-initiated actions).
+
+### 13.1 Design Principles
+
+- **Partial failures are not full-page errors.** If one API call fails, the other tabs' results are still valid and should be shown.
+- **Search errors are displayed inline, not as toasts.** Toasts are reserved for user-initiated actions (copy, move, share) that are fire-and-forget. Search results are persistent UI that the user is actively looking at — inline errors are more appropriate and discoverable.
+- **SWR handles transient failures automatically.** Most transient errors (brief network hiccups, 503s) self-heal via SWR retry before the user notices.
+
+### 13.2 SWR Retry Configuration
+
+The `useFileSearch` hook should use consistent SWR error handling settings, matching existing hooks in the codebase:
+
+```typescript
+{
+  shouldRetryOnError: true,
+  errorRetryCount: 3,
+  revalidateOnReconnect: true,
+  revalidateOnFocus: true,
+}
+```
+
+The existing `useUserSearch` hook already has SWR configuration — no changes needed for retry behavior.
+
+### 13.3 Failure Scenarios
+
+#### Partial Failure (one or more calls fail, others succeed)
+
+Each of the 5 API calls maps to a specific tab (or contributes to one). When a call fails:
+
+| Failed call | Affected tab | Other tabs |
+| --- | --- | --- |
+| `searchFiles(PUBLIC, accountName=me)` | My Networks (shows partial results from private call + inline warning) | Public, Private, Users unaffected |
+| `searchFiles(PRIVATE, accountName=me)` | My Networks (shows partial results from public call + inline warning) | Public, Private, Users unaffected |
+| Both `accountName` calls | My Networks (shows inline error with retry) | Public, Private, Users unaffected |
+| `searchFiles(PUBLIC)` | Public (shows inline error with retry) | My Networks, Private, Users unaffected |
+| `searchFiles(PRIVATE)` | Private (shows inline error with retry) | My Networks, Public, Users unaffected |
+| `searchUsers(query)` | Users (shows inline error with retry) | My Networks, Public, Private unaffected |
+
+**My Networks partial failure** is unique because the tab merges two calls. If only one of the two `accountName`-scoped calls fails:
+
+- Display the results from the successful call.
+- Show an inline warning above the results: "Some results may be missing — unable to load [public/private] networks. [Retry]"
+- The tab count reflects only the successful call's `numFound` with a `~` prefix (e.g., "My Networks (~2,100)") to signal the count is incomplete.
+- If the user clicks Retry, only the failed call is re-fired.
+
+**Combined truncation + partial failure on My Networks**: When one call fails and the other call's results are truncated (loaded items < `numFound`), both states are active simultaneously. The rules compose as follows:
+
+- **Tab header**: `~` prefix wins over `+` suffix. Show `~N` using the successful call's `numFound` only — e.g., "My Networks (~3,200)". Rationale: the `~` already signals the count is incomplete; adding `+` would be redundant and confusing.
+- **Inline messages**: Both messages appear, stacked vertically. The partial-failure warning appears first: "Some results may be missing — unable to load [public/private] networks. [Retry]". The truncation message appears below it: "Showing 3,000 of 3,200 loaded results — refine your search to see all matches."
+- **Filter bar info icon**: Shown (since the successful side is truncated), with its standard tooltip about filters/sorting applying only to loaded results.
+- When the failed call is retried and succeeds, the `~` prefix is removed and normal truncation rules take over (switching to `N+` if either side is still truncated, or exact `N` if both sides fit).
+
+#### Tab Header on Error
+
+When a tab's API call(s) have fully failed (no data at all), the tab header shows the tab name without a count:
+
+- Normal: `Public (2,341)`
+- Error: `Public`
+
+This avoids showing stale counts from a previous query or a misleading `(0)`.
+
+#### Per-Tab Inline Error Component
+
+Each tab renders an inline error state when its data fails to load. This follows the `PeopleWithAccessSection` error pattern (`src/components/dialogs/PeopleWithAccessSection.tsx` lines 31–45):
+
+```
++-------------------------------------------------------------------+
+|  ⚠  Unable to load [public networks / private networks / users].  |
+|     [Retry]                                                        |
++-------------------------------------------------------------------+
+```
+
+- Icon: `AlertCircle` (matching existing pattern)
+- Styling: light red/amber border, consistent with `PeopleWithAccessSection`
+- Retry button: re-triggers the specific failed SWR call(s) via `mutate()`
+- Appears in place of the results list (folders + networks panes, or user table)
+
+#### Full Failure (all calls fail)
+
+If every API call fails (likely a network outage or server down), `SearchResultsPage` detects that all tabs have errored with no usable data and throws an error to propagate to the existing `error.tsx` boundary (`src/app/search/error.tsx`). The hooks themselves (`useFileSearch`, `useUserSearch`) follow the standard codebase convention of returning error states — they never throw. The decision to escalate to the error boundary lives in the page component. This boundary already provides:
+
+- Context-specific message listing common causes (service unavailability, connectivity, invalid parameters, server overload)
+- Retry button
+- Navigate-to-home button
+
+**Trigger condition**: `SearchResultsPage` checks whether all file search calls and the user search call have errored, with no cached data from a previous successful fetch. If any tab has data (even stale), the per-tab inline errors are shown instead and the page does not throw.
+
+#### Default Tab on Partial Failure
+
+If the default tab's data fails to load (My Networks for signed-in, Networks for anonymous), the page still renders with that tab active showing the inline error. The user can switch to a working tab. No automatic tab switching occurs — it would be confusing if the page silently lands on a non-default tab.
+
+### 13.4 Loading States During Retry
+
+When the user clicks Retry on a per-tab inline error:
+- The inline error is replaced by the standard loading skeleton for that tab
+- Other tabs remain interactive — retry does not block the whole page
+- If the retry also fails, the inline error re-appears (SWR's built-in retry has already exhausted its 3 automatic retries before the inline error was shown, so the manual retry is a fresh attempt)
+
+### 13.5 Error Handling Summary by Phase
+
+| Phase | Error handling work |
+| --- | --- |
+| Phase 1 | `useFileSearch` hook returns per-call error states; per-tab inline error with retry; tab header hides count on error; full-failure falls through to `error.tsx`; My Networks partial failure warning |
+| Phase 2 | Bulk action errors use toast notifications (consistent with existing `use-network-copy`, `use-file-move-operation` patterns) |
+| Phase 3 | No additional error handling — filters are client-side |
+| Phase 4 | Search history is local (localStorage) — no error states needed |
+
+---
+
+## 14. Known Code Consistency Observations
 
 ### UserTable vs FoldersList/NetworksList Pattern Mismatch
 
