@@ -2,6 +2,7 @@ export const MyAccountTabType = {
     MYNETWORKS: 'MYNETWORKS',
     TRASH: 'TRASH',
     SHARED: 'SHARED',
+    SEARCH: 'SEARCH',
 } as const
 
 export type MyAccountTabType = (typeof MyAccountTabType)[keyof typeof MyAccountTabType]

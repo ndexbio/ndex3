@@ -140,7 +140,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   onShareSuccess,
 }) => {
   const actionDropdownRef = useRef<HTMLDivElement>(null)
-  const { user } = useAuth()
+  const { user, isAuthenticated: isSignedIn } = useAuth()
   const {
     openRenameFolderDialog,
     openMoveFolderDialog,
@@ -165,23 +165,23 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   // Check permission - in Shared tab, user needs WRITE permission to edit
   const hasWritePermission = item?.permission === Permission.WRITE
 
-  // Determine when to show Request DOI button
+  // Determine when to show Request DOI button (owner-only, networks only, not shortcuts)
   const shouldShowRequestDOI =
-    dropdownType === NDExFileType.NETWORK && // Only for networks
-    item?.type !== NDExFileType.SHORTCUT && // Not for shortcuts
-    tabState !== MyAccountTabType.SHARED // Not in "Shared with me" tab (only owners can request DOI)
+    dropdownType === NDExFileType.NETWORK &&
+    item?.type !== NDExFileType.SHORTCUT &&
+    isOwner
 
   // Determine which menu items should be disabled
   const shouldDisableRequestDOI = hasDOI
   const shouldDisableEditProperties =
     hasDOI ||
     isReadOnly ||
-    (tabState === MyAccountTabType.SHARED && !hasWritePermission)
+    (!isOwner && !hasWritePermission)
   const shouldDisableShare = false  // Share is always enabled
   const shouldDisableMoveToTrash = hasDOI || isReadOnly
 
-  // Hide Move to Trash if not the owner in Shared tab
-  const shouldHideMoveToTrash = tabState === MyAccountTabType.SHARED && !isOwner
+  // Hide Move to Trash if not the owner
+  const shouldHideMoveToTrash = !isOwner
 
   // Tooltip messages for disabled items
   const getMoveToTrashTooltip = (): string => {
@@ -403,8 +403,8 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             Delete permanently
           </button>
         </div>
-      ) : dropdownType === NDExFileType.FOLDER ? (
-        // Regular folder options
+      ) : dropdownType === NDExFileType.FOLDER && isSignedIn ? (
+        // Regular folder options (signed-in only — folders have no anonymous actions)
         <div className="py-2">
           {/* Show Rename for shortcuts, Edit Properties for regular folders */}
           {item.type === NDExFileType.SHORTCUT ? (
@@ -451,7 +451,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               Add Shortcut
             </button>
           )}
-          {/* Only show "Move to Trash" if user is the owner in Shared tab */}
+          {/* Only show "Move to Trash" if user is the owner */}
           {!shouldHideMoveToTrash && (
             <button
               className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -530,8 +530,8 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             networkName={item.name || 'network'}
             onClose={onClose}
           />
-          {/* Show Rename for shortcuts, Edit Properties for regular networks */}
-          {item.type === NDExFileType.SHORTCUT ? (
+          {/* Show Rename for shortcuts, Edit Properties for regular networks (signed-in only) */}
+          {isSignedIn && (item.type === NDExFileType.SHORTCUT ? (
             <button
               className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
               onClick={handleButtonClick(handleOpenRenameDialog)}
@@ -556,9 +556,9 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               }`} />
               Edit Properties
             </button>
-          )}
-          {/* Only show Make a Copy for regular networks, not shortcuts */}
-          {item.type !== NDExFileType.SHORTCUT && (
+          ))}
+          {/* Only show Make a Copy for regular networks, not shortcuts (signed-in only) */}
+          {isSignedIn && item.type !== NDExFileType.SHORTCUT && (
             <button
               className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
               onClick={handleButtonClick(handleCopyFile)}
@@ -572,24 +572,26 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               {isCopying[openDropdownId] ? 'Copying...' : 'Make a Copy'}
             </button>
           )}
-          <button
-            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-              shouldDisableShare
-                ? 'text-gray-400 cursor-not-allowed'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-            onClick={shouldDisableShare ? undefined : handleButtonClick(handleOpenShareDialog)}
-            disabled={shouldDisableShare}
-          >
-            <UserPlus className={`h-4 w-4 ${
-              shouldDisableShare
-                ? 'text-gray-400'
-                : 'text-gray-500 group-hover:text-gray-700'
-            }`} />
-            Share
-          </button>
-          {/* Only show readonly toggle for regular networks (not shortcuts) and not in shared tab */}
-          {item.type !== NDExFileType.SHORTCUT && tabState !== MyAccountTabType.SHARED && (
+          {isSignedIn && (
+            <button
+              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+                shouldDisableShare
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              onClick={shouldDisableShare ? undefined : handleButtonClick(handleOpenShareDialog)}
+              disabled={shouldDisableShare}
+            >
+              <UserPlus className={`h-4 w-4 ${
+                shouldDisableShare
+                  ? 'text-gray-400'
+                  : 'text-gray-500 group-hover:text-gray-700'
+              }`} />
+              Share
+            </button>
+          )}
+          {/* Only show readonly toggle for regular networks (not shortcuts) that the user owns */}
+          {item.type !== NDExFileType.SHORTCUT && isOwner && (
             <button
               className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
                 isUpdating[openDropdownId]
@@ -609,15 +611,17 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               {isUpdating[openDropdownId] ? 'Updating...' : isReadOnly ? 'Remove Read-only' : 'Set as Read-only'}
             </button>
           )}
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(handleOpenMoveDialog)}
-          >
-            <FolderInput className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Move
-          </button>
-          {/* Only show "Add a Shortcut" if the item is not already a shortcut */}
-          {item.type !== NDExFileType.SHORTCUT && (
+          {isSignedIn && (
+            <button
+              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={handleButtonClick(handleOpenMoveDialog)}
+            >
+              <FolderInput className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              Move
+            </button>
+          )}
+          {/* Only show "Add a Shortcut" if the item is not already a shortcut (signed-in only) */}
+          {isSignedIn && item.type !== NDExFileType.SHORTCUT && (
             <button
               className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
               onClick={handleButtonClick(() => {
@@ -629,7 +633,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               Add a Shortcut
             </button>
           )}
-          {/* Only show "Move to Trash" if user is the owner in Shared tab */}
+          {/* Only show "Move to Trash" if user is the owner */}
           {!shouldHideMoveToTrash && (
             <div title={shouldDisableMoveToTrash ? getMoveToTrashTooltip() : ""}>
               <button

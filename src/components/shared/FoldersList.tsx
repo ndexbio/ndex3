@@ -59,6 +59,7 @@ interface FoldersListProps {
     field: 'name' | 'modificationTime'
     direction: 'asc' | 'desc'
   }
+  sortable?: boolean
 }
 
 
@@ -346,8 +347,8 @@ const ListFolderItem = ({
           </div>
         </td>
       )}
-      <td className={getTdClasses('center')}>
-        {onDropdownToggle && (
+      {onDropdownToggle && (
+        <td className={getTdClasses('center')}>
           <button
             className={tableStyles.button.dropdown}
             onClick={(e) => {
@@ -363,8 +364,8 @@ const ListFolderItem = ({
           >
             <MoreVertical className="h-4 w-4 text-muted-foreground" />
           </button>
-        )}
-      </td>
+        </td>
+      )}
     </tr>
   )
 }
@@ -382,6 +383,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
   onDrop,
   onDropdownToggle,
   defaultSort = { field: 'modificationTime', direction: 'desc' },
+  sortable = true,
 }) => {
   const router = useRouter()
   const config = useConfig()
@@ -397,7 +399,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
       event.preventDefault()
       event.stopPropagation()
 
-      if (!readOnly && tabState !== MyAccountTabType.TRASH) {
+      if (tabState !== MyAccountTabType.TRASH) {
         // Find the folder in the folders array
         const folderItem = folders.find((folder) => folder.uuid === folderId)
 
@@ -552,13 +554,17 @@ const FoldersList: React.FC<FoldersListProps> = ({
                   className={getThClasses('left')}
                   style={{ minWidth: '200px' }}
                 >
-                  <button
-                    className={tableStyles.button.sort}
-                    onClick={() => handleSortClick('name')}
-                  >
-                    Name
-                    {renderSortIcon('name')}
-                  </button>
+                  {sortable ? (
+                    <button
+                      className={tableStyles.button.sort}
+                      onClick={() => handleSortClick('name')}
+                    >
+                      Name
+                      {renderSortIcon('name')}
+                    </button>
+                  ) : (
+                    <span>Name</span>
+                  )}
                 </th>
                 {showOwnerColumn && (
                   <th
@@ -574,13 +580,17 @@ const FoldersList: React.FC<FoldersListProps> = ({
                   className={getThClasses('left')}
                   style={{ width: '170px', minWidth: '170px' }}
                 >
-                  <button
-                    className="flex items-center justify-start focus:outline-none"
-                    onClick={() => handleSortClick('modificationTime')}
-                  >
-                    Last Modified
-                    {renderSortIcon('modificationTime')}
-                  </button>
+                  {sortable ? (
+                    <button
+                      className="flex items-center justify-start focus:outline-none"
+                      onClick={() => handleSortClick('modificationTime')}
+                    >
+                      Last Modified
+                      {renderSortIcon('modificationTime')}
+                    </button>
+                  ) : (
+                    <span>Last Modified</span>
+                  )}
                 </th>
                 {showVisibilityColumn !== false && (
                   <th
@@ -600,13 +610,15 @@ const FoldersList: React.FC<FoldersListProps> = ({
                     Permission
                   </th>
                 )}
-                <th
-                  scope="col"
-                  className={getThClasses('center')}
-                  style={{ width: '80px', minWidth: '80px' }}
-                >
-                  Actions
-                </th>
+                {onDropdownToggle && (
+                  <th
+                    scope="col"
+                    className={getThClasses('center')}
+                    style={{ width: '80px', minWidth: '80px' }}
+                  >
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className={tableStyles.tbody}>

@@ -57,6 +57,7 @@ interface NetworksListProps {
     field: 'name' | 'modificationTime'
     direction: 'asc' | 'desc'
   }
+  sortable?: boolean
 }
 
 
@@ -380,7 +381,7 @@ const ListNetworkItem = ({
         <td className={getTdClasses('left')}>
           <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
             <span className="truncate">
-              {network.owner || 'Me'}
+              {network.owner || (readOnly ? '' : 'Me')}
             </span>
           </div>
         </td>
@@ -399,7 +400,7 @@ const ListNetworkItem = ({
           <td className={getTdClasses('right')}>
             <div className="flex items-center justify-end w-full text-sm text-muted-foreground">
               <span className="truncate">
-                {formatCount(network.edges || 0)}
+                {network.type === NDExFileType.SHORTCUT ? '' : formatCount(network.edges || 0)}
               </span>
             </div>
           </td>
@@ -456,21 +457,23 @@ const ListNetworkItem = ({
           </div>
         </td>
       )}
-      <td className={getTdClasses('center')}>
-        {onDropdownToggle && !isUnavailable && (
-          <button
-            className={tableStyles.button.dropdown}
-            onClick={(e) => {
-              e.stopPropagation()
-              onDropdownToggle(e, network.uuid, network.type)
-            }}
-            data-dropdown-trigger
-            data-dropdown-id={network.uuid}
-          >
-            <MoreVertical className="h-4 w-4 text-muted-foreground" />
-          </button>
-        )}
-      </td>
+      {onDropdownToggle && (
+        <td className={getTdClasses('center')}>
+          {!isUnavailable && (
+            <button
+              className={tableStyles.button.dropdown}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDropdownToggle(e, network.uuid, network.type)
+              }}
+              data-dropdown-trigger
+              data-dropdown-id={network.uuid}
+            >
+              <MoreVertical className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
+        </td>
+      )}
     </tr>
   )
 }
@@ -488,6 +491,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
   onDropdownToggle,
   onRemoveShortcut,
   defaultSort = { field: 'modificationTime', direction: 'desc' },
+  sortable = true,
 }) => {
   const router = useRouter()
   const config = useConfig()
@@ -732,13 +736,17 @@ const NetworksList: React.FC<NetworksListProps> = ({
                   className={getThClasses('left')}
                   style={{ minWidth: '200px' }}
                 >
-                  <button
-                    className={tableStyles.button.sort}
-                    onClick={() => handleSortClick('name')}
-                  >
-                    Name
-                    {renderSortIcon('name')}
-                  </button>
+                  {sortable ? (
+                    <button
+                      className={tableStyles.button.sort}
+                      onClick={() => handleSortClick('name')}
+                    >
+                      Name
+                      {renderSortIcon('name')}
+                    </button>
+                  ) : (
+                    <span>Name</span>
+                  )}
                 </th>
                 {showOwnerColumn && (
                   <th
@@ -761,13 +769,17 @@ const NetworksList: React.FC<NetworksListProps> = ({
                   className={getThClasses('left')}
                   style={{ width: '170px', minWidth: '170px' }}
                 >
-                  <button
-                    className="flex items-center justify-start focus:outline-none"
-                    onClick={() => handleSortClick('modificationTime')}
-                  >
-                    Last Modified
-                    {renderSortIcon('modificationTime')}
-                  </button>
+                  {sortable ? (
+                    <button
+                      className="flex items-center justify-start focus:outline-none"
+                      onClick={() => handleSortClick('modificationTime')}
+                    >
+                      Last Modified
+                      {renderSortIcon('modificationTime')}
+                    </button>
+                  ) : (
+                    <span>Last Modified</span>
+                  )}
                 </th>
                 {showVisibilityColumn && (
                   <th
@@ -787,13 +799,15 @@ const NetworksList: React.FC<NetworksListProps> = ({
                     Permission
                   </th>
                 )}
-                <th
-                  scope="col"
-                  className={getThClasses('center')}
-                  style={{ width: '80px', minWidth: '80px' }}
-                >
-                  Actions
-                </th>
+                {onDropdownToggle && (
+                  <th
+                    scope="col"
+                    className={getThClasses('center')}
+                    style={{ width: '80px', minWidth: '80px' }}
+                  >
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className={tableStyles.tbody}>

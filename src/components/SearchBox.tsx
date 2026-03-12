@@ -7,10 +7,9 @@ import { SearchIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSearchStore } from '@/stores/search-store'
-import { FeaturedNetworksButton } from '@/app/search/_components/FeaturedNetworksButton'
 
 export function SearchBox() {
-  const { setQuery } = useSearchStore()
+  const { addToHistory } = useSearchStore()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [currentQuery, setCurrentQuery] = useState<string>('')
@@ -36,7 +35,7 @@ export function SearchBox() {
       return
     }
 
-    setQuery(nextQuery)
+    addToHistory(nextQuery)
     router.push(`/search?q=${encodeURIComponent(nextQuery)}`)
   }
 
@@ -54,19 +53,14 @@ export function SearchBox() {
     const handleSearch = () => {
       // This will only fire when the search is cleared via the "x" button
       if (input.value === '') {
-        console.log('Search cleared via x button')
         setCurrentQuery('')
-        // Optional: Also clear the store and URL
-        setQuery('')
         router.push('/search')
       }
     }
 
     input.addEventListener('search', handleSearch)
     return () => input.removeEventListener('search', handleSearch)
-  }, [setQuery, router])
-
-  useEffect(() => {}, [currentQuery])
+  }, [router])
 
   return (
     <form onSubmit={handleSubmit} className="flex items-center space-x-2">
@@ -90,9 +84,6 @@ export function SearchBox() {
         >
           <SearchIcon />
         </Button>
-      </div>
-      <div className="flex items-center gap-2">
-        <FeaturedNetworksButton />
       </div>
     </form>
   )

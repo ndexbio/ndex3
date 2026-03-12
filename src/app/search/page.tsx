@@ -1,7 +1,7 @@
 'use client'
 
-import { TabsPanel } from './_components/TabsPanel'
+import { SearchResultsPage } from './_components/SearchResultsPage'
 
 export default function SearchPage() {
-  return <TabsPanel />
+  return <SearchResultsPage />
 }
