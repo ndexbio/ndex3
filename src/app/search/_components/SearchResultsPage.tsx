@@ -409,7 +409,7 @@ function SearchResultsPageContent() {
   // No query — show initial state
   if (!query.trim()) {
     return (
-      <div className="container mx-auto px-4 py-8">
+          <div className="container mx-auto px-4 py-8 h-full overflow-y-auto">
         <SearchEmptyState type="initial" />
       </div>
     )
@@ -419,9 +419,9 @@ function SearchResultsPageContent() {
   const myNetworksCountPrefix = myNetworks.hasAnyError && !(myNetworks.publicError && myNetworks.privateError) ? '~' : ''
 
   return (
-    <div className="container mx-auto px-4 py-4">
+    <div className="container mx-auto px-4 py-4 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between shrink-0">
         <div className="text-sm text-muted-foreground">
           Search &gt; &ldquo;{query}&rdquo;
         </div>
@@ -433,8 +433,8 @@ function SearchResultsPageContent() {
 
       {isAuthenticated ? (
         /* Signed-in: three tabs */
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full flex flex-col min-h-0 flex-1">
+          <TabsList className="grid w-full grid-cols-3 shrink-0">
             <TabsTrigger value="my-networks">
               My Networks
               {myNetworksCountPrefix ? (
@@ -453,11 +453,11 @@ function SearchResultsPageContent() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="my-networks">
+          <TabsContent value="my-networks" className="flex-1 overflow-y-auto min-h-0">
             <MyNetworksTabContent data={myNetworks} query={query} onDropdownToggle={handleDropdownToggle} />
           </TabsContent>
 
-          <TabsContent value="public">
+          <TabsContent value="public" className="flex-1 overflow-y-auto min-h-0">
             <FileTabContent
               items={publicResults.items}
               isLoading={publicResults.isLoading}
@@ -471,7 +471,7 @@ function SearchResultsPageContent() {
             />
           </TabsContent>
 
-          <TabsContent value="private">
+          <TabsContent value="private" className="flex-1 overflow-y-auto min-h-0">
             <FileTabContent
               items={privateResults.items}
               isLoading={privateResults.isLoading}
@@ -486,23 +486,25 @@ function SearchResultsPageContent() {
         </Tabs>
       ) : (
         /* Anonymous: no tabs, just a results header */
-        <>
-          <div className="flex items-center gap-2 mb-4 text-sm font-medium">
+        <div className="flex flex-col min-h-0 flex-1">
+          <div className="flex items-center gap-2 mb-4 text-sm font-medium shrink-0">
             Results
             <TabCount count={publicResults.numFound} hasError={!!publicResults.error} />
           </div>
-          <FileTabContent
-            items={publicResults.items}
-            isLoading={publicResults.isLoading}
-            error={publicResults.error}
-            sortable={false}
-            showVisibilityColumn={false}
-            hasMore={publicResults.hasMore}
-            loadMore={publicResults.loadMore}
-            query={query}
-            onDropdownToggle={handleDropdownToggle}
-          />
-        </>
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <FileTabContent
+              items={publicResults.items}
+              isLoading={publicResults.isLoading}
+              error={publicResults.error}
+              sortable={false}
+              showVisibilityColumn={false}
+              hasMore={publicResults.hasMore}
+              loadMore={publicResults.loadMore}
+              query={query}
+              onDropdownToggle={handleDropdownToggle}
+            />
+          </div>
+        </div>
       )}
 
       {/* Action dropdown menu */}
