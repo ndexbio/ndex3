@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useState,
   useRef,
+  useCallback,
   createContext,
   useContext,
 } from 'react'
@@ -25,6 +26,7 @@ type AuthContextType = {
   diskUsed: number
   diskQuota: number
   user: NDExUser | null
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -107,6 +109,23 @@ export const KeycloakProvider = ({
   }
 
   /**
+   * Re-fetch the current user from the server and update local state.
+   * Call this after updating the user's profile.
+   */
+  const refreshUser = useCallback(async () => {
+    if (!config || !token || !user?.externalId) return
+    try {
+      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+      const updatedUser = await ndexClient.user.getUser(user.externalId)
+      setUser(updatedUser)
+      setDiskUsed((updatedUser as any).diskUsed || 0)
+      setDiskQuota((updatedUser as any).diskQuota || 0)
+    } catch (error) {
+      console.error('Error refreshing user:', error)
+    }
+  }, [config, token, user?.externalId])
+
+  /**
    * "Already Verified" button in the modal
    * We just re-run the check. If it succeeds, the modal closes.
    */
@@ -138,7 +157,7 @@ export const KeycloakProvider = ({
     const silentCheckUri = window.location.origin + (baseName ? `/${baseName}` : '') + '/silent-check-sso.html'
     console.log('🔍 Keycloak silent SSO URI:', silentCheckUri)
     console.log('🔍 Config urlBaseName:', baseName)
-    
+
     kc.init({
       onLoad: 'check-sso',
       checkLoginIframe: false,
@@ -219,6 +238,7 @@ export const KeycloakProvider = ({
         diskUsed,
         diskQuota,
         user,
+        refreshUser,
       }}
     >
       {isAuthenticated && emailUnverified ? (
