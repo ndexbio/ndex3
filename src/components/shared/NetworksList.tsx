@@ -515,69 +515,32 @@ const NetworksList: React.FC<NetworksListProps> = ({
   })
 
   // Handle double click on network to open it
-  const handleNetworkDoubleClick = useCallback(
+const handleNetworkDoubleClick = useCallback(
     async (event: React.MouseEvent, networkId: string) => {
       event.preventDefault()
       event.stopPropagation()
 
-      if (readOnly) {
-        // For read-only mode, open network in new tab using NDEx viewer
-        // Find the network in the items array
-        const networkItem = items.find((item) => item.uuid === networkId)
-        
-        if (networkItem && networkItem.type === NDExFileType.SHORTCUT) {
-          try {
-            // Get the NDEx client to fetch the shortcut
-            const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-            const shortcut = await ndexClient.files.getShortcut(networkId)
-            
-            if (shortcut && shortcut.target) {
-              // Open the target network in a new tab
-              window.open(
-                `https://${config.ndexBaseUrl}/viewer/networks/${shortcut.target}`,
-                '_blank',
-              )
-              return
-            }
-          } catch (error) {
-            console.error('Error fetching shortcut:', error)
-          }
+      const networkItem = items.find((item) => item.uuid === networkId)
+
+      // If it's a shortcut, resolve the target UUID from attributes
+      if (networkItem?.type === NDExFileType.SHORTCUT) {
+        const targetId = networkItem.attributes?.target
+        if (targetId) {
+          window.open(
+            `https://${config.ndexBaseUrl}/viewer/networks/${targetId}`,
+            '_blank',
+          )
+          return
         }
-        
-        // Default behavior - open the network directly
+      }
+
+      if (readOnly) {
         window.open(
           `https://${config.ndexBaseUrl}/viewer/networks/${networkId}`,
           '_blank',
         )
       } else {
-        // For editable mode, navigate to network view
         if (tabState !== MyAccountTabType.TRASH) {
-          // Find the network in the items array
-          const networkItem = items.find((item) => item.uuid === networkId)
-
-          if (networkItem) {
-            // Check if it's a shortcut
-            if (networkItem.type === NDExFileType.SHORTCUT) {
-              try {
-                // Get the NDEx client to fetch the shortcut
-                const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-                const shortcut = await ndexClient.files.getShortcut(networkId)
-
-                if (shortcut && shortcut.target) {
-                  // Open the target network in a new tab
-                  window.open(
-                    `https://${config.ndexBaseUrl}/viewer/networks/${shortcut.target}`,
-                    '_blank',
-                  )
-                  return
-                }
-              } catch (error) {
-                console.error('Error fetching shortcut:', error)
-              }
-            }
-          }
-
-          // Default behavior - open the network directly
           window.open(
             `https://${config.ndexBaseUrl}/viewer/networks/${networkId}`,
             '_blank',
@@ -585,7 +548,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
         }
       }
     },
-    [router, readOnly, items, config.ndexBaseUrl, token, tabState]
+    [items, config.ndexBaseUrl, readOnly, tabState]
   )
 
   // Handle warning icon click
