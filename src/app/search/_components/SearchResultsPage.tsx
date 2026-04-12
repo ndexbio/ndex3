@@ -2,10 +2,11 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
-import { AlertCircle, RefreshCcw } from 'lucide-react'
+import { AlertCircle, RefreshCcw, FlaskConical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -406,10 +407,15 @@ function SearchResultsPageContent() {
     return allSearchItems.find(item => item.uuid === openDropdownId) || null
   }, [openDropdownId, allSearchItems])
 
+  // Build the experimental search URL with the same query
+  const experimentalUrl = query.trim()
+    ? `/search-v2?q=${encodeURIComponent(query)}`
+    : '/search-v2'
+
   // No query — show initial state
   if (!query.trim()) {
     return (
-          <div className="container mx-auto px-4 py-8 h-full overflow-y-auto">
+      <div className="container mx-auto px-4 py-8 h-full overflow-y-auto">
         <SearchEmptyState type="initial" />
       </div>
     )
@@ -425,10 +431,19 @@ function SearchResultsPageContent() {
         <div className="text-sm text-muted-foreground">
           Search &gt; &ldquo;{query}&rdquo;
         </div>
-        {/* Relevance badge for fixed-sort tabs (Public, Private, or anonymous results) */}
-        {(!isAuthenticated || activeTab === 'public' || activeTab === 'private') && (
-          <RelevanceBadge />
-        )}
+        <div className="flex items-center gap-3">
+          <Link
+            href={experimentalUrl}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <FlaskConical className="h-3 w-3" />
+            Try alternate search page
+          </Link>
+          {/* Relevance badge for fixed-sort tabs (Public, Private, or anonymous results) */}
+          {(!isAuthenticated || activeTab === 'public' || activeTab === 'private') && (
+            <RelevanceBadge />
+          )}
+        </div>
       </div>
 
       {isAuthenticated ? (
