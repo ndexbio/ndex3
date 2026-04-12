@@ -30,13 +30,12 @@ function DynamicFavicon() {
  *
  * It has the basic components inclusing:
  * - NavBar
- * - MainPanel (container for the main content)
+ * - MainPanel (container for the main content with Footer inside)
  * - ThemeWrapper (for theming)
  * - ConfigProvider (for configuration provided by the JSON file)
  * - DynamicFavicon (for dynamic favicon generated from the logo)
  * - Metadata (for SEO)
  * - Global styles
- * - Footer (not included yet)
  * - ToastContextProvider (for showing notifications)
  *
  * @param children
@@ -59,8 +58,10 @@ export default function RootLayout({
               <ThemeWrapper>
                 <div className="min-h-screen">
                   <NavBar />
-                  <MainPanel>{children}</MainPanel>
-                  <Footer />
+                  <MainPanel>
+                    {children}
+                    <Footer />
+                  </MainPanel>
                 </div>
               </ThemeWrapper>
             </ToastContextProvider>
