@@ -360,12 +360,13 @@ function SearchResultsPageContent() {
     // No-op for now: search results don't need immediate cache updates
   }, [])
 
-  // Update URL when tab changes
+  // Update tab via local state + browser history (avoids Next.js re-mount in static export)
   const handleTabChange = useCallback((value: string) => {
+    setActiveTab(value as SignedInTab)
     const params = new URLSearchParams(searchParams.toString())
     params.set('tab', value)
-    router.replace(`/search?${params.toString()}`)
-  }, [router, searchParams])
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`)
+  }, [searchParams])
 
   // Add to history when query changes
   React.useEffect(() => {
@@ -374,32 +375,15 @@ function SearchResultsPageContent() {
     }
   }, [query, addToHistory])
 
-  // Derive the active tab from URL (signed-in users only)
-  const activeTab = useMemo<SignedInTab>(() => {
-    const validTabs: SignedInTab[] = ['my-networks', 'public', 'private']
-    if (validTabs.includes(urlTab as SignedInTab)) return urlTab as SignedInTab
-    if (urlTab === 'networks') return 'public'
-    return 'my-networks'
-  }, [urlTab])
+  // Tab state — initialized from URL, updated locally to avoid full re-mount
+    const [activeTab, setActiveTab] = useState<SignedInTab>(() => {
+      const validTabs: SignedInTab[] = ['my-networks', 'public', 'private']
+      if (validTabs.includes(urlTab as SignedInTab)) return urlTab as SignedInTab
+      if (urlTab === 'networks') return 'public'
+      return 'my-networks'
+    })
 
-  // Sync URL tab param when the derived tab differs (e.g., after sign-out
-  // invalidates an auth-only tab like 'my-networks' or 'private')
-  React.useEffect(() => {
-    if (!isAuthenticated) {
-      // Anonymous users don't use tabs — remove stale tab param from URL
-      if (urlTab) {
-        const params = new URLSearchParams(searchParams.toString())
-        params.delete('tab')
-        router.replace(`/search?${params.toString()}`)
-      }
-      return
-    }
-    if (urlTab && urlTab !== activeTab) {
-      const params = new URLSearchParams(searchParams.toString())
-      params.set('tab', activeTab)
-      router.replace(`/search?${params.toString()}`)
-    }
-  }, [isAuthenticated, activeTab, urlTab, searchParams, router])
+
 
   // Find the item for the open dropdown
   const dropdownItem = useMemo(() => {
