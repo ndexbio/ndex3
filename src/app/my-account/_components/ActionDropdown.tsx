@@ -165,6 +165,9 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   // Check permission - in Shared tab, user needs WRITE permission to edit
   const hasWritePermission = item?.permission === Permission.WRITE
 
+  // Can the user edit this item? (owner or has write permission)
+  const canEdit = isOwner || hasWritePermission
+
   // Determine when to show Request DOI button (owner-only, networks only, not shortcuts)
   const shouldShowRequestDOI =
     dropdownType === NDExFileType.NETWORK &&
@@ -176,9 +179,11 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const shouldDisableEditProperties =
     hasDOI ||
     isReadOnly ||
-    (!isOwner && !hasWritePermission)
-  const shouldDisableShare = false  // Share is always enabled
+    !canEdit
+  const shouldDisableRenameShortcut = !canEdit
+  const shouldDisableShare = !canEdit
   const shouldDisableMoveToTrash = hasDOI || isReadOnly
+  const shouldDisableMove = !canEdit
 
   // Hide Move to Trash if not the owner
   const shouldHideMoveToTrash = !isOwner
@@ -370,6 +375,12 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     onClose()
   }
 
+  // Disabled button style helper
+  const disabledClass = 'text-gray-400 cursor-not-allowed'
+  const enabledClass = 'text-gray-700 hover:bg-gray-100'
+  const disabledIconClass = 'text-gray-400'
+  const enabledIconClass = 'text-gray-500 group-hover:text-gray-700'
+
   // Render different options based on tabState
   return (
     <div
@@ -409,33 +420,53 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
           {/* Show Rename for shortcuts, Edit Properties for regular folders */}
           {item.type === NDExFileType.SHORTCUT ? (
             <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={handleButtonClick(handleOpenRenameDialog)}
+              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+                shouldDisableRenameShortcut ? disabledClass : enabledClass
+              }`}
+              onClick={shouldDisableRenameShortcut ? undefined : handleButtonClick(handleOpenRenameDialog)}
+              disabled={shouldDisableRenameShortcut}
             >
-              <FileEdit className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              <FileEdit className={`h-4 w-4 ${
+                shouldDisableRenameShortcut ? disabledIconClass : enabledIconClass
+              }`} />
               Rename
             </button>
           ) : (
             <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={handleButtonClick(handleOpenEditFolderPropertiesDialog)}
+              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+                !canEdit ? disabledClass : enabledClass
+              }`}
+              onClick={!canEdit ? undefined : handleButtonClick(handleOpenEditFolderPropertiesDialog)}
+              disabled={!canEdit}
             >
-              <FileEdit className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              <FileEdit className={`h-4 w-4 ${
+                !canEdit ? disabledIconClass : enabledIconClass
+              }`} />
               Edit Properties
             </button>
           )}
           <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(handleOpenShareDialog)}
+            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+              shouldDisableShare ? disabledClass : enabledClass
+            }`}
+            onClick={shouldDisableShare ? undefined : handleButtonClick(handleOpenShareDialog)}
+            disabled={shouldDisableShare}
           >
-            <UserPlus className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+            <UserPlus className={`h-4 w-4 ${
+              shouldDisableShare ? disabledIconClass : enabledIconClass
+            }`} />
             Share
           </button>
           <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(handleOpenMoveDialog)}
+            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+              shouldDisableMove ? disabledClass : enabledClass
+            }`}
+            onClick={shouldDisableMove ? undefined : handleButtonClick(handleOpenMoveDialog)}
+            disabled={shouldDisableMove}
           >
-            <FolderInput className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+            <FolderInput className={`h-4 w-4 ${
+              shouldDisableMove ? disabledIconClass : enabledIconClass
+            }`} />
             Move
           </button>
           {/* Only show "Add Shortcut" if the item is not already a shortcut */}
@@ -510,17 +541,13 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
           {shouldShowRequestDOI && (
             <button
               className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                shouldDisableRequestDOI
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-700 hover:bg-gray-100'
+                shouldDisableRequestDOI ? disabledClass : enabledClass
               }`}
               onClick={shouldDisableRequestDOI ? undefined : handleButtonClick(handleOpenCreateDOIDialog)}
               disabled={shouldDisableRequestDOI}
             >
               <BookCopy className={`h-4 w-4 ${
-                shouldDisableRequestDOI
-                  ? 'text-gray-400'
-                  : 'text-gray-500 group-hover:text-gray-700'
+                shouldDisableRequestDOI ? disabledIconClass : enabledIconClass
               }`} />
               Request DOI
             </button>
@@ -533,26 +560,27 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
           {/* Show Rename for shortcuts, Edit Properties for regular networks (signed-in only) */}
           {isSignedIn && (item.type === NDExFileType.SHORTCUT ? (
             <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={handleButtonClick(handleOpenRenameDialog)}
+              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+                shouldDisableRenameShortcut ? disabledClass : enabledClass
+              }`}
+              onClick={shouldDisableRenameShortcut ? undefined : handleButtonClick(handleOpenRenameDialog)}
+              disabled={shouldDisableRenameShortcut}
             >
-              <FileEdit className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              <FileEdit className={`h-4 w-4 ${
+                shouldDisableRenameShortcut ? disabledIconClass : enabledIconClass
+              }`} />
               Rename
             </button>
           ) : (
             <button
               className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                shouldDisableEditProperties
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-700 hover:bg-gray-100'
+                shouldDisableEditProperties ? disabledClass : enabledClass
               }`}
               onClick={shouldDisableEditProperties ? undefined : handleButtonClick(handleOpenEditPropertiesDialog)}
               disabled={shouldDisableEditProperties}
             >
               <FileEdit className={`h-4 w-4 ${
-                shouldDisableEditProperties
-                  ? 'text-gray-400'
-                  : 'text-gray-500 group-hover:text-gray-700'
+                shouldDisableEditProperties ? disabledIconClass : enabledIconClass
               }`} />
               Edit Properties
             </button>
@@ -575,17 +603,13 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
           {isSignedIn && (
             <button
               className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                shouldDisableShare
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-700 hover:bg-gray-100'
+                shouldDisableShare ? disabledClass : enabledClass
               }`}
               onClick={shouldDisableShare ? undefined : handleButtonClick(handleOpenShareDialog)}
               disabled={shouldDisableShare}
             >
               <UserPlus className={`h-4 w-4 ${
-                shouldDisableShare
-                  ? 'text-gray-400'
-                  : 'text-gray-500 group-hover:text-gray-700'
+                shouldDisableShare ? disabledIconClass : enabledIconClass
               }`} />
               Share
             </button>
@@ -613,10 +637,15 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
           )}
           {isSignedIn && (
             <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={handleButtonClick(handleOpenMoveDialog)}
+              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+                shouldDisableMove ? disabledClass : enabledClass
+              }`}
+              onClick={shouldDisableMove ? undefined : handleButtonClick(handleOpenMoveDialog)}
+              disabled={shouldDisableMove}
             >
-              <FolderInput className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              <FolderInput className={`h-4 w-4 ${
+                shouldDisableMove ? disabledIconClass : enabledIconClass
+              }`} />
               Move
             </button>
           )}
@@ -638,9 +667,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             <div title={shouldDisableMoveToTrash ? getMoveToTrashTooltip() : ""}>
               <button
                 className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                  shouldDisableMoveToTrash
-                    ? 'text-gray-400 cursor-not-allowed'
-                    : 'text-gray-700 hover:bg-gray-100'
+                  shouldDisableMoveToTrash ? disabledClass : enabledClass
                 }`}
                 onClick={shouldDisableMoveToTrash ? undefined : handleButtonClick(() => {
                   onDelete([openDropdownId])
@@ -649,9 +676,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
                 disabled={shouldDisableMoveToTrash}
               >
                 <Trash2 className={`h-4 w-4 ${
-                  shouldDisableMoveToTrash
-                    ? 'text-gray-400'
-                    : 'text-gray-500 group-hover:text-gray-700'
+                  shouldDisableMoveToTrash ? disabledIconClass : enabledIconClass
                 }`} />
                 Move to Trash
               </button>
