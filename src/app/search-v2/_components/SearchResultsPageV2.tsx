@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { AlertCircle, RefreshCcw } from 'lucide-react'
@@ -22,6 +22,7 @@ import FoldersList from '@/components/shared/FoldersList'
 import NetworksList from '@/components/shared/NetworksList'
 import { SearchEmptyState } from '../../search/_components/SearchEmptyState'
 import Link from 'next/link'
+
 // --- Helper: split items into folders and networks ---
 function splitByType(items: FileItemBase[]) {
   const folders: FileItemBase[] = []
@@ -211,26 +212,87 @@ function TypeFilterChip({
   )
 }
 
+// --- Helper: sync filter state to URL without triggering Next.js navigation ---
+function syncFiltersToUrl(
+  query: string,
+  showMine: boolean,
+  showPublic: boolean,
+  showPrivate: boolean,
+  showUnlisted: boolean,
+  showNetworks: boolean,
+  showFolders: boolean,
+  showShortcuts: boolean,
+) {
+  const parts: string[] = []
+  if (query) parts.push(`q=${encodeURIComponent(query)}`)
+  if (showMine) parts.push('mine=1')
+
+  const allVisOn = showPublic && showPrivate && showUnlisted
+  if (!allVisOn) {
+    const vis: string[] = []
+    if (showPublic) vis.push('public')
+    if (showPrivate) vis.push('private')
+    if (showUnlisted) vis.push('unlisted')
+    if (vis.length > 0) parts.push(`vis=${vis.join(',')}`)
+  }
+
+  const allTypeOn = showNetworks && showFolders && showShortcuts
+  if (!allTypeOn) {
+    const type: string[] = []
+    if (showNetworks) type.push('networks')
+    if (showFolders) type.push('folders')
+    if (showShortcuts) type.push('shortcuts')
+    if (type.length > 0) parts.push(`type=${type.join(',')}`)
+  }
+
+  window.history.replaceState(null, '', `${window.location.pathname}?${parts.join('&')}`)
+}
+
 // --- Main SearchResultsPage (inner content, must be inside DialogProvider) ---
 function SearchResultsPageContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
   const config = useConfig()
   const query = searchParams.get('q') || ''
   const { isAuthenticated, token, user } = useAuth()
   const { addToHistory } = useSearchStore()
   const { addToast } = useToast()
 
-  // --- Filter state ---
-  const [showMine, setShowMine] = useState(false)
-  const [showPublic, setShowPublic] = useState(true)
-  const [showPrivate, setShowPrivate] = useState(true)
-  const [showUnlisted, setShowUnlisted] = useState(true)
-  const [showNetworks, setShowNetworks] = useState(true)
-  const [showFolders, setShowFolders] = useState(true)
-  const [showShortcuts, setShowShortcuts] = useState(true)
+  // --- Parse filter state from URL params (only on initial mount) ---
+  const urlVis = searchParams.get('vis')
+  const urlType = searchParams.get('type')
+  const urlMine = searchParams.get('mine')
+
+  const [showMine, setShowMine] = useState(() => urlMine === '1')
+  const [showPublic, setShowPublic] = useState(() =>
+    urlVis !== null ? urlVis.split(',').includes('public') : true
+  )
+  const [showPrivate, setShowPrivate] = useState(() =>
+    urlVis !== null ? urlVis.split(',').includes('private') : true
+  )
+  const [showUnlisted, setShowUnlisted] = useState(() =>
+    urlVis !== null ? urlVis.split(',').includes('unlisted') : true
+  )
+  const [showNetworks, setShowNetworks] = useState(() =>
+    urlType !== null ? urlType.split(',').includes('networks') : true
+  )
+  const [showFolders, setShowFolders] = useState(() =>
+    urlType !== null ? urlType.split(',').includes('folders') : true
+  )
+  const [showShortcuts, setShowShortcuts] = useState(() =>
+    urlType !== null ? urlType.split(',').includes('shortcuts') : true
+  )
   const [resetKey, setResetKey] = useState(0)
   const [hasColumnSort, setHasColumnSort] = useState(false)
+
+  // --- Sync filter state to URL on changes (skip initial render) ---
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    syncFiltersToUrl(query, showMine, showPublic, showPrivate, showUnlisted, showNetworks, showFolders, showShortcuts)
+  }, [query, showMine, showPublic, showPrivate, showUnlisted, showNetworks, showFolders, showShortcuts])
 
   // --- Dropdown state ---
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
@@ -265,7 +327,6 @@ function SearchResultsPageContent() {
       }
     }
 
-    // Public results — default missing visibility to 'PUBLIC'
     for (const item of publicResults.items) {
       if (seen.has(item.uuid)) continue
       seen.add(item.uuid)
@@ -277,7 +338,6 @@ function SearchResultsPageContent() {
       }
     }
 
-    // Sort owned items: private/unlisted before public
     owned.sort((a, b) => {
       const aPublic = a.visibility === 'PUBLIC' ? 1 : 0
       const bPublic = b.visibility === 'PUBLIC' ? 1 : 0
@@ -288,7 +348,6 @@ function SearchResultsPageContent() {
   }, [publicResults.items, privateResults.items, currentUserName])
 
   // --- Compute counts per filter ---
-  // Counts reflect the "Only Mine" constraint so they update when toggled
   const filterCounts = useMemo(() => {
     const baseItems = showMine && currentUserName
       ? mergedItems.filter((item) => item.owner === currentUserName)
@@ -332,16 +391,13 @@ function SearchResultsPageContent() {
     return mergedItems.filter((item) => {
       const isMine = currentUserName && item.owner === currentUserName
 
-      // "Only My Networks" — when ON, exclude everything not owned by me
       if (showMine && !isMine) return false
 
-      // Visibility filters apply to whatever remains
       const vis = item.visibility || 'PRIVATE'
       if (vis === 'PUBLIC' && !showPublic) return false
       if (vis === 'PRIVATE' && !showPrivate) return false
       if (vis === 'UNLISTED' && !showUnlisted) return false
 
-      // Type filters
       if (item.type === NDExFileType.NETWORK && !showNetworks) return false
       if (item.type === NDExFileType.FOLDER && !showFolders) return false
       if (item.type === NDExFileType.SHORTCUT && !showShortcuts) return false
@@ -360,19 +416,15 @@ function SearchResultsPageContent() {
     currentUserName,
   ])
 
-  // Split into folders and networks for display
   const { folders, networks } = useMemo(() => splitByType(filteredItems), [filteredItems])
 
-  // --- Loading / error state ---
   const isLoading = publicResults.isLoading || privateResults.isLoading
   const hasError = !!(publicResults.error || privateResults.error)
   const bothFailed = !!(publicResults.error && privateResults.error)
 
-  // --- "Load more" for public results (private is single-fetch) ---
   const hasMore = publicResults.hasMore
   const loadMore = publicResults.loadMore
 
-  // All search items for action callbacks
   const allSearchItems = mergedItems
 
   // Close dropdown on outside click
@@ -507,17 +559,17 @@ function SearchResultsPageContent() {
           Search &gt; &ldquo;{query}&rdquo;
         </div>
         <div className="flex items-center gap-3">
-                  <span className="text-sm text-muted-foreground">
-                    {filteredItems.length.toLocaleString()} of{' '}
-                    {mergedItems.length.toLocaleString()} results
-                  </span>
-                  <Link
-                    href={`/search?q=${encodeURIComponent(query)}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  >
-                    Return to original view
-                  </Link>
-                </div>
+          <span className="text-sm text-muted-foreground">
+            {filteredItems.length.toLocaleString()} of{' '}
+            {mergedItems.length.toLocaleString()} results
+          </span>
+          <Link
+            href={`/search?q=${encodeURIComponent(query)}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            Return to original view
+          </Link>
+        </div>
       </div>
 
       {/* Filter chips */}
@@ -607,7 +659,7 @@ function SearchResultsPageContent() {
                 type="button"
                 className="text-sm text-primary hover:underline mt-2"
                 onClick={() => {
-                  setShowMine(true)
+                  setShowMine(false)
                   setShowPublic(true)
                   setShowPrivate(true)
                   setShowUnlisted(true)
