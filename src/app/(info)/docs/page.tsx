@@ -4,43 +4,42 @@ import Link from 'next/link'
 
 export default function DocsPage() {
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12 space-y-12">
+    <div className="max-w-4xl mx-auto px-6 py-12 space-y-12">
       {/* Header */}
       <header className="space-y-3">
         <h1 className="text-4xl font-bold tracking-tight">
-          Documentation
+          Quick Start Guide
         </h1>
         <p className="text-muted-foreground">
-          Learn how to search, explore, and work with networks in NDEx
+          A step-by-step introduction to using NDEx
         </p>
         <p className="text-xs text-muted-foreground italic">
           Last updated: December 13, 2018
         </p>
       </header>
 
-      {/* Quick Start */}
+      {/* Intro */}
       <section className="space-y-4">
-        <h2 className="text-2xl font-semibold">Quick Start</h2>
         <p className="text-muted-foreground leading-relaxed">
-          Welcome to NDEx! This guide will help you quickly get familiar with
-          searching, viewing, and querying biological networks.
+          Welcome to NDEx! This guide walks you through how to search, explore,
+          and analyze biological networks.
         </p>
         <p className="text-muted-foreground">
-          Found an issue?{' '}
+          Need help or want to suggest improvements?{' '}
           <Link href="/contact" className="text-primary hover:underline">
             Contact us
-          </Link>{' '}
-          — we’d love your feedback.
+          </Link>
+          .
         </p>
       </section>
 
       {/* Search */}
       <section className="space-y-6">
         <h2 className="text-2xl font-semibold">
-          Searching Networks, Users, and Groups
+          1. Search for Networks, Users, and Groups
         </h2>
 
-        <p className="text-muted-foreground leading-relaxed">
+        <p className="text-muted-foreground">
           Public networks can be explored without signing in via the{' '}
           <a
             href="https://www.ndexbio.org"
@@ -53,66 +52,77 @@ export default function DocsPage() {
           .
         </p>
 
-        <div className="space-y-3">
-          <Step>
-            Enter a term like <strong>cell cycle</strong> into the search bar.
-          </Step>
-          <Step>
-            View results across networks, users, and groups in separate tabs.
-          </Step>
-          <Step>
-            Hover over a network name to preview its description.
-          </Step>
-          <Step>
-            Use <strong>Browse</strong> to explore all available content.
-          </Step>
-          <Step>
-            Try <strong>Search Examples</strong> for advanced queries.
-          </Step>
-        </div>
+        <StepList
+          steps={[
+            <>
+              Enter <strong>cell cycle</strong> in the search bar and press enter
+            </>,
+            <>Browse results across networks, users, and groups</>,
+            <>Hover a network name to preview its description</>,
+            <>Use <strong>Browse</strong> to explore all content</>,
+            <>
+              Try <strong>Search Examples</strong> for advanced queries
+            </>,
+          ]}
+        />
+
+        <ImagePlaceholder label="Search results page" />
       </section>
 
-      {/* Viewing */}
+      {/* View */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-semibold">Viewing a Network</h2>
+        <h2 className="text-2xl font-semibold">
+          2. View a Network
+        </h2>
 
-        <div className="p-5 rounded-xl border bg-muted/30 space-y-3">
-          <p className="text-muted-foreground">
-            Click any network to open its detail view.
-          </p>
-          <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-            <li>Inspect metadata and descriptions in the side panel</li>
-            <li>View references and network properties</li>
-            <li>Switch to table view using the <strong>Table</strong> button</li>
-          </ul>
-        </div>
+        <StepList
+          steps={[
+            <>Click any public network to open it</>,
+            <>Review metadata in the right-side panel</>,
+            <>Scroll to explore references and properties</>,
+            <>
+              Toggle <strong>Table</strong> view to switch layouts
+            </>,
+          ]}
+        />
+
+        <ImagePlaceholder label="Network viewer interface" />
       </section>
 
       {/* Query */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-semibold">Running a Query</h2>
+        <h2 className="text-2xl font-semibold">
+          3. Run a Query
+        </h2>
 
-        <p className="text-muted-foreground">
-          Use the query controls to explore relationships within a network.
-        </p>
+        <StepList
+          steps={[
+            <>Use the query input box</>,
+            <>Enter a term like <strong>akt</strong></>,
+            <>
+              Select <strong>1-step neighborhood</strong>
+            </>,
+            <>
+              Click <strong>Run Query</strong>
+            </>,
+          ]}
+        />
 
-        <div className="p-5 rounded-xl border bg-muted/30 space-y-2">
+        <div className="p-5 rounded-xl border bg-muted/30">
           <p className="text-sm text-muted-foreground">
-            Example:
-          </p>
-          <p className="text-sm">
-            Enter <strong>akt</strong> → choose{' '}
-            <strong>1-step neighborhood</strong> → click{' '}
-            <strong>Run Query</strong>
+            This will return a subnetwork showing related nodes and edges.
           </p>
         </div>
+
+        <ImagePlaceholder label="Query input panel" />
+        <ImagePlaceholder label="Query results network" />
       </section>
 
       {/* Resources */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-semibold">Additional Resources</h2>
+        <h2 className="text-2xl font-semibold">More Documentation</h2>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2">
           <DocLink
             title="User Manuals"
             links={[
@@ -129,16 +139,8 @@ export default function DocsPage() {
             links={[
               { label: 'Best Practices', href: 'https://home.ndexbio.org/readme-developers-best-practices/' },
               { label: 'NDEx API', href: 'https://home.ndexbio.org/using-the-ndex-server-api/' },
-              { label: 'OpenAPI (Swagger)', href: 'https://www.ndexbio.org/rest/swagger/index.html' },
+              { label: 'OpenAPI', href: 'https://www.ndexbio.org/rest/swagger/index.html' },
               { label: 'CX Data Model', href: 'https://home.ndexbio.org/data-model/' },
-            ]}
-          />
-
-          <DocLink
-            title="Releases & Legal"
-            links={[
-              { label: 'Release Notes', href: 'https://home.ndexbio.org/release-notes/' },
-              { label: 'License & Privacy', href: 'https://home.ndexbio.org/disclaimer-license/' },
             ]}
           />
         </div>
@@ -149,12 +151,28 @@ export default function DocsPage() {
 
 /* --- Components --- */
 
-function Step({ children }: { children: React.ReactNode }) {
+function StepList({ steps }: { steps: React.ReactNode[] }) {
   return (
-    <div className="flex gap-3">
-      <div className="mt-1 h-2 w-2 rounded-full bg-primary shrink-0" />
-      <p className="text-muted-foreground text-sm leading-relaxed">
-        {children}
+    <div className="space-y-3">
+      {steps.map((step, i) => (
+        <div key={i} className="flex gap-3">
+          <div className="text-xs font-medium text-primary mt-1">
+            {i + 1}.
+          </div>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            {step}
+          </p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ImagePlaceholder({ label }: { label: string }) {
+  return (
+    <div className="rounded-xl border bg-muted/20 p-6 text-center">
+      <p className="text-sm text-muted-foreground italic">
+        📷 {label} (screenshot placeholder)
       </p>
     </div>
   )
@@ -168,7 +186,7 @@ function DocLink({
   links: { label: string; href: string }[]
 }) {
   return (
-    <div className="rounded-xl border p-5 bg-card hover:shadow-sm transition">
+    <div className="rounded-xl border p-5 bg-card">
       <h3 className="font-semibold mb-3">{title}</h3>
       <ul className="space-y-2">
         {links.map((link) => (
