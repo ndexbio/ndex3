@@ -18,10 +18,10 @@ import { useState, useEffect } from 'react'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { useToast } from '@/lib/contexts/ToastContext'
-import { Pencil, KeyRound } from 'lucide-react'
+import { Pencil, KeyRound, Trash2 } from 'lucide-react'
 
 export default function SettingsPage() {
-  const { isAuthenticated, token, user, isInitializing, refreshUser } = useAuth()
+  const { isAuthenticated, token, user, isInitializing, refreshUser, logout } = useAuth()
   const config = useConfig()
   const { addToast } = useToast()
   const router = useRouter()
@@ -51,6 +51,11 @@ export default function SettingsPage() {
   })
   const [passwordError, setPasswordError] = useState('')
 
+  // Delete account dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+
   // Populate edit form when dialog opens
   useEffect(() => {
     if (editDialogOpen && user) {
@@ -72,6 +77,13 @@ export default function SettingsPage() {
       setPasswordError('')
     }
   }, [passwordDialogOpen])
+
+  // Reset delete form when dialog opens/closes
+  useEffect(() => {
+    if (!deleteDialogOpen) {
+      setDeleteConfirmText('')
+    }
+  }, [deleteDialogOpen])
 
   useEffect(() => {
     if (isInitializing) return
@@ -170,6 +182,38 @@ export default function SettingsPage() {
     }
   }
 
+  const handleDeleteAccount = async () => {
+    if (!user?.externalId || !user?.userName) return
+    if (deleteConfirmText !== user.userName) return
+
+    setIsDeleting(true)
+    try {
+      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+      await ndexClient.user.deleteUserAccount(user.externalId)
+
+      addToast({
+        title: 'Account deleted',
+        description: 'Your account has been permanently deleted',
+        type: 'success',
+        duration: 4000,
+      })
+      setDeleteDialogOpen(false)
+
+      // Log out after deletion
+      logout()
+    } catch (error: any) {
+      console.error('Error deleting account:', error)
+      addToast({
+        title: 'Delete failed',
+        description: error.message || 'Failed to delete account',
+        type: 'error',
+        duration: 4000,
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       {/* Profile Card */}
@@ -177,14 +221,6 @@ export default function SettingsPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Profile</CardTitle>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPasswordDialogOpen(true)}
-            >
-              <KeyRound className="h-4 w-4 mr-2" />
-              Change Password
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -261,8 +297,48 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Profile Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      {/* Account Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Account</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Change Password</p>
+              <p className="text-sm text-muted-foreground">
+                Update your account password
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPasswordDialogOpen(true)}
+            >
+              <KeyRound className="h-4 w-4 mr-2" />
+              Change Password
+            </Button>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Delete Account</p>
+              <p className="text-sm text-muted-foreground">
+                Permanently delete your account and all associated data
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Account
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Edit Profile Dialog */}      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Edit Profile</DialogTitle>
@@ -397,6 +473,47 @@ export default function SettingsPage() {
             </Button>
             <Button onClick={handleChangePassword} disabled={isChangingPassword}>
               {isChangingPassword ? 'Changing...' : 'Change'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Delete Account Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Delete Account</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              This will permanently delete your account, all your networks, folders, and shortcuts.
+              This action <span className="font-semibold text-foreground">cannot be undone</span>.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="deleteConfirm">
+                Type <span className="font-mono font-semibold">{user?.userName}</span> to confirm
+              </Label>
+              <Input
+                id="deleteConfirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={user?.userName || ''}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={isDeleting || deleteConfirmText !== user?.userName}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete my account'}
             </Button>
           </DialogFooter>
         </DialogContent>
