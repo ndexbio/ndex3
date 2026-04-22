@@ -1,11 +1,11 @@
 'use client'
-
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import Image from 'next/image'
 import { SearchBox } from './SearchBox'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
-import { User } from 'lucide-react'
+import { User, ChevronDown } from 'lucide-react'
 import { UserAvatar } from './UserAvatar'
 import { withBasePath } from '@/lib/utils/path-utils'
 import { ModeToggle } from './mode-toggle'
@@ -16,25 +16,34 @@ export function NavBar() {
   const { isAuthenticated, login } = useAuth()
   const basePath = useBasePath()
   const pathname = usePathname()
-  
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
+
   const handleLogin = () => {
-    // Check if user is on home page
-    // Since Next.js normalizes paths, when on /ndex3/ the pathname is just '/'
-    // So if we have a basePath, we should treat '/' as the home page
     const hasBasePath = Boolean(basePath)
-    const isOnHomePage = pathname === '/' || 
+    const isOnHomePage = pathname === '/' ||
                         (hasBasePath && pathname === `/${basePath}/`) ||
                         (hasBasePath && pathname === `/${basePath}`)
-    
-    console.log('🏠 NavBar login check:', { 
-      pathname, 
-      basePath, 
+    console.log('🏠 NavBar login check:', {
+      pathname,
+      basePath,
       hasBasePath,
       isOnHomePage,
-      'Current URL': window.location.href 
+      'Current URL': window.location.href
     })
     login(isOnHomePage)
   }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(event.target as Node)) {
+        setMoreOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background shadow-sm">
@@ -60,45 +69,67 @@ export function NavBar() {
           <div className="flex-1 px-4">
             <SearchBox />
           </div>
-
           {/* Nav Links */}
-          <nav className="hidden md:flex items-center gap-4 ml-6">
+          <nav className="hidden md:flex items-center gap-1 ml-6">
             <Link
-              href="https://home.ndexbio.org/about-ndex/"
-              className="text-m font-medium px-2.5 py-1.5 rounded hover:bg-muted"
+              href="/about"
+              className="text-sm font-medium px-2.5 py-1.5 rounded hover:bg-muted"
             >
               About
             </Link>
             <Link
-              href="https://home.ndexbio.org/quick-start/"
-              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-muted"
+              href="/docs"
+              className="text-sm font-medium px-2.5 py-1.5 rounded hover:bg-muted"
             >
               Docs
             </Link>
             <Link
-              href="https://home.ndexbio.org/report-a-bug/"
-              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-muted"
-            >
-              Report Bug
-            </Link>
-            <Link
-              href="https://home.ndexbio.org/contact-us/"
-              className="text-m font-medium px-2.5 py-1.5 rounded hover:bg-muted"
-            >
-              Contact Us
-            </Link>
-            <Link
-              href="https://home.ndexbio.org/about-ndex/#cite_NDEx"
-              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-muted"
-            >
-              Cite Us
-            </Link>
-            <Link
-              href="https://home.ndexbio.org/faq/"
-              className="text-m font-medium px-2.5 py-1.5  rounded hover:bg-muted"
+              href="/faq"
+              className="text-sm font-medium px-2.5 py-1.5 rounded hover:bg-muted"
             >
               FAQ
             </Link>
+            {/* More dropdown */}
+            <div className="relative" ref={moreRef}>
+              <button
+                onClick={() => setMoreOpen(!moreOpen)}
+                className="flex items-center gap-1 text-sm font-medium px-2.5 py-1.5 rounded hover:bg-muted"
+              >
+                More
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                    moreOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+              {moreOpen && (
+                <div className="absolute top-full right-0 mt-1 w-44 rounded-md border bg-popover shadow-md z-50">
+                  <div className="py-1">
+                    <Link
+                      href="/contact"
+                      onClick={() => setMoreOpen(false)}
+                      className="block px-3 py-2 text-sm hover:bg-muted rounded-sm mx-1"
+                    >
+                      Contact Us
+                    </Link>
+                    <Link
+                      href="/report-bug"
+                      onClick={() => setMoreOpen(false)}
+                      className="block px-3 py-2 text-sm hover:bg-muted rounded-sm mx-1"
+                    >
+                      Report Bug
+                    </Link>
+                    <Link
+                      href="/about#cite"
+                      onClick={() => setMoreOpen(false)}
+                      className="block px-3 py-2 text-sm hover:bg-muted rounded-sm mx-1"
+                    >
+                      Cite NDEx
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
           </nav>
         </div>
         {isAuthenticated ? (
