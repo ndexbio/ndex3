@@ -63,7 +63,7 @@ function InlineError({
   )
 }
 
-// --- Filter chip component ---
+// --- Filter chip component (blue when active) ---
 function FilterChip({
   label,
   active,
@@ -84,7 +84,7 @@ function FilterChip({
         border transition-colors duration-150 select-none
         ${
           active
-            ? 'bg-primary text-primary-foreground border-primary'
+            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
             : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground'
         }
       `}
@@ -94,7 +94,7 @@ function FilterChip({
         <span
           className={`
             tabular-nums
-            ${active ? 'text-primary-foreground/70' : 'text-muted-foreground/70'}
+            ${active ? 'text-white/70' : 'text-muted-foreground/70'}
           `}
         >
           {count.toLocaleString()}
@@ -104,7 +104,7 @@ function FilterChip({
   )
 }
 
-// --- Type filter dropdown chip ---
+// --- Type filter dropdown chip (blue when active) ---
 function TypeFilterChip({
   showNetworks,
   showFolders,
@@ -157,16 +157,16 @@ function TypeFilterChip({
           border transition-colors duration-150 select-none
           ${
             allActive
-              ? 'bg-primary text-primary-foreground border-primary'
+              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
               : noneActive
               ? 'bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground'
-              : 'bg-primary/80 text-primary-foreground border-primary/80'
+              : 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600'
           }
         `}
       >
-        Type
+        File Type
         {!allActive && !noneActive && (
-          <span className="text-primary-foreground/70">{activeCount}/3</span>
+          <span className="text-white/70">{activeCount}/3</span>
         )}
         <svg
           className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`}
@@ -191,11 +191,11 @@ function TypeFilterChip({
               <div
                 className={`
                   h-4 w-4 rounded border flex items-center justify-center shrink-0
-                  ${opt.active ? 'bg-primary border-primary' : 'border-muted-foreground/40'}
+                  ${opt.active ? 'bg-blue-600 border-blue-600' : 'border-muted-foreground/40'}
                 `}
               >
                 {opt.active && (
-                  <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 )}
@@ -218,7 +218,6 @@ function syncFiltersToUrl(
   showMine: boolean,
   showPublic: boolean,
   showPrivate: boolean,
-  showUnlisted: boolean,
   showNetworks: boolean,
   showFolders: boolean,
   showShortcuts: boolean,
@@ -227,12 +226,11 @@ function syncFiltersToUrl(
   if (query) parts.push(`q=${encodeURIComponent(query)}`)
   if (showMine) parts.push('mine=1')
 
-  const allVisOn = showPublic && showPrivate && showUnlisted
+  const allVisOn = showPublic && showPrivate
   if (!allVisOn) {
     const vis: string[] = []
     if (showPublic) vis.push('public')
     if (showPrivate) vis.push('private')
-    if (showUnlisted) vis.push('unlisted')
     if (vis.length > 0) parts.push(`vis=${vis.join(',')}`)
   }
 
@@ -269,9 +267,6 @@ function SearchResultsPageContent() {
   const [showPrivate, setShowPrivate] = useState(() =>
     urlVis !== null ? urlVis.split(',').includes('private') : true
   )
-  const [showUnlisted, setShowUnlisted] = useState(() =>
-    urlVis !== null ? urlVis.split(',').includes('unlisted') : true
-  )
   const [showNetworks, setShowNetworks] = useState(() =>
     urlType !== null ? urlType.split(',').includes('networks') : true
   )
@@ -291,8 +286,8 @@ function SearchResultsPageContent() {
       isFirstRender.current = false
       return
     }
-    syncFiltersToUrl(query, showMine, showPublic, showPrivate, showUnlisted, showNetworks, showFolders, showShortcuts)
-  }, [query, showMine, showPublic, showPrivate, showUnlisted, showNetworks, showFolders, showShortcuts])
+    syncFiltersToUrl(query, showMine, showPublic, showPrivate, showNetworks, showFolders, showShortcuts)
+  }, [query, showMine, showPublic, showPrivate, showNetworks, showFolders, showShortcuts])
 
   // --- Dropdown state ---
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
@@ -306,16 +301,12 @@ function SearchResultsPageContent() {
   const currentUserName = user?.userName || null
 
   // --- Merge and deduplicate results ---
-  // Order: user's own items first, then other private/unlisted, then public.
-  // Dedupe by UUID since a user's own public networks appear in both result sets.
-  // Normalize visibility so items without it get the correct default.
   const mergedItems = useMemo(() => {
     const seen = new Set<string>()
     const owned: FileItemBase[] = []
     const otherPrivate: FileItemBase[] = []
     const pub: FileItemBase[] = []
 
-    // Private/unlisted results — default missing visibility to 'PRIVATE'
     for (const item of privateResults.items) {
       if (seen.has(item.uuid)) continue
       seen.add(item.uuid)
@@ -348,6 +339,7 @@ function SearchResultsPageContent() {
   }, [publicResults.items, privateResults.items, currentUserName])
 
   // --- Compute counts per filter ---
+  // "Private" count includes PRIVATE + UNLISTED
   const filterCounts = useMemo(() => {
     const baseItems = showMine && currentUserName
       ? mergedItems.filter((item) => item.owner === currentUserName)
@@ -356,7 +348,6 @@ function SearchResultsPageContent() {
     let mine = 0
     let pub = 0
     let priv = 0
-    let unlisted = 0
     let networkCount = 0
     let folderCount = 0
     let shortcutCount = 0
@@ -366,9 +357,9 @@ function SearchResultsPageContent() {
     }
 
     for (const item of baseItems) {
-      if (item.visibility === 'PUBLIC') pub++
-      else if (item.visibility === 'PRIVATE') priv++
-      else if (item.visibility === 'UNLISTED') unlisted++
+      const vis = item.visibility || 'PRIVATE'
+      if (vis === 'PUBLIC') pub++
+      else priv++ // PRIVATE and UNLISTED both count as private
 
       if (item.type === NDExFileType.NETWORK) networkCount++
       else if (item.type === NDExFileType.FOLDER) folderCount++
@@ -379,7 +370,6 @@ function SearchResultsPageContent() {
       mine,
       public: pub,
       private: priv,
-      unlisted,
       networks: networkCount,
       folders: folderCount,
       shortcuts: shortcutCount,
@@ -395,8 +385,7 @@ function SearchResultsPageContent() {
 
       const vis = item.visibility || 'PRIVATE'
       if (vis === 'PUBLIC' && !showPublic) return false
-      if (vis === 'PRIVATE' && !showPrivate) return false
-      if (vis === 'UNLISTED' && !showUnlisted) return false
+      if ((vis === 'PRIVATE' || vis === 'UNLISTED') && !showPrivate) return false
 
       if (item.type === NDExFileType.NETWORK && !showNetworks) return false
       if (item.type === NDExFileType.FOLDER && !showFolders) return false
@@ -409,7 +398,6 @@ function SearchResultsPageContent() {
     showMine,
     showPublic,
     showPrivate,
-    showUnlisted,
     showNetworks,
     showFolders,
     showShortcuts,
@@ -574,13 +562,20 @@ function SearchResultsPageContent() {
 
       {/* Filter chips */}
       <div className="flex items-center gap-2 mb-4 shrink-0 flex-wrap">
+        {/* Only Mine checkbox */}
         {isAuthenticated && currentUserName && (
-          <FilterChip
-            label="Only Mine"
-            active={showMine}
-            count={filterCounts.mine}
-            onClick={() => setShowMine(!showMine)}
-          />
+          <label
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+            title="When checked, only show networks you own. When unchecked, show all networks."
+          >
+            <input
+              type="checkbox"
+              checked={showMine}
+              onChange={() => setShowMine(!showMine)}
+              className="h-3.5 w-3.5 rounded border-border accent-blue-600"
+            />
+            Only mine
+          </label>
         )}
         <FilterChip
           label="Public"
@@ -589,20 +584,12 @@ function SearchResultsPageContent() {
           onClick={() => setShowPublic(!showPublic)}
         />
         {isAuthenticated && (
-          <>
-            <FilterChip
-              label="Private"
-              active={showPrivate}
-              count={filterCounts.private}
-              onClick={() => setShowPrivate(!showPrivate)}
-            />
-            <FilterChip
-              label="Unlisted"
-              active={showUnlisted}
-              count={filterCounts.unlisted}
-              onClick={() => setShowUnlisted(!showUnlisted)}
-            />
-          </>
+          <FilterChip
+            label="Private"
+            active={showPrivate}
+            count={filterCounts.private}
+            onClick={() => setShowPrivate(!showPrivate)}
+          />
         )}
         <TypeFilterChip
           showNetworks={showNetworks}
@@ -619,7 +606,7 @@ function SearchResultsPageContent() {
         />
 
         {/* Reset filters — only show when something differs from defaults */}
-        {(showMine || !showPublic || !showPrivate || !showUnlisted ||
+        {(showMine || !showPublic || !showPrivate ||
           !showNetworks || !showFolders || !showShortcuts || hasColumnSort) && (
           <button
             type="button"
@@ -628,7 +615,6 @@ function SearchResultsPageContent() {
               setShowMine(false)
               setShowPublic(true)
               setShowPrivate(true)
-              setShowUnlisted(true)
               setShowNetworks(true)
               setShowFolders(true)
               setShowShortcuts(true)
@@ -662,7 +648,6 @@ function SearchResultsPageContent() {
                   setShowMine(false)
                   setShowPublic(true)
                   setShowPrivate(true)
-                  setShowUnlisted(true)
                   setShowNetworks(true)
                   setShowFolders(true)
                   setShowShortcuts(true)
