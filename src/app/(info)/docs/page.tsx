@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import DocsFooter from './components/DocsFooter'
 
 export default function DocsPage() {
   return (
@@ -119,32 +120,7 @@ export default function DocsPage() {
       </section>
 
       {/* Resources */}
-      <section className="space-y-6">
-        <h2 className="text-2xl font-semibold">More Documentation</h2>
-
-        <div className="grid gap-6 sm:grid-cols-2">
-          <DocLink
-            title="User Manuals"
-            links={[
-              { label: 'Creating an Account', href: 'https://home.ndexbio.org/create-an-ndex-account/' },
-              { label: 'Finding and Querying', href: 'https://home.ndexbio.org/finding-and-querying-networks/' },
-              { label: 'Uploading and Sharing', href: 'https://home.ndexbio.org/sharing-and-accessing-networks/' },
-              { label: 'Groups', href: 'https://home.ndexbio.org/creating-and-using-groups/' },
-              { label: 'Publishing', href: 'https://home.ndexbio.org/publishing-in-ndex/' },
-            ]}
-          />
-
-          <DocLink
-            title="Developers"
-            links={[
-              { label: 'Best Practices', href: 'https://home.ndexbio.org/readme-developers-best-practices/' },
-              { label: 'NDEx API', href: 'https://home.ndexbio.org/using-the-ndex-server-api/' },
-              { label: 'OpenAPI', href: 'https://www.ndexbio.org/rest/swagger/index.html' },
-              { label: 'CX Data Model', href: 'https://home.ndexbio.org/data-model/' },
-            ]}
-          />
-        </div>
-      </section>
+      <DocsFooter />
     </div>
   )
 }
@@ -191,14 +167,23 @@ function DocLink({
       <ul className="space-y-2">
         {links.map((link) => (
           <li key={link.href}>
-            <a
-              href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-primary hover:underline"
-            >
-              {link.label}
-            </a>
+            {link.href.startsWith('http') ? (
+              <a
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline"
+              >
+                {link.label}
+              </a>
+            ) : (
+              <Link
+                href={link.href}
+                className="text-sm text-primary hover:underline"
+              >
+                {link.label}
+              </Link>
+            )}
           </li>
         ))}
       </ul>
