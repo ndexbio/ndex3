@@ -712,19 +712,6 @@ function SearchResultsPageContent() {
             <SearchEmptyState type="no-results" query={query} />
           )
         ) : (
-            <>
-                        {(() => {
-                          console.log('search debug:', {
-                            currentUserName,
-                            sampleItem: filteredItems[0],
-                            sampleOwner: filteredItems[0]?.owner,
-                            unavailableShortcuts: filteredItems.filter(
-                              (i) => i.type === NDExFileType.SHORTCUT &&
-                                     (i.attributes?.target_status === 'IN_TRASH' || i.attributes?.target_status === 'DELETED')
-                            ),
-                          })
-                          return null
-                        })()}
           <DndProvider backend={HTML5Backend}>
             {folders.length > 0 && (
               <FoldersList
@@ -766,7 +753,7 @@ function SearchResultsPageContent() {
                 </Button>
               </div>
             )}
-          </DndProvider> </>
+          </DndProvider>
         )}
       </div>
 
