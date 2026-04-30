@@ -17,7 +17,9 @@ const DOCS: Record<string, React.FC> = {
   'using-the-ndex-api': NdexApi,
   'data-model': Model
 }
-
+export function generateStaticParams() {
+  return Object.keys(DOCS).map((slug) => ({ slug }))
+}
 export default async function DocPage({
   params,
 }: {

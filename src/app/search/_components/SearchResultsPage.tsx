@@ -442,6 +442,7 @@ function SearchResultsPageContent() {
     [openDropdownId, dropdownType],
   )
 
+
   const handleCloseDropdown = useCallback(() => {
     setOpenDropdownId(null)
     setDropdownType(null)
@@ -549,6 +550,30 @@ function SearchResultsPageContent() {
   const handleShareSuccess = useCallback(() => {
     void handleRefreshSearchResults()
   }, [handleRefreshSearchResults])
+
+    const handleRemoveShortcut = useCallback(
+      async (shortcutId: string) => {
+        try {
+          const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+          await ndexClient.files.deleteShortcut(shortcutId)
+          addToast({
+            title: 'Shortcut removed',
+            description: 'The shortcut has been removed',
+            type: 'success',
+            duration: 3000,
+          })
+          await handleRefreshSearchResults()
+        } catch (error) {
+          addToast({
+            title: 'Error',
+            description: 'Failed to remove shortcut',
+            type: 'error',
+            duration: 4000,
+          })
+        }
+      },
+      [config.ndexBaseUrl, token, addToast, handleRefreshSearchResults],
+    )
 
   // Add to history when query changes
   useEffect(() => {
@@ -687,6 +712,19 @@ function SearchResultsPageContent() {
             <SearchEmptyState type="no-results" query={query} />
           )
         ) : (
+            <>
+                        {(() => {
+                          console.log('search debug:', {
+                            currentUserName,
+                            sampleItem: filteredItems[0],
+                            sampleOwner: filteredItems[0]?.owner,
+                            unavailableShortcuts: filteredItems.filter(
+                              (i) => i.type === NDExFileType.SHORTCUT &&
+                                     (i.attributes?.target_status === 'IN_TRASH' || i.attributes?.target_status === 'DELETED')
+                            ),
+                          })
+                          return null
+                        })()}
           <DndProvider backend={HTML5Backend}>
             {folders.length > 0 && (
               <FoldersList
@@ -700,6 +738,7 @@ function SearchResultsPageContent() {
                 defaultSort={{ field: null, direction: null }}
                 onSortChange={handleSortChange}
                 onDropdownToggle={handleDropdownToggle}
+                onRemoveShortcut={handleRemoveShortcut}
               />
             )}
             <NetworksList
@@ -713,6 +752,7 @@ function SearchResultsPageContent() {
               defaultSort={{ field: null, direction: null }}
               onSortChange={handleSortChange}
               onDropdownToggle={handleDropdownToggle}
+              onRemoveShortcut={handleRemoveShortcut}
             />
             {isLoading && (
               <div className="text-center py-4 text-muted-foreground text-sm">
@@ -726,7 +766,7 @@ function SearchResultsPageContent() {
                 </Button>
               </div>
             )}
-          </DndProvider>
+          </DndProvider> </>
         )}
       </div>
 

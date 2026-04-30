@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
   MoreVertical,
   ArrowUp,
@@ -54,6 +54,18 @@ const getUnavailableShortcutMessage = (item: FileItemBase): string => {
 const getUnavailableTextClass = (isUnavailable: boolean) =>
   isUnavailable ? "text-muted-foreground opacity-60" : "text-foreground"
 
+// Helper function to check if the current user owns this item.
+// Mirrors the pattern used in SearchResultsPage:
+//   const isMine = currentUserName && item.owner === currentUserName
+const isOwner = (item: FileItemBase, currentUserName: string | null): boolean => {
+  if (!currentUserName) return false
+  return item.owner === currentUserName
+}
+
+// Sort direction type (also accepts null for "unsorted" defaults)
+type SortField = 'name' | 'modificationTime' | null
+type SortDirection = 'asc' | 'desc' | null
+
 // Props for the component
 interface FoldersListProps {
   folders: FileItemBase[]
@@ -80,19 +92,17 @@ interface FoldersListProps {
   ) => void
   onRemoveShortcut?: (shortcutId: string) => Promise<void>
   defaultSort?: {
-    field: 'name' | 'modificationTime'
-    direction: 'asc' | 'desc'
+    field: SortField
+    direction: SortDirection
   }
   sortable?: boolean
+  onSortChange?: (field: SortField) => void
 }
 
 
 
 // Extended folder item with additional properties we might have
 interface FolderItem extends FileItemBase {}
-
-// Sort direction type
-type SortDirection = 'asc' | 'desc' | null
 
 // Single folder grid item component
 const GridFolderItem = ({
@@ -105,6 +115,7 @@ const GridFolderItem = ({
   onDropdownToggle,
   onRemoveShortcut,
   readOnly,
+  currentUserName,
 }: {
   folder: FolderItem
   index: number
@@ -125,9 +136,12 @@ const GridFolderItem = ({
   ) => void
   onRemoveShortcut?: (shortcutId: string) => Promise<void>
   readOnly?: boolean
+  currentUserName: string | null
 }) => {
   const isSelected = selectedItems.includes(folder.uuid)
   const isUnavailable = isUnavailableShortcut(folder)
+  const userOwns = isOwner(folder, currentUserName)
+  const showRemoveButton = isUnavailable && !!onRemoveShortcut && userOwns
 
   // Drop target for any DRIVE_ITEM (only if not read-only and onDrop is provided, and folder is not an unavailable shortcut)
   const [{ isOver }, drop] = useDrop({
@@ -199,7 +213,7 @@ const GridFolderItem = ({
             />
           )}
         </div>
-        {isUnavailable && onRemoveShortcut ? (
+        {showRemoveButton ? (
           <button
             className="px-2 py-1 text-xs font-medium text-destructive hover:text-destructive/80
                        border border-destructive/20 hover:border-destructive/40 rounded-md
@@ -207,7 +221,7 @@ const GridFolderItem = ({
             onClick={async (e) => {
               e.stopPropagation()
               try {
-                await onRemoveShortcut(folder.uuid)
+                await onRemoveShortcut!(folder.uuid)
               } catch (error) {
                 console.error('Error removing shortcut:', error)
               }
@@ -259,6 +273,7 @@ const ListFolderItem = ({
   showVisibilityColumn,
   showPermissionColumn,
   readOnly,
+  currentUserName,
 }: {
   folder: FolderItem
   tabState?: MyAccountTabType
@@ -283,9 +298,12 @@ const ListFolderItem = ({
   showVisibilityColumn?: boolean
   showPermissionColumn?: boolean
   readOnly?: boolean
+  currentUserName: string | null
 }) => {
   const isSelected = selectedItems.includes(folder.uuid)
   const isUnavailable = isUnavailableShortcut(folder)
+  const userOwns = isOwner(folder, currentUserName)
+  const showRemoveButton = isUnavailable && !!onRemoveShortcut && userOwns
 
   // For list view, we'll make the name cell both draggable and a drop target
   // Disable drop for unavailable shortcuts
@@ -391,7 +409,7 @@ const ListFolderItem = ({
       {showVisibilityColumn !== false && (
         <td className={getTdClasses('center')}>
           <div className="flex justify-center w-full">
-            {isUnavailable && onRemoveShortcut ? (
+            {showRemoveButton ? (
               <button
                 className="px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300
                            border border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700 rounded-md
@@ -399,7 +417,7 @@ const ListFolderItem = ({
                 onClick={async (e) => {
                   e.stopPropagation()
                   try {
-                    await onRemoveShortcut(folder.uuid)
+                    await onRemoveShortcut!(folder.uuid)
                   } catch (error) {
                     console.error('Error removing shortcut:', error)
                   }
@@ -407,6 +425,9 @@ const ListFolderItem = ({
               >
                 Remove shortcut
               </button>
+            ) : isUnavailable ? (
+              // Non-owner viewing a dead shortcut: nothing in the visibility cell
+              null
             ) : (
               <span
                 className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
@@ -472,14 +493,19 @@ const FoldersList: React.FC<FoldersListProps> = ({
   onRemoveShortcut,
   defaultSort = { field: 'modificationTime', direction: 'desc' },
   sortable = true,
+  onSortChange,
 }) => {
   const router = useRouter()
   const config = useConfig()
-  const { token } = useAuth()
-  const [sortField, setSortField] = useState<
-    'name' | 'modificationTime' | null
-  >(defaultSort.field)
+  const { token, user } = useAuth()
+  const currentUserName = user?.userName || null
+  const [sortField, setSortField] = useState<SortField>(defaultSort.field)
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSort.direction)
+
+  // Notify parent when active sort field changes (e.g. for "Reset" button visibility in search)
+  useEffect(() => {
+    onSortChange?.(sortField)
+  }, [sortField, onSortChange])
 
   // Handle double click on folder to navigate into it
   const handleFolderDoubleClick = useCallback(
@@ -492,7 +518,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
         const folderItem = folders.find((folder) => folder.uuid === folderId)
 
         if (folderItem) {
-          // Don't navigate for unavailable shortcuts
+          // Don't navigate for unavailable shortcuts (target trashed or deleted)
           if (isUnavailableShortcut(folderItem)) {
             return
           }
@@ -526,13 +552,13 @@ const FoldersList: React.FC<FoldersListProps> = ({
   const handleSortClick = (field: 'name' | 'modificationTime') => {
     // If clicking on the same field, toggle direction
     if (sortField === field) {
-      setSortDirection(
+      const nextDirection: SortDirection =
         sortDirection === 'asc'
           ? 'desc'
           : sortDirection === 'desc'
           ? null
-          : 'asc',
-      )
+          : 'asc'
+      setSortDirection(nextDirection)
       if (sortDirection === 'desc') {
         setSortField(null)
       }
@@ -634,6 +660,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
               onDropdownToggle={onDropdownToggle}
               onRemoveShortcut={onRemoveShortcut}
               readOnly={readOnly}
+              currentUserName={currentUserName}
             />
           ))}
         </div>
@@ -734,6 +761,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
                   showVisibilityColumn={showVisibilityColumn}
                   showPermissionColumn={showPermissionColumn}
                   readOnly={readOnly}
+                  currentUserName={currentUserName}
                 />
               ))}
             </tbody>

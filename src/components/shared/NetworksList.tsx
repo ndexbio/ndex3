@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   MoreVertical,
   ArrowUp,
@@ -30,6 +30,10 @@ const formatPermission = (permission?: Permission): string => {
   return permission === Permission.WRITE ? 'EDIT' : permission
 }
 
+// Sort direction type (also accepts null for "unsorted" defaults)
+type SortField = 'name' | 'modificationTime' | null
+type SortDirection = 'asc' | 'desc' | null
+
 // Props for the component
 interface NetworksListProps {
   items: FileItemBase[]
@@ -54,10 +58,11 @@ interface NetworksListProps {
   ) => void
   onRemoveShortcut?: (shortcutId: string) => Promise<void>
   defaultSort?: {
-    field: 'name' | 'modificationTime'
-    direction: 'asc' | 'desc'
+    field: SortField
+    direction: SortDirection
   }
   sortable?: boolean
+  onSortChange?: (field: SortField) => void
 }
 
 
@@ -86,6 +91,14 @@ const getUnavailableShortcutMessage = (item: FileItemBase): string => {
 // Helper function to get text styling for unavailable shortcuts
 const getUnavailableTextClass = (isUnavailable: boolean) =>
   isUnavailable ? "text-muted-foreground opacity-60" : "text-foreground"
+
+// Helper function to check if the current user owns this item.
+// Mirrors the pattern used in SearchResultsPage:
+//   const isMine = currentUserName && item.owner === currentUserName
+const isOwner = (item: FileItemBase, currentUserName: string | null): boolean => {
+  if (!currentUserName) return false
+  return item.owner === currentUserName
+}
 
 // Helper function to check if network has DOI (and it's not pending)
 const hasValidDOI = (network: FileItemBase): boolean => {
@@ -118,9 +131,6 @@ const hasNetworkWarnings = (network: FileItemBase): boolean => {
 
 // Use shared network status utilities
 
-// Sort direction type
-type SortDirection = 'asc' | 'desc' | null
-
 // Single network grid item component
 const GridNetworkItem = ({
   network,
@@ -133,6 +143,7 @@ const GridNetworkItem = ({
   onWarningClick,
   onErrorClick,
   readOnly,
+  currentUserName,
 }: {
   network: NetworkItem
   index: number
@@ -154,9 +165,12 @@ const GridNetworkItem = ({
   onWarningClick: (network: FileItemBase) => void
   onErrorClick: (network: FileItemBase) => void
   readOnly?: boolean
+  currentUserName: string | null
 }) => {
   const isSelected = selectedItems.includes(network.uuid)
   const isUnavailable = isUnavailableShortcut(network)
+  const userOwns = isOwner(network, currentUserName)
+  const showRemoveButton = isUnavailable && !!onRemoveShortcut && userOwns
 
   // Create drag source for network items (only if not read-only)
   const [{ isDragging }, drag] = useDrag({
@@ -212,7 +226,7 @@ const GridNetworkItem = ({
             />
           )}
         </div>
-        {isUnavailable && onRemoveShortcut ? (
+        {showRemoveButton ? (
           <button
             className="px-2 py-1 text-xs font-medium text-destructive hover:text-destructive/80
                        border border-destructive/20 hover:border-destructive/40 rounded-md
@@ -220,7 +234,7 @@ const GridNetworkItem = ({
             onClick={async (e) => {
               e.stopPropagation()
               try {
-                await onRemoveShortcut(network.uuid)
+                await onRemoveShortcut!(network.uuid)
               } catch (error) {
                 console.error('Error removing shortcut:', error)
               }
@@ -281,6 +295,7 @@ const ListNetworkItem = ({
   showVisibilityColumn,
   showPermissionColumn,
   readOnly,
+  currentUserName,
 }: {
   network: NetworkItem
   tabState?: MyAccountTabType
@@ -306,9 +321,12 @@ const ListNetworkItem = ({
   showVisibilityColumn?: boolean
   showPermissionColumn?: boolean
   readOnly?: boolean
+  currentUserName: string | null
 }) => {
   const isSelected = selectedItems.includes(network.uuid)
   const isUnavailable = isUnavailableShortcut(network)
+  const userOwns = isOwner(network, currentUserName)
+  const showRemoveButton = isUnavailable && !!onRemoveShortcut && userOwns
 
   // For list view, we need to handle refs differently
   // Same approach as FoldersList - make the entire row draggable
@@ -416,7 +434,7 @@ const ListNetworkItem = ({
       {showVisibilityColumn && (
         <td className={getTdClasses('center')}>
           <div className="flex justify-center w-full">
-            {isUnavailable && onRemoveShortcut ? (
+            {showRemoveButton ? (
               <button
                 className="px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300
                            border border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700 rounded-md
@@ -424,7 +442,7 @@ const ListNetworkItem = ({
                 onClick={async (e) => {
                   e.stopPropagation()
                   try {
-                    await onRemoveShortcut(network.uuid)
+                    await onRemoveShortcut!(network.uuid)
                   } catch (error) {
                     console.error('Error removing shortcut:', error)
                   }
@@ -432,6 +450,9 @@ const ListNetworkItem = ({
               >
                 Remove shortcut
               </button>
+            ) : isUnavailable ? (
+              // Non-owner viewing a dead shortcut: nothing in the visibility cell
+              null
             ) : (
               <span
                 className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
@@ -492,14 +513,19 @@ const NetworksList: React.FC<NetworksListProps> = ({
   onRemoveShortcut,
   defaultSort = { field: 'modificationTime', direction: 'desc' },
   sortable = true,
+  onSortChange,
 }) => {
   const router = useRouter()
   const config = useConfig()
-  const { token } = useAuth()
-  const [sortField, setSortField] = useState<
-    'name' | 'modificationTime' | null
-  >(defaultSort.field)
+  const { token, user } = useAuth()
+  const currentUserName = user?.userName || null
+  const [sortField, setSortField] = useState<SortField>(defaultSort.field)
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSort.direction)
+
+  // Notify parent when active sort field changes (e.g. for "Reset" button visibility in search)
+  useEffect(() => {
+    onSortChange?.(sortField)
+  }, [sortField, onSortChange])
 
   // Dialog state for warnings and errors
   const [dialogState, setDialogState] = useState<{
@@ -521,6 +547,11 @@ const handleNetworkDoubleClick = useCallback(
       event.stopPropagation()
 
       const networkItem = items.find((item) => item.uuid === networkId)
+
+      // Don't open dead shortcuts (target trashed or deleted)
+      if (networkItem && isUnavailableShortcut(networkItem)) {
+        return
+      }
 
       // If it's a shortcut, resolve the target UUID from attributes
       if (networkItem?.type === NDExFileType.SHORTCUT) {
@@ -586,13 +617,13 @@ const handleNetworkDoubleClick = useCallback(
   const handleSortClick = (field: 'name' | 'modificationTime') => {
     // If clicking on the same field, toggle direction
     if (sortField === field) {
-      setSortDirection(
+      const nextDirection: SortDirection =
         sortDirection === 'asc'
           ? 'desc'
           : sortDirection === 'desc'
           ? null
-          : 'asc',
-      )
+          : 'asc'
+      setSortDirection(nextDirection)
       if (sortDirection === 'desc') {
         setSortField(null)
       }
@@ -685,6 +716,7 @@ const handleNetworkDoubleClick = useCallback(
               onWarningClick={handleWarningClick}
               onErrorClick={handleErrorClick}
               readOnly={readOnly}
+              currentUserName={currentUserName}
             />
           ))}
         </div>
@@ -793,6 +825,7 @@ const handleNetworkDoubleClick = useCallback(
                   showVisibilityColumn={showVisibilityColumn}
                   showPermissionColumn={showPermissionColumn}
                   readOnly={readOnly}
+                  currentUserName={currentUserName}
                 />
               ))}
             </tbody>
