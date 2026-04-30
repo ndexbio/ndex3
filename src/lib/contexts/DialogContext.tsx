@@ -9,7 +9,6 @@ import RenameShortcutDialog from '@/app/my-account/_components/RenameShortcutDia
 import CreateDOIDialog from '@/app/my-account/_components/CreateDOIDialog'
 import ShareDialog from '@/components/dialogs/ShareDialog'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
-import { useFolderContents } from '@/hooks/use-folder'
 import { useNetworkOperation } from '@/hooks/use-network-operation'
 import { ShareableItem } from '@/types/sharing'
 import { Visibility } from '@js4cytoscape/ndex-client'
@@ -19,6 +18,7 @@ interface DialogContextType {
     folderId: string,
     currentName: string,
     parentFolderId: string,
+    onSuccess?: () => void,
   ) => void
   openMoveFolderDialog: (
     itemsToMove: string[],
@@ -27,11 +27,11 @@ interface DialogContextType {
     currentFolderName: string | undefined,
     onMoveComplete: () => Promise<void>,
   ) => void
-  openEditNetworkPropertiesDialog: (networkId: string) => void
-  openEditFolderPropertiesDialog: (folderId: string) => void
-  openRenameShortcutDialog: (shortcutId: string) => void
-  openCreateDOIDialog: (networkId: string) => void
-  openShareDialog: (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => void
+  openEditNetworkPropertiesDialog: (networkId: string, onSuccess?: () => void) => void
+  openEditFolderPropertiesDialog: (folderId: string, onSuccess?: () => void) => void
+  openRenameShortcutDialog: (shortcutId: string, onSuccess?: () => void) => void
+  openCreateDOIDialog: (networkId: string, onSuccess?: () => void) => void
+  openShareDialog: (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => void
 }
 
 const DialogContext = createContext<DialogContextType | undefined>(undefined)
@@ -53,6 +53,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     folderId: string
     currentName: string
     parentFolderId: string
+    onSuccess?: () => void
   }>({
     isOpen: false,
     folderId: '',
@@ -78,13 +79,11 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
   })
 
   // Edit network properties dialog state
-  const [
-    editNetworkPropertiesDialogProps,
-    setEditNetworkPropertiesDialogProps,
-  ] = useState<{
+  const [editNetworkPropertiesDialogProps, setEditNetworkPropertiesDialogProps] = useState<{
     isOpen: boolean
     networkId: string
     network: any | null
+    onSuccess?: () => void
   }>({
     isOpen: false,
     networkId: '',
@@ -92,24 +91,20 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
   })
 
   // Edit folder properties dialog state
-  const [
-    editFolderPropertiesDialogProps,
-    setEditFolderPropertiesDialogProps,
-  ] = useState<{
+  const [editFolderPropertiesDialogProps, setEditFolderPropertiesDialogProps] = useState<{
     isOpen: boolean
     folderId: string
+    onSuccess?: () => void
   }>({
     isOpen: false,
     folderId: '',
   })
 
   // Rename shortcut dialog state
-  const [
-    renameShortcutDialogProps,
-    setRenameShortcutDialogProps,
-  ] = useState<{
+  const [renameShortcutDialogProps, setRenameShortcutDialogProps] = useState<{
     isOpen: boolean
     shortcutId: string
+    onSuccess?: () => void
   }>({
     isOpen: false,
     shortcutId: '',
@@ -132,39 +127,26 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
   const [createDOIDialogProps, setCreateDOIDialogProps] = useState<{
     isOpen: boolean
     networkId: string
+    onSuccess?: () => void
   }>({
     isOpen: false,
     networkId: '',
   })
 
-  // Get network operation functions (no specific network ID)
+  // Get network operation functions
   const { getNetworkSummary } = useNetworkOperation()
-
-  // Get refresh function for parent folder
-  const { refresh: refreshParentFolder } = useFolderContents(
-    renameFolderDialogProps.isOpen
-      ? renameFolderDialogProps.parentFolderId || null
-      : null,
-  )
 
   const openRenameFolderDialog = (
     folderId: string,
     currentName: string,
     parentFolderId: string,
+    onSuccess?: () => void,
   ) => {
-    setRenameFolderDialogProps({
-      isOpen: true,
-      folderId,
-      currentName,
-      parentFolderId,
-    })
+    setRenameFolderDialogProps({ isOpen: true, folderId, currentName, parentFolderId, onSuccess })
   }
 
   const closeRenameFolderDialog = () => {
-    setRenameFolderDialogProps((prev) => ({
-      ...prev,
-      isOpen: false,
-    }))
+    setRenameFolderDialogProps((prev) => ({ ...prev, isOpen: false }))
   }
 
   const openMoveFolderDialog = (
@@ -174,29 +156,16 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     currentFolderName: string | undefined,
     onMoveComplete: () => Promise<void>,
   ) => {
-    setMoveFolderDialogProps({
-      isOpen: true,
-      itemsToMove,
-      itemDataMap,
-      currentFolderId,
-      currentFolderName,
-      onMoveComplete,
-    })
+    setMoveFolderDialogProps({ isOpen: true, itemsToMove, itemDataMap, currentFolderId, currentFolderName, onMoveComplete })
   }
 
   const closeMoveFolderDialog = () => {
-    setMoveFolderDialogProps((prev) => ({
-      ...prev,
-      isOpen: false,
-    }))
+    setMoveFolderDialogProps((prev) => ({ ...prev, isOpen: false }))
   }
 
-  const openEditNetworkPropertiesDialog = async (networkId: string) => {
+  const openEditNetworkPropertiesDialog = async (networkId: string, onSuccess?: () => void) => {
     try {
-      // Fetch the network summary data using the new function
       const networkData = await getNetworkSummary(networkId)
-
-      // Map the returned network summary to our network object structure
       const network = {
         uuid: networkId,
         name: networkData.name || 'Untitled Network',
@@ -204,18 +173,10 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         type: NDExFileType.NETWORK,
         owner: networkData.owner || '',
         attributes: networkData.properties || {},
-        // Add any other needed properties from the response
       }
-
-      setEditNetworkPropertiesDialogProps({
-        isOpen: true,
-        networkId,
-        network,
-      })
+      setEditNetworkPropertiesDialogProps({ isOpen: true, networkId, network, onSuccess })
     } catch (error) {
       console.error('Error fetching network summary:', error)
-
-      // Fallback to a basic object if fetch fails
       setEditNetworkPropertiesDialogProps({
         isOpen: true,
         networkId,
@@ -226,98 +187,49 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
           type: NDExFileType.NETWORK,
           attributes: {},
         },
+        onSuccess,
       })
     }
   }
 
   const closeEditNetworkPropertiesDialog = () => {
-    setEditNetworkPropertiesDialogProps((prev) => ({
-      ...prev,
-      isOpen: false,
-    }))
+    setEditNetworkPropertiesDialogProps((prev) => ({ ...prev, isOpen: false }))
   }
 
-  const openEditFolderPropertiesDialog = (folderId: string) => {
-    setEditFolderPropertiesDialogProps({
-      isOpen: true,
-      folderId,
-    })
+  const openEditFolderPropertiesDialog = (folderId: string, onSuccess?: () => void) => {
+    setEditFolderPropertiesDialogProps({ isOpen: true, folderId, onSuccess })
   }
 
   const closeEditFolderPropertiesDialog = () => {
-    setEditFolderPropertiesDialogProps((prev) => ({
-      ...prev,
-      isOpen: false,
-    }))
+    setEditFolderPropertiesDialogProps((prev) => ({ ...prev, isOpen: false }))
   }
 
-  const openRenameShortcutDialog = (shortcutId: string) => {
-    setRenameShortcutDialogProps({
-      isOpen: true,
-      shortcutId,
-    })
+  const openRenameShortcutDialog = (shortcutId: string, onSuccess?: () => void) => {
+    setRenameShortcutDialogProps({ isOpen: true, shortcutId, onSuccess })
   }
 
   const closeRenameShortcutDialog = () => {
-    setRenameShortcutDialogProps((prev) => ({
-      ...prev,
-      isOpen: false,
-    }))
+    setRenameShortcutDialogProps((prev) => ({ ...prev, isOpen: false }))
   }
 
-  const handleRenameSuccess = async () => {
-    // Refresh parent folder contents
-    await refreshParentFolder()
-  }
-
-  const handleEditNetworkPropertiesSuccess = async () => {
-    // Refresh the parent folder contents to show updated network information
-    await refreshParentFolder()
-  }
-
-  const handleEditFolderPropertiesSuccess = async () => {
-    // Refresh the parent folder contents to show updated folder information
-    await refreshParentFolder()
-  }
-
-  const handleRenameShortcutSuccess = async () => {
-    // Refresh the parent folder contents to show updated shortcut information
-    await refreshParentFolder()
-  }
-
-  const openShareDialog = (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => {
-    setShareDialogProps({
-      isOpen: true,
-      items,
-      mode,
-      onSuccess,
-    })
+  const openShareDialog = (
+    items: ShareableItem[],
+    mode: 'single' | 'bulk',
+    onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void,
+  ) => {
+    setShareDialogProps({ isOpen: true, items, mode, onSuccess })
   }
 
   const closeShareDialog = () => {
-    setShareDialogProps((prev) => ({
-      ...prev,
-      isOpen: false,
-    }))
+    setShareDialogProps((prev) => ({ ...prev, isOpen: false }))
   }
 
-  const openCreateDOIDialog = (networkId: string) => {
-    setCreateDOIDialogProps({
-      isOpen: true,
-      networkId,
-    })
+  const openCreateDOIDialog = (networkId: string, onSuccess?: () => void) => {
+    setCreateDOIDialogProps({ isOpen: true, networkId, onSuccess })
   }
 
   const closeCreateDOIDialog = () => {
-    setCreateDOIDialogProps((prev) => ({
-      ...prev,
-      isOpen: false,
-    }))
-  }
-
-  const handleCreateDOISuccess = async () => {
-    // Refresh the parent folder contents to show updated network status
-    await refreshParentFolder()
+    setCreateDOIDialogProps((prev) => ({ ...prev, isOpen: false }))
   }
 
   return (
@@ -334,14 +246,13 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     >
       {children}
 
-      {/* Render dialogs outside of normal component flow */}
       <RenameFolderDialog
         isOpen={renameFolderDialogProps.isOpen}
         onClose={closeRenameFolderDialog}
         folderId={renameFolderDialogProps.folderId}
         currentName={renameFolderDialogProps.currentName}
         parentFolderId={renameFolderDialogProps.parentFolderId}
-        onSuccess={handleRenameSuccess}
+        onSuccess={renameFolderDialogProps.onSuccess}
       />
 
       <MoveFolderDialog
@@ -358,21 +269,21 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         isOpen={editNetworkPropertiesDialogProps.isOpen}
         onClose={closeEditNetworkPropertiesDialog}
         network={editNetworkPropertiesDialogProps.network}
-        onSuccess={handleEditNetworkPropertiesSuccess}
+        onSuccess={editNetworkPropertiesDialogProps.onSuccess}
       />
 
       <EditFolderPropertiesDialog
         isOpen={editFolderPropertiesDialogProps.isOpen}
         onClose={closeEditFolderPropertiesDialog}
         folderId={editFolderPropertiesDialogProps.folderId}
-        onSuccess={handleEditFolderPropertiesSuccess}
+        onSuccess={editFolderPropertiesDialogProps.onSuccess}
       />
 
       <RenameShortcutDialog
         isOpen={renameShortcutDialogProps.isOpen}
         onClose={closeRenameShortcutDialog}
         shortcutId={renameShortcutDialogProps.shortcutId}
-        onSuccess={handleRenameShortcutSuccess}
+        onSuccess={renameShortcutDialogProps.onSuccess}
       />
 
       <ShareDialog
@@ -387,7 +298,7 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         isOpen={createDOIDialogProps.isOpen}
         onClose={closeCreateDOIDialog}
         networkId={createDOIDialogProps.networkId}
-        onSuccess={handleCreateDOISuccess}
+        onSuccess={createDOIDialogProps.onSuccess}
       />
     </DialogContext.Provider>
   )
