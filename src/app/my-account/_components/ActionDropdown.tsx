@@ -25,6 +25,7 @@ import { useNetworkReadOnly } from '@/hooks/use-network-readonly'
 import { useCyNDEx } from '@/hooks/use-cyndex'
 import { hasNetworkError, hasValidDOI as hasValidNetworkDOI, isNetworkReadOnly } from '@/lib/utils/network-status'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
+import { useConfig } from '@/lib/contexts/ConfigContext'
 
 // Add a dropdown menu for download formats
 const DownloadMenu: React.FC<{
@@ -153,6 +154,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const { copyFile, isCopying } = useNetworkCopy()
   const { setNetworkReadOnly, isUpdating } = useNetworkReadOnly()
   const { openInCytoscape, isOpening } = useCyNDEx()
+  const config = useConfig()
 
   // Check DOI, readonly status, and error status for networks
   const hasDOI = dropdownType === NDExFileType.NETWORK && hasValidDOI(item)
@@ -255,29 +257,26 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   // Handle opening the rename dialog - differentiate shortcuts from folders
   const handleOpenRenameDialog = () => {
     if (item.type === NDExFileType.SHORTCUT) {
-      // For shortcuts, use the shortcut rename dialog
-      openRenameShortcutDialog(openDropdownId)
+      openRenameShortcutDialog(openDropdownId, onRefreshFolder)
     } else {
-      // For regular folders, use the folder rename dialog
       openRenameFolderDialog(
         openDropdownId,
         item.name,
         (item as Folder)?.parent || '',
+        onRefreshFolder,
       )
     }
-    onClose() // Close the dropdown
+    onClose()
   }
 
-  // Handle opening the edit properties dialog
   const handleOpenEditPropertiesDialog = () => {
-    openEditNetworkPropertiesDialog(openDropdownId)
-    onClose() // Close the dropdown
+    openEditNetworkPropertiesDialog(openDropdownId, onRefreshFolder)
+    onClose()
   }
 
-  // Handle opening the edit folder properties dialog
   const handleOpenEditFolderPropertiesDialog = () => {
-    openEditFolderPropertiesDialog(openDropdownId)
-    onClose() // Close the dropdown
+    openEditFolderPropertiesDialog(openDropdownId, onRefreshFolder)
+    onClose()
   }
 
   // Handle opening the move dialog
@@ -328,8 +327,8 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
 
   const handleOpenCreateDOIDialog = () => {
     if (!item || !openDropdownId) return
-    openCreateDOIDialog(openDropdownId)
-    onClose() // Close the dropdown
+    openCreateDOIDialog(openDropdownId, onRefreshFolder)
+    onClose()
   }
 
   // Handle copying the file
@@ -374,6 +373,22 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
 
     onClose()
   }
+  // Handle opening network in Cytoscape Web
+  const handleOpenInCytoscapeWeb = () => {
+    if (!item || !openDropdownId) return
+
+    // Resolve the actual network UUID — for shortcuts, use the target; otherwise use the item's own UUID
+    const targetId =
+      dropdownType === NDExFileType.SHORTCUT || item.type === NDExFileType.SHORTCUT
+        ? (item.attributes?.target as string) || openDropdownId
+        : openDropdownId
+
+    const baseUrl = config.cytoscapeWebUrl || 'https://web.cytoscape.org'
+    window.open(`${baseUrl}/?ndexNetworkId=${targetId}`, '_blank', 'noopener,noreferrer')
+    onClose()
+  }
+
+
 
   // Disabled button style helper
   const disabledClass = 'text-gray-400 cursor-not-allowed'
@@ -536,6 +551,13 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               <ExternalLink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
             )}
             {isOpening[openDropdownId] ? 'Opening...' : 'Open in Cytoscape Desktop'}
+          </button>
+          <button
+            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            onClick={handleButtonClick(handleOpenInCytoscapeWeb)}
+          >
+            <ExternalLink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+            Open in Cytoscape Web
           </button>
           {/* Only show "Request DOI" for networks that aren't shortcuts and not in shared tab */}
           {shouldShowRequestDOI && (
