@@ -2,6 +2,11 @@
 
 import Link from 'next/link'
 import DocsFooter from './components/DocsFooter'
+import Image from 'next/image'
+import anonSearch from '@/images/anonymous_search.png'
+import networkViewer from '@/images/network_viewer.png'
+import networkViewerQuery from '@/images/viewer_query.png'
+import networkViewerQueryResult from '@/images/viewer_query_result.png'
 
 export default function DocsPage() {
   return (
@@ -66,8 +71,7 @@ export default function DocsPage() {
             </>,
           ]}
         />
-
-        <ImagePlaceholder label="Search results page" />
+        <Image src={anonSearch} alt="..." />
       </section>
 
       {/* View */}
@@ -86,8 +90,7 @@ export default function DocsPage() {
             </>,
           ]}
         />
-
-        <ImagePlaceholder label="Network viewer interface" />
+        <Image src={networkViewer} alt="..." />
       </section>
 
       {/* Query */}
@@ -109,14 +112,14 @@ export default function DocsPage() {
           ]}
         />
 
+        <Image src={networkViewerQuery} alt="..." />
         <div className="p-5 rounded-xl border bg-muted/30">
           <p className="text-sm text-muted-foreground">
             This will return a subnetwork showing related nodes and edges.
           </p>
         </div>
 
-        <ImagePlaceholder label="Query input panel" />
-        <ImagePlaceholder label="Query results network" />
+        <Image src={networkViewerQueryResult} alt="Result of query" />
       </section>
 
       {/* Resources */}

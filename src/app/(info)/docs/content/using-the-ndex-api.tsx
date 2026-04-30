@@ -9,133 +9,183 @@ export default function UsingNdexApiPage() {
       sections={[
         {
           title: 'Overview',
-          content: (
-            <>
-              The NDEx 2.5 API is the current REST API for interacting with
-              networks. It allows applications to create, retrieve, update, and
-              manage networks programmatically.
-              <br />
-              <br />
-              For full endpoint details, visit the{' '}
-              <a
-                href="https://www.ndexbio.org/rest/swagger/index.html#/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                API Swagger Documentation
-              </a>
-              .
-            </>
-          ),
-          note:
-            'The older v1.3 API and non-secure HTTP endpoints are deprecated.',
+          blocks: [
+            {
+              type: 'text',
+              content: (
+                <>
+                  The NDEx 2.5 API is the current REST API for interacting with
+                  networks. It allows applications to create, retrieve, update,
+                  and manage networks programmatically.
+                  <br />
+                  <br />
+                  For full endpoint details, visit the{' '}
+                  <a
+                    href="https://www.ndexbio.org/rest/swagger/index.html#/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    API Swagger Documentation
+                  </a>
+                  .
+                </>
+              ),
+            },
+            {
+              type: 'note',
+              content:
+                'The older v1.3 API and non-secure HTTP endpoints are deprecated.',
+            },
+          ],
         },
-
         {
           title: 'CX Network Format',
-          content: (
-            <>
-              All network data is exchanged using the CX format. This format is
-              designed to be flexible and streamable.
-              <br />
-              <br />
-              Learn more in the{' '}
-              <a
-                href="/docs/data-model"
-                className="text-primary hover:underline"
-              >
-                CX Data Model
-              </a>
-              .
-            </>
-          ),
+          blocks: [
+            {
+              type: 'text',
+              content: (
+                <>
+                  All network data is exchanged using the CX format. This
+                  format is designed to be flexible and streamable.
+                  <br />
+                  <br />
+                  Learn more in the{' '}
+                  <a
+                    href="/docs/data-model"
+                    className="text-primary hover:underline"
+                  >
+                    CX Data Model
+                  </a>
+                  .
+                </>
+              ),
+            },
+          ],
         },
-
         {
           title: 'Best Practices',
-          steps: [
-            'Use official client libraries (Python, R, Java)',
-            'Avoid unnecessary large data transfers',
-            'Use pagination (start, size) for large queries',
-            'Test on NDEx test server before production',
-            'Prefer batch operations where possible',
+          blocks: [
+            {
+              type: 'steps',
+              steps: [
+                'Use official client libraries (Python, R, Java)',
+                'Avoid unnecessary large data transfers',
+                'Use pagination (start, size) for large queries',
+                'Test on NDEx test server before production',
+                'Prefer batch operations where possible',
+              ],
+            },
           ],
         },
-
         {
           title: 'Available Client Libraries',
-          steps: [
-            'Python client (ndex2 via PyPI)',
-            'Java client and object model',
-            'R client (ndexR via Bioconductor)',
+          blocks: [
+            {
+              type: 'steps',
+              steps: [
+                'Python client (ndex2 via PyPI)',
+                'Java client and object model',
+                'R client (ndexR via Bioconductor)',
+              ],
+            },
+            {
+              type: 'note',
+              content:
+                'Client libraries simplify network I/O, search, and query operations.',
+            },
           ],
-          note:
-            'Client libraries simplify network I/O, search, and query operations.',
         },
-
         {
           title: 'API Design Conventions',
-          steps: [
-            'POST → create resources (returns 201)',
-            'PUT → update resources (returns 204)',
-            'DELETE → remove resources (returns 204)',
-            'GET → retrieve data',
-            'POST used for batch retrieval and search',
-            'Async operations return 202 with task location',
+          blocks: [
+            {
+              type: 'steps',
+              steps: [
+                'POST → create resources (returns 201)',
+                'PUT → update resources (returns 204)',
+                'DELETE → remove resources (returns 204)',
+                'GET → retrieve data',
+                'POST used for batch retrieval and search',
+                'Async operations return 202 with task location',
+              ],
+            },
           ],
         },
-
         {
           title: 'Authentication',
-          steps: [
-            'Basic Auth is supported',
-            'Google OAuth is also supported',
-            'Bearer tokens are used for OAuth requests',
-            'Some endpoints allow optional authentication',
+          blocks: [
+            {
+              type: 'steps',
+              steps: [
+                'Basic Auth is supported',
+                'Google OAuth is also supported',
+                'Bearer tokens are used for OAuth requests',
+                'Some endpoints allow optional authentication',
+              ],
+            },
+            {
+              type: 'note',
+              content:
+                'Some API calls return different results depending on authentication.',
+            },
           ],
-          note:
-            'Some API calls return different results depending on authentication.',
         },
-
         {
           title: 'Core Resource Types',
-          steps: [
-            'User → accounts, permissions, memberships',
-            'Group → collaboration and access control',
-            'Network → core data objects (CX format)',
-            'Task → async operations and exports',
-            'Network Set → collections of networks',
+          blocks: [
+            {
+              type: 'steps',
+              steps: [
+                'User → accounts, permissions, memberships',
+                'Group → collaboration and access control',
+                'Network → core data objects (CX format)',
+                'Task → async operations and exports',
+                'Network Set → collections of networks',
+              ],
+            },
           ],
         },
-
         {
           title: 'Common Operations',
-          steps: [
-            'Create, update, and delete networks',
-            'Manage group memberships and permissions',
-            'Retrieve network summaries and full CX data',
-            'Export networks in different formats',
-            'Search users, groups, and networks',
+          blocks: [
+            {
+              type: 'steps',
+              steps: [
+                'Create, update, and delete networks',
+                'Manage group memberships and permissions',
+                'Retrieve network summaries and full CX data',
+                'Export networks in different formats',
+                'Search users, groups, and networks',
+              ],
+            },
           ],
         },
-
         {
           title: 'Pagination and Performance',
-          steps: [
-            'Use start parameter for paging',
-            'Use size parameter to limit results',
-            'Default page size is 100',
-            'Avoid fetching full datasets unnecessarily',
+          blocks: [
+            {
+              type: 'steps',
+              steps: [
+                'Use start parameter for paging',
+                'Use size parameter to limit results',
+                'Default page size is 100',
+                'Avoid fetching full datasets unnecessarily',
+              ],
+            },
           ],
         },
-
         {
           title: 'Error Handling',
-          steps: [
-            '4xx errors → client issues',
-            '500 errors → server issues',
-            'Responses include JSON error messages',
+          blocks: [
+            {
+              type: 'steps',
+              steps: [
+                '4xx errors → client issues',
+                '500 errors → server issues',
+                'Responses include JSON error messages',
+              ],
+            },
           ],
         },
       ]}

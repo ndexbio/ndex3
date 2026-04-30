@@ -1,5 +1,6 @@
 import DocTemplate from '../components/DocTemplate'
 import React from 'react'
+import searchSettings from '@/images/search_settings.png'
 
 export default function FindingAndQuerying() {
   return (
@@ -10,21 +11,37 @@ export default function FindingAndQuerying() {
       sections={[
         {
           title: 'Search for Networks',
-          steps: [
-            'Enter a keyword in the search bar',
-            'Browse results',
-            'Filter by type',
+          blocks: [
+            {
+              type: 'steps',
+              steps: [
+                'Enter a keyword in the search bar',
+                'Browse results, sort by name or modification type, or rest to default (best query match).',
+                'Filter by ownership, visibility, and file type.',
+              ],
+            },
+            {
+              type: 'image',
+              image: { src: searchSettings, alt: 'Search interface' },
+            },
           ],
-          images: ['Search interface', 'Search results'],
         },
         {
           title: 'Run Queries',
-          steps: [
-            'Enter query term',
-            'Select query type',
-            'Run query',
+          blocks: [
+            {
+              type: 'steps',
+              steps: [
+                'Enter query term',
+                'Select query type',
+                'Run query',
+              ],
+            },
+            {
+              type: 'note',
+              content: 'Queries return subnetworks based on your selection.',
+            },
           ],
-          note: 'Queries return subnetworks based on your selection.',
         },
       ]}
     />
