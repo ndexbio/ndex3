@@ -1,5 +1,6 @@
 import useSWR from 'swr'
 import useSWRInfinite from 'swr/infinite'
+import { useCallback } from 'react'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
@@ -44,6 +45,7 @@ export interface FileSearchTabResult {
   error: Error | null
   hasMore?: boolean
   loadMore?: () => void
+  refetch: () => Promise<void>
 }
 
 export interface MyNetworksResult {
@@ -57,12 +59,21 @@ export interface MyNetworksResult {
   hasAnyError: boolean
   retryPublic: () => void
   retryPrivate: () => void
+  refetch: () => Promise<void>
 }
 
 export interface UseFileSearchResult {
   myNetworks: MyNetworksResult
   publicResults: FileSearchTabResult & { hasMore: boolean; loadMore: () => void }
   privateResults: FileSearchTabResult & { hasMore: boolean; loadMore: () => void }
+  /**
+   * Revalidate all underlying SWR caches (My Networks public+private,
+   * public results, private results). Call this after any mutation
+   * (share, rename, edit properties, delete, move, etc.) to refresh the UI
+   * without a full page reload. Existing data stays visible while
+   * revalidation is in flight.
+   */
+  refetch: () => Promise<void>
 }
 
 /**
@@ -115,7 +126,7 @@ export function useFileSearch(query: string): UseFileSearchResult {
     data: myPubData,
     error: myPubError,
     isLoading: myPubLoading,
-    mutate: retryMyPub,
+    mutate: mutateMyPub,
   } = useSWR<NDExFileSearchResult>(myNetworksPublicKey, myNetworksPublicFetcher, {
     revalidateOnFocus: false,
     shouldRetryOnError: true,
@@ -126,7 +137,7 @@ export function useFileSearch(query: string): UseFileSearchResult {
     data: myPrivData,
     error: myPrivError,
     isLoading: myPrivLoading,
-    mutate: retryMyPriv,
+    mutate: mutateMyPriv,
   } = useSWR<NDExFileSearchResult>(myNetworksPrivateKey, myNetworksPrivateFetcher, {
     revalidateOnFocus: false,
     shouldRetryOnError: true,
@@ -176,6 +187,7 @@ export function useFileSearch(query: string): UseFileSearchResult {
     isLoading: publicLoading,
     size: publicSize,
     setSize: setPublicSize,
+    mutate: mutatePublic,
   } = useSWRInfinite<NDExFileSearchResult>(publicGetKey, publicFetcher, {
     revalidateOnFocus: false,
     revalidateFirstPage: false,
@@ -213,6 +225,7 @@ export function useFileSearch(query: string): UseFileSearchResult {
     isLoading: privateLoading,
     size: privateSize,
     setSize: setPrivateSize,
+    mutate: mutatePrivate,
   } = useSWRInfinite<NDExFileSearchResult>(privateGetKey, privateFetcher, {
     revalidateOnFocus: false,
     revalidateFirstPage: false,
@@ -226,6 +239,31 @@ export function useFileSearch(query: string): UseFileSearchResult {
   const privateNumFound = privateData?.[0]?.numFound ?? 0
   const privateHasMore = privateSize * PUBLIC_PRIVATE_PAGE_SIZE < privateNumFound
 
+  // --- Refetch helpers ---
+  // Per-tab refetches, useful if a caller only wants to refresh one slice.
+  const refetchMyNetworks = useCallback(async () => {
+    await Promise.all([mutateMyPub(), mutateMyPriv()])
+  }, [mutateMyPub, mutateMyPriv])
+
+  const refetchPublic = useCallback(async () => {
+    await mutatePublic()
+  }, [mutatePublic])
+
+  const refetchPrivate = useCallback(async () => {
+    await mutatePrivate()
+  }, [mutatePrivate])
+
+  // Global refetch: revalidates everything currently mounted.
+  // SWR keeps existing data visible during revalidation (no flash).
+  const refetch = useCallback(async () => {
+    await Promise.all([
+      mutateMyPub(),
+      mutateMyPriv(),
+      mutatePublic(),
+      mutatePrivate(),
+    ])
+  }, [mutateMyPub, mutateMyPriv, mutatePublic, mutatePrivate])
+
   return {
     myNetworks: {
       items: myNetworksMerged,
@@ -236,8 +274,9 @@ export function useFileSearch(query: string): UseFileSearchResult {
       publicError: myPubError ?? null,
       privateError: myPrivError ?? null,
       hasAnyError: !!(myPubError || myPrivError),
-      retryPublic: () => retryMyPub(),
-      retryPrivate: () => retryMyPriv(),
+      retryPublic: () => mutateMyPub(),
+      retryPrivate: () => mutateMyPriv(),
+      refetch: refetchMyNetworks,
     },
     publicResults: {
       items: publicItems,
@@ -246,6 +285,7 @@ export function useFileSearch(query: string): UseFileSearchResult {
       error: publicError ?? null,
       hasMore: publicHasMore,
       loadMore: () => setPublicSize(publicSize + 1),
+      refetch: refetchPublic,
     },
     privateResults: {
       items: privateItems,
@@ -254,6 +294,8 @@ export function useFileSearch(query: string): UseFileSearchResult {
       error: privateError ?? null,
       hasMore: privateHasMore,
       loadMore: () => setPrivateSize(privateSize + 1),
+      refetch: refetchPrivate,
     },
+    refetch,
   }
 }

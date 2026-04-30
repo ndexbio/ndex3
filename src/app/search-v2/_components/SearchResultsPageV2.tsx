@@ -295,7 +295,7 @@ function SearchResultsPageContent() {
 
   // --- Hooks ---
   const { createShortcut } = useShortcut(null)
-  const { publicResults, privateResults } = useFileSearch(query)
+  const { publicResults, privateResults, refetch } = useFileSearch(query)
 
   // Current user's username for "My Networks" filter
   const currentUserName = user?.userName || null
@@ -448,6 +448,19 @@ function SearchResultsPageContent() {
     setDropdownType(null)
   }, [])
 
+  // --- Refetch search results without a full page reload.
+  // SWR keeps existing data visible during revalidation, so the UI doesn't flash.
+  // Wrapped to swallow errors so callers don't have to worry about rejections.
+  const handleRefreshSearchResults = useCallback(async () => {
+    try {
+      await refetch()
+    } catch (err) {
+      // Revalidation errors surface through publicResults.error / privateResults.error,
+      // which the inline error banner already handles. Nothing more to do here.
+      console.error('Failed to refresh search results:', err)
+    }
+  }, [refetch])
+
   // --- Action callbacks ---
   const handleDeleteItems = useCallback(
     async (itemIds: string[]) => {
@@ -469,6 +482,8 @@ function SearchResultsPageContent() {
           type: 'success',
           duration: 3000,
         })
+        // Refresh so deleted items disappear from the list
+        await handleRefreshSearchResults()
       } catch (error) {
         addToast({
           title: 'Error',
@@ -479,10 +494,14 @@ function SearchResultsPageContent() {
       }
       handleCloseDropdown()
     },
-    [config.ndexBaseUrl, token, allSearchItems, addToast, handleCloseDropdown],
+    [config.ndexBaseUrl, token, allSearchItems, addToast, handleCloseDropdown, handleRefreshSearchResults],
   )
 
-  const handleRestore = useCallback(async () => {}, [])
+  // Restore is not reachable from search results (tabState is SEARCH, not TRASH),
+  // but wired to refetch defensively in case that changes.
+  const handleRestore = useCallback(async () => {
+    await handleRefreshSearchResults()
+  }, [handleRefreshSearchResults])
 
   const handleCreateShortcut = useCallback(
     async (itemId: string, targetFolderId?: string) => {
@@ -498,6 +517,8 @@ function SearchResultsPageContent() {
           type: 'success',
           duration: 3000,
         })
+        // Refresh so the new shortcut shows up if it lands in this search
+        await handleRefreshSearchResults()
       } catch (error) {
         addToast({
           title: 'Error',
@@ -508,14 +529,26 @@ function SearchResultsPageContent() {
       }
       handleCloseDropdown()
     },
-    [isAuthenticated, allSearchItems, createShortcut, addToast, handleCloseDropdown],
+    [isAuthenticated, allSearchItems, createShortcut, addToast, handleCloseDropdown, handleRefreshSearchResults],
   )
 
   const handleSortChange = useCallback((field: string | null) => {
     setHasColumnSort(field !== null)
   }, [])
-  const handleMoveItems = useCallback(async (_itemIds: string[], _targetFolderId: string) => {}, [])
-  const handleShareSuccess = useCallback(() => {}, [])
+
+  const handleMoveItems = useCallback(
+    async (_itemIds: string[], _targetFolderId: string) => {
+      await handleRefreshSearchResults()
+    },
+    [handleRefreshSearchResults],
+  )
+
+  // wire to refetch so visibility changes (PUBLIC <-> PRIVATE)
+  // reflect immediately. The updatedItems argument from ShareDialog is ignored here
+  // since refetch will pull authoritative state from the server.
+  const handleShareSuccess = useCallback(() => {
+    void handleRefreshSearchResults()
+  }, [handleRefreshSearchResults])
 
   // Add to history when query changes
   useEffect(() => {
@@ -629,10 +662,10 @@ function SearchResultsPageContent() {
 
       {/* Error states */}
       {bothFailed && filteredItems.length === 0 && (
-        <InlineError message="Unable to load results." />
+        <InlineError message="Unable to load results." onRetry={handleRefreshSearchResults} />
       )}
       {hasError && !bothFailed && (
-        <InlineError message="Some results may be missing." />
+        <InlineError message="Some results may be missing." onRetry={handleRefreshSearchResults} />
       )}
 
       {/* Results */}
@@ -717,6 +750,7 @@ function SearchResultsPageContent() {
           onCreateShortcut={handleCreateShortcut}
           onMoveItems={handleMoveItems}
           onShareSuccess={handleShareSuccess}
+          onRefreshFolder={handleRefreshSearchResults}
         />
       )}
     </div>
