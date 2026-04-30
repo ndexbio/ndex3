@@ -129,8 +129,11 @@ export default function AboutPage() {
       </section>
 
       {/* Citations */}
-      <section className="space-y-6">
+      <section id="cite" className="space-y-6">
         <h2 className="text-2xl font-semibold">How to Cite</h2>
+        <p className="text-muted-foreground leading-relaxed">
+          If you use NDEx in your work, please consider citing the following papers:
+        </p>
         <ul className="space-y-3 text-sm text-muted-foreground">
           <li>
             <a
