@@ -4,16 +4,17 @@ export default function SearchLoading() {
   return (
     <div className="container mx-auto px-4 py-4">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between">
         <Skeleton className="h-5 w-48" />
         <Skeleton className="h-5 w-32" />
       </div>
 
-      {/* Tab bar */}
-      <div className="flex space-x-1 mb-4 border-b">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-9 w-28" />
-        ))}
+      {/* Filter chips */}
+      <div className="flex items-center gap-2 mb-4">
+        <Skeleton className="h-7 w-20 rounded-full" />
+        <Skeleton className="h-7 w-20 rounded-full" />
+        <Skeleton className="h-7 w-20 rounded-full" />
+        <Skeleton className="h-7 w-24 rounded-full" />
       </div>
 
       {/* Folders section */}
