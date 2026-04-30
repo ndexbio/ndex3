@@ -31,6 +31,29 @@ const formatPermission = (permission?: Permission): string => {
   return permission === Permission.WRITE ? 'EDIT' : permission
 }
 
+// Helper function to check if a shortcut's target is unavailable (in trash or deleted)
+const isUnavailableShortcut = (item: FileItemBase): boolean => {
+  return item.type === NDExFileType.SHORTCUT &&
+         (item.attributes?.target_status === 'IN_TRASH' || item.attributes?.target_status === 'DELETED')
+}
+
+// Helper function to get the appropriate message for unavailable shortcuts
+const getUnavailableShortcutMessage = (item: FileItemBase): string => {
+  if (item.type !== NDExFileType.SHORTCUT) return ''
+
+  if (item.attributes?.target_status === 'IN_TRASH') {
+    return 'Original moved to trash'
+  } else if (item.attributes?.target_status === 'DELETED') {
+    return 'Original item deleted'
+  }
+
+  return ''
+}
+
+// Helper function to get text styling for unavailable shortcuts
+const getUnavailableTextClass = (isUnavailable: boolean) =>
+  isUnavailable ? "text-muted-foreground opacity-60" : "text-foreground"
+
 // Props for the component
 interface FoldersListProps {
   folders: FileItemBase[]
@@ -55,6 +78,7 @@ interface FoldersListProps {
     id: string,
     type: NDExFileType,
   ) => void
+  onRemoveShortcut?: (shortcutId: string) => Promise<void>
   defaultSort?: {
     field: 'name' | 'modificationTime'
     direction: 'asc' | 'desc'
@@ -79,6 +103,7 @@ const GridFolderItem = ({
   onDoubleClick,
   onDrop,
   onDropdownToggle,
+  onRemoveShortcut,
   readOnly,
 }: {
   folder: FolderItem
@@ -98,22 +123,24 @@ const GridFolderItem = ({
     id: string,
     type: NDExFileType,
   ) => void
+  onRemoveShortcut?: (shortcutId: string) => Promise<void>
   readOnly?: boolean
 }) => {
   const isSelected = selectedItems.includes(folder.uuid)
+  const isUnavailable = isUnavailableShortcut(folder)
 
-  // Drop target for any DRIVE_ITEM (only if not read-only and onDrop is provided)
+  // Drop target for any DRIVE_ITEM (only if not read-only and onDrop is provided, and folder is not an unavailable shortcut)
   const [{ isOver }, drop] = useDrop({
     accept: ItemTypes.DRIVE_ITEM,
     drop: (dragged: any) => {
-      if (!readOnly && onDrop) {
+      if (!readOnly && onDrop && !isUnavailable) {
         onDrop(dragged.ids, folder.uuid)
       }
     },
-    collect: (monitor) => ({ 
-      isOver: !readOnly && onDrop && monitor.isOver(),
+    collect: (monitor) => ({
+      isOver: !readOnly && onDrop && !isUnavailable && monitor.isOver(),
     }),
-    canDrop: () => !readOnly && !!onDrop,
+    canDrop: () => !readOnly && !!onDrop && !isUnavailable,
   })
 
   // Draggable source (only if not read-only)
@@ -172,26 +199,44 @@ const GridFolderItem = ({
             />
           )}
         </div>
-        {onDropdownToggle && (
+        {isUnavailable && onRemoveShortcut ? (
           <button
-            className={tableStyles.button.dropdown}
-            onClick={(e) => {
+            className="px-2 py-1 text-xs font-medium text-destructive hover:text-destructive/80
+                       border border-destructive/20 hover:border-destructive/40 rounded-md
+                       transition-colors duration-200"
+            onClick={async (e) => {
               e.stopPropagation()
-              onDropdownToggle(e, folder.uuid,
-                folder.type === NDExFileType.SHORTCUT
-                  ? (folder.attributes?.target_type as NDExFileType) || NDExFileType.FOLDER
-                  : folder.type
-              )
+              try {
+                await onRemoveShortcut(folder.uuid)
+              } catch (error) {
+                console.error('Error removing shortcut:', error)
+              }
             }}
-            data-dropdown-trigger
-            data-dropdown-id={folder.uuid}
           >
-            <MoreVertical className="h-4 w-4 text-muted-foreground" />
+            Remove
           </button>
+        ) : (
+          onDropdownToggle && !isUnavailable && (
+            <button
+              className={tableStyles.button.dropdown}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDropdownToggle(e, folder.uuid,
+                  folder.type === NDExFileType.SHORTCUT
+                    ? (folder.attributes?.target_type as NDExFileType) || NDExFileType.FOLDER
+                    : folder.type
+                )
+              }}
+              data-dropdown-trigger
+              data-dropdown-id={folder.uuid}
+            >
+              <MoreVertical className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )
         )}
       </div>
       <div className="space-y-2">
-        <h3 className={tableStyles.text.name}>
+        <h3 className={`${tableStyles.text.name} ${getUnavailableTextClass(isUnavailable)}`}>
           {getDisplayName(folder)}
         </h3>
       </div>
@@ -209,6 +254,7 @@ const ListFolderItem = ({
   onDoubleClick,
   onDrop,
   onDropdownToggle,
+  onRemoveShortcut,
   showOwnerColumn,
   showVisibilityColumn,
   showPermissionColumn,
@@ -232,25 +278,28 @@ const ListFolderItem = ({
     id: string,
     type: NDExFileType,
   ) => void
+  onRemoveShortcut?: (shortcutId: string) => Promise<void>
   showOwnerColumn?: boolean
   showVisibilityColumn?: boolean
   showPermissionColumn?: boolean
   readOnly?: boolean
 }) => {
   const isSelected = selectedItems.includes(folder.uuid)
+  const isUnavailable = isUnavailableShortcut(folder)
 
   // For list view, we'll make the name cell both draggable and a drop target
+  // Disable drop for unavailable shortcuts
   const [{ isOver }, drop] = useDrop({
     accept: ItemTypes.DRIVE_ITEM,
     drop: (dragged: any) => {
-      if (!readOnly && onDrop) {
+      if (!readOnly && onDrop && !isUnavailable) {
         onDrop(dragged.ids, folder.uuid)
       }
     },
-    collect: (monitor) => ({ 
-      isOver: !readOnly && onDrop && monitor.isOver(),
+    collect: (monitor) => ({
+      isOver: !readOnly && onDrop && !isUnavailable && monitor.isOver(),
     }),
-    canDrop: () => !readOnly && !!onDrop,
+    canDrop: () => !readOnly && !!onDrop && !isUnavailable,
   })
 
   // Draggable source for the folder (only if not read-only)
@@ -277,6 +326,11 @@ const ListFolderItem = ({
     [drag, drop, readOnly, onDrop],
   )
 
+  // Calculate colSpan for the unavailable message:
+  // It needs to cover the columns between Name and Visibility/Permission/Actions.
+  // Those columns are: Owner (optional), Last Modified (always present)
+  const unavailableColSpan = (showOwnerColumn ? 1 : 0) + 1 // +1 for Last Modified
+
   return (
     <tr
       key={folder.uuid}
@@ -299,42 +353,73 @@ const ListFolderItem = ({
             />
           </div>
           <div className="overflow-hidden">
-            <div className="text-sm font-medium text-foreground truncate max-w-[250px]">
+            <div className={`text-sm font-medium truncate max-w-[250px] ${getUnavailableTextClass(isUnavailable)}`}>
               {getDisplayName(folder)}
             </div>
           </div>
         </div>
       </td>
-      {showOwnerColumn && (
-        <td className={getTdClasses('left')}>
-          <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
+      {isUnavailable ? (
+        // For unavailable shortcuts (trashed or deleted), span the message across Owner (if present) and Last Modified columns
+        <td className={getTdClasses('left')} colSpan={unavailableColSpan}>
+          <div className="flex items-center justify-start w-full text-sm text-muted-foreground italic">
             <span className="truncate">
-              {folder.owner || 'Me'}
+              {getUnavailableShortcutMessage(folder)}
             </span>
           </div>
         </td>
+      ) : (
+        <>
+          {showOwnerColumn && (
+            <td className={getTdClasses('left')}>
+              <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
+                <span className="truncate">
+                  {folder.owner || 'Me'}
+                </span>
+              </div>
+            </td>
+          )}
+          <td className={getTdClasses('left')}>
+            <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
+              <span className="truncate">
+                {formatDate(folder.modificationTime)}
+              </span>
+            </div>
+          </td>
+        </>
       )}
-      <td className={getTdClasses('left')}>
-        <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
-          <span className="truncate">
-            {formatDate(folder.modificationTime)}
-          </span>
-        </div>
-      </td>
       {showVisibilityColumn !== false && (
         <td className={getTdClasses('center')}>
           <div className="flex justify-center w-full">
-            <span
-              className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
-                folder.visibility === 'PUBLIC'
-                  ? 'bg-green-200 dark:bg-green-700/80'
-                  : folder.visibility === 'UNLISTED'
-                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                  : 'bg-blue-300 dark:bg-blue-700/70'
-              }`}
-            >
-              {folder.visibility || 'PRIVATE'}
-            </span>
+            {isUnavailable && onRemoveShortcut ? (
+              <button
+                className="px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300
+                           border border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700 rounded-md
+                           transition-colors duration-200"
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  try {
+                    await onRemoveShortcut(folder.uuid)
+                  } catch (error) {
+                    console.error('Error removing shortcut:', error)
+                  }
+                }}
+              >
+                Remove shortcut
+              </button>
+            ) : (
+              <span
+                className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
+                  folder.visibility === 'PUBLIC'
+                    ? 'bg-green-200 dark:bg-green-700/80'
+                    : folder.visibility === 'UNLISTED'
+                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                    : 'bg-blue-300 dark:bg-blue-700/70'
+                }`}
+              >
+                {folder.visibility || 'PRIVATE'}
+              </span>
+            )}
           </div>
         </td>
       )}
@@ -349,21 +434,23 @@ const ListFolderItem = ({
       )}
       {onDropdownToggle && (
         <td className={getTdClasses('center')}>
-          <button
-            className={tableStyles.button.dropdown}
-            onClick={(e) => {
-              e.stopPropagation()
-              onDropdownToggle(e, folder.uuid,
-                folder.type === NDExFileType.SHORTCUT
-                  ? (folder.attributes?.target_type as NDExFileType) || NDExFileType.FOLDER
-                  : folder.type
-              )
-            }}
-            data-dropdown-trigger
-            data-dropdown-id={folder.uuid}
-          >
-            <MoreVertical className="h-4 w-4 text-muted-foreground" />
-          </button>
+          {!isUnavailable && (
+            <button
+              className={tableStyles.button.dropdown}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDropdownToggle(e, folder.uuid,
+                  folder.type === NDExFileType.SHORTCUT
+                    ? (folder.attributes?.target_type as NDExFileType) || NDExFileType.FOLDER
+                    : folder.type
+                )
+              }}
+              data-dropdown-trigger
+              data-dropdown-id={folder.uuid}
+            >
+              <MoreVertical className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
         </td>
       )}
     </tr>
@@ -382,6 +469,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
   onSelect,
   onDrop,
   onDropdownToggle,
+  onRemoveShortcut,
   defaultSort = { field: 'modificationTime', direction: 'desc' },
   sortable = true,
 }) => {
@@ -404,6 +492,11 @@ const FoldersList: React.FC<FoldersListProps> = ({
         const folderItem = folders.find((folder) => folder.uuid === folderId)
 
         if (folderItem) {
+          // Don't navigate for unavailable shortcuts
+          if (isUnavailableShortcut(folderItem)) {
+            return
+          }
+
           // Check if it's a shortcut
           if (folderItem.type === NDExFileType.SHORTCUT) {
             try {
@@ -539,6 +632,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
               onDoubleClick={handleFolderDoubleClick}
               onDrop={onDrop}
               onDropdownToggle={onDropdownToggle}
+              onRemoveShortcut={onRemoveShortcut}
               readOnly={readOnly}
             />
           ))}
@@ -635,6 +729,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
                   onDoubleClick={handleFolderDoubleClick}
                   onDrop={onDrop}
                   onDropdownToggle={onDropdownToggle}
+                  onRemoveShortcut={onRemoveShortcut}
                   showOwnerColumn={showOwnerColumn}
                   showVisibilityColumn={showVisibilityColumn}
                   showPermissionColumn={showPermissionColumn}

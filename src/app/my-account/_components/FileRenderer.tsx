@@ -78,6 +78,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               currentFolderId={currentFolderId}
               onDrop={() => {}} // No-op in trash
               onDropdownToggle={handleDropdownToggle}
+              onRemoveShortcut={handleRemoveShortcut}
             />
             <NetworksList
               items={filteredItems.filter(
@@ -153,6 +154,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               currentFolderId={currentFolderId}
               onDrop={() => {}} // No-op for shared items
               onDropdownToggle={handleDropdownToggle}
+              onRemoveShortcut={handleRemoveShortcut}
             />
             <NetworksList
               items={filteredItems.filter(
@@ -235,6 +237,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               currentFolderId={currentFolderId}
               onDrop={handleMoveItems}
               onDropdownToggle={handleDropdownToggle}
+              onRemoveShortcut={handleRemoveShortcut}
             />
             <NetworksList
               items={filteredItems.filter(
