@@ -136,6 +136,8 @@ export interface AppConfig {
   keycloakConfig: KeyCloakConfig
   /** Base name for application URLs (optional, defaults to root "/") */
   urlBaseName?: string
+  /** Base URL for Cytoscape Web (optional, defaults to https://web.cytoscape.org) */
+  cytoscapeWebUrl?: string
 }
 
 /**

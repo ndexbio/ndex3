@@ -6,6 +6,7 @@
     "realm": "NDEx"
   },
   "urlBaseName": "",
+  "cytoscapeWebUrl": "https://web.cytoscape.org",
   "uiContent": {
     "contentRootPath": "https://home.ndexbio.org/landing_page_content/v2_4_2",
     "featuredContent": "featured_content.json",
