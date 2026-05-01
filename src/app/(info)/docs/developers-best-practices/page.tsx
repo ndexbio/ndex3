@@ -5,7 +5,7 @@ export default function DevelopersBestPracticesPage() {
     <DocTemplate
       title="Developing in NDEx"
       description="Best practices for developers integrating with NDEx"
-      lastUpdated="May 1, 2019"
+      lastUpdated="April 2026"
       sections={[
         {
           title: 'Overview',

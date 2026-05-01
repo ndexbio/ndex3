@@ -5,7 +5,7 @@ export default function DataModelPage() {
     <DocTemplate
       title="CX Data Model"
       description="Overview of the Cytoscape Exchange (CX) network format used by NDEx"
-      lastUpdated="December 13, 2022"
+      lastUpdated="April 2026"
       sections={[
         {
           title: 'Overview',

@@ -5,7 +5,7 @@ export default function PublishingPage() {
     <DocTemplate
       title="Publishing in NDEx"
       description="Learn how to publish networks, request DOIs, and manage visibility in NDEx"
-      lastUpdated="February 15, 2024"
+      lastUpdated="April 2026"
       sections={[
         {
           title: 'Overview',

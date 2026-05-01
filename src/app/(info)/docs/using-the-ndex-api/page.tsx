@@ -5,7 +5,7 @@ export default function UsingNdexApiPage() {
     <DocTemplate
       title="Using the NDEx API"
       description="Overview of the NDEx 2.5 REST API and how to work with networks programmatically"
-      lastUpdated="April 8, 2026"
+      lastUpdated="April 2026"
       sections={[
         {
           title: 'Overview',

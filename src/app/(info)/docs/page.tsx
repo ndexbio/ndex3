@@ -20,7 +20,7 @@ export default function DocsPage() {
           A step-by-step introduction to using NDEx
         </p>
         <p className="text-xs text-muted-foreground italic">
-          Last updated: December 13, 2018
+          Last updated: April 2026
         </p>
       </header>
 
@@ -99,12 +99,12 @@ export default function DocsPage() {
 
         <StepList
           steps={[
-            <>Use the query input box</>,
+            <>Use the query input box indicated with the red arrow in the image below</>,
             <>
-              Enter a term like <strong>akt</strong>
+              You can enter one or more terms to query the network and choose from 4 different types of query.
             </>,
             <>
-              Select <strong>1-step neighborhood</strong>
+              Enter a term like <strong>akt</strong> and select <strong>1-step neighborhood</strong>. The query will find a neighborhood around all nodes that reference the akt term.
             </>,
             <>
               Click <strong>Run Query</strong>
@@ -120,6 +120,12 @@ export default function DocsPage() {
         </div>
 
         <Image src={networkViewerQueryResult} alt="Result of query" />
+        <div className="p-5 rounded-xl border bg-muted/30">
+          <p className="text-sm text-muted-foreground">
+            Additional useful information (such as citations) can be obtained by selecting individual or multiple nodes and edges.
+          </p>
+        </div>
+
       </section>
 
       <DocsFooter />

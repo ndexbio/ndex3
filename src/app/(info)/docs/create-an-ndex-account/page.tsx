@@ -11,7 +11,7 @@ export default function CreateAccountPage() {
     <DocTemplate
       title="Creating and Using an NDEx Account"
       description="Step-by-step guide to creating and managing your NDEx account"
-      lastUpdated="December 14, 2018"
+      lastUpdated="April 2026"
       sections={[
         {
           title: 'Overview',
