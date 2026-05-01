@@ -1,4 +1,9 @@
 import DocTemplate from '../components/DocTemplate'
+import sharableLink from '@/images/sharable_network_link.png'
+import uploadMenu from '@/images/upload_menu.png'
+import uploadPopup from '@/images/upload_popup.png'
+import requestDoi from '@/images/request_doi.png'
+import requestDoiPopup from '@/images/request_doi_popup.png'
 
 export default function PublishingPage() {
   return (
@@ -23,43 +28,22 @@ export default function PublishingPage() {
             {
               type: 'text',
               content:
-                'Networks can be private or public. Public networks can be searchable or not searchable. Full indexing allows searching by node names or identifiers but is resource-intensive.',
+                'Networks can be private or public or unlisted. Unlisted networks are public but not searchable.',
             },
             {
               type: 'steps',
               steps: [
-                'Open your network page',
-                'Click the edit (pencil) icon',
-                'Fill required fields (Name, Description, Version)',
-                'Set visibility to PUBLIC or PUBLIC (not searchable)',
-                'Optionally enable Full Index',
-                'Click Save (may take time for large networks)',
+                'Open network → click the hamburger menu → "Share"',
+                'Assign visibility as PUBLIC or UNLISTED.',
+                'Click "Done"',
               ],
             },
             {
               type: 'image',
               image: {
-                src: 'Edit network properties button',
+                src: sharableLink,
                 alt: 'Edit network properties button',
               },
-            },
-            {
-              type: 'image',
-              image: {
-                src: 'Visibility dropdown selection',
-                alt: 'Visibility dropdown selection',
-              },
-            },
-            {
-              type: 'image',
-              image: {
-                src: 'Full index option and warning dialog',
-                alt: 'Full index option and warning dialog',
-              },
-            },
-            {
-              type: 'note',
-              content: 'Full indexing is resource-intensive—use carefully.',
             },
           ],
         },
@@ -87,52 +71,32 @@ export default function PublishingPage() {
             {
               type: 'image',
               image: {
-                src: 'Network upload methods overview',
+                src: uploadMenu,
+                alt: 'Edit network properties button',
+              },
+            },
+            {
+              type: 'image',
+              image: {
+                src: uploadPopup,
                 alt: 'Network upload methods overview',
-              },
-            },
-          ],
-        },
-        {
-          title: 'Submit Networks (Sharable URLs)',
-          blocks: [
-            {
-              type: 'text',
-              content:
-                'Sharable URLs allow temporary private access for reviewers or collaborators.',
-            },
-            {
-              type: 'steps',
-              steps: [
-                'Open network page',
-                'Click Share icon → Share',
-                'Enable Sharable URL',
-                'Copy and share the URL',
-                'Only share with trusted individuals',
-              ],
-            },
-            {
-              type: 'image',
-              image: { src: 'Share menu', alt: 'Share menu' },
-            },
-            {
-              type: 'image',
-              image: {
-                src: 'Enable sharable URL button',
-                alt: 'Enable sharable URL button',
-              },
-            },
-            {
-              type: 'image',
-              image: {
-                src: 'Copy URL interface',
-                alt: 'Copy URL interface',
               },
             },
             {
               type: 'note',
-              content: 'Anyone with the link can access the network.',
-            },
+              content: (
+                <>
+                  For more information on loading and sharing networks view{' '}
+                  <a
+                    href="/docs/sharing-and-accessing"
+                    className="text-primary hover:underline"
+                  >
+                     the Sharing and accessing document
+                  </a>{' '}
+                  guide for details.
+                </>
+              ),
+            }
           ],
         },
         {
@@ -156,7 +120,7 @@ export default function PublishingPage() {
             {
               type: 'steps',
               steps: [
-                'Open network → Share → Request DOI',
+                'Open network hamburger menu from search or account page → Request DOI',
                 'Fill required metadata fields (Title, Description, Version, Author)',
                 'Select Rights and Rights Holder',
                 'Optionally add a reference',
@@ -166,15 +130,11 @@ export default function PublishingPage() {
             },
             {
               type: 'image',
-              image: { src: 'Request DOI button', alt: 'Request DOI button' },
+              image: { src: requestDoi, alt: 'Request DOI button' },
             },
             {
               type: 'image',
-              image: { src: 'DOI metadata form', alt: 'DOI metadata form' },
-            },
-            {
-              type: 'image',
-              image: { src: 'DOI assigned view', alt: 'DOI assigned view' },
+              image: { src: requestDoiPopup, alt: 'DOI metadata form' },
             },
             {
               type: 'note',
@@ -199,13 +159,6 @@ export default function PublishingPage() {
                 'Ensure accuracy before final submission',
               ],
             },
-            {
-              type: 'image',
-              image: {
-                src: 'Reference metadata form',
-                alt: 'Reference metadata form',
-              },
-            },
           ],
         },
         {
@@ -223,13 +176,6 @@ export default function PublishingPage() {
                 'Or select an open-source license (MIT, GPL, Apache, etc.)',
                 'Or provide a custom license URL',
               ],
-            },
-            {
-              type: 'image',
-              image: {
-                src: 'License selection dropdown',
-                alt: 'License selection dropdown',
-              },
             },
           ],
         },

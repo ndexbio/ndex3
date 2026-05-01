@@ -71,7 +71,7 @@ export default function DevelopersBestPracticesPage() {
                   </a>{' '}
                   and{' '}
                   <a
-                    href="/docs/using-the-ndex-server-api"
+                    href="/docs/using-the-ndex-api"
                     className="text-primary hover:underline"
                   >
                     NDEx API
@@ -103,47 +103,34 @@ export default function DevelopersBestPracticesPage() {
               steps: [
                 'Install ndex2 via pip (Python 3)',
                 'Use built-in methods for common operations',
-                'Access documentation via ReadTheDocs',
-                'Use GitHub repo for examples and notebooks',
               ],
             },
             {
-              type: 'image',
-              image: {
-                src: 'Python client documentation and GitHub examples',
-                alt: 'Python client documentation and GitHub examples',
-              },
-            },
+              type: 'note',
+              content: (
+                <>
+                  For more information on the ndex2 python client see the {' '}
+                  <a
+                    href="https://ndex2.readthedocs.io/en/latest/"
+                    className="text-primary hover:underline"
+                  >
+                    Read The Docs page
+                  </a>{' '}
+                  and{' '}
+                  <a
+                    href="https://github.com/ndexbio/ndex2-client"
+                    className="text-primary hover:underline"
+                  >
+                    Github
+                  </a>
+                  .
+                </>
+              ),
+           },
             {
               type: 'note',
               content:
                 'Legacy ndex v3.1 client exists but is deprecated for new development.',
-            },
-          ],
-        },
-        {
-          title: 'R Client',
-          blocks: [
-            {
-              type: 'text',
-              content:
-                'The ndexR client is available via Bioconductor and supports Cytoscape automation workflows.',
-            },
-            {
-              type: 'steps',
-              steps: [
-                'Install ndexR from Bioconductor',
-                'Use it to interact with NDEx REST API',
-                'Leverage Cytoscape automation via RCy3',
-                'Reference GitHub and documentation for examples',
-              ],
-            },
-            {
-              type: 'image',
-              image: {
-                src: 'ndexR documentation and workflow examples',
-                alt: 'ndexR documentation and workflow examples',
-              },
             },
           ],
         },
