@@ -62,8 +62,8 @@ function InlineError({
   )
 }
 
-// --- Filter chip component (blue when active) ---
-function FilterChip({
+// --- Visibility filter chip (used inside the grouped visibility row) ---
+function VisibilityChip({
   label,
   active,
   count,
@@ -79,12 +79,12 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={`
-        inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+        inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium
         border transition-colors duration-150 select-none
         ${
           active
             ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-            : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground'
+            : 'bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground'
         }
       `}
     >
@@ -103,111 +103,31 @@ function FilterChip({
   )
 }
 
-// --- Type filter dropdown chip (blue when active) ---
-function TypeFilterChip({
-  showNetworks,
-  showFolders,
-  showShortcuts,
-  counts,
-  onToggleNetworks,
-  onToggleFolders,
-  onToggleShortcuts,
+// --- File type checkbox (inline) ---
+function FileTypeCheckbox({
+  label,
+  checked,
+  count,
+  onChange,
 }: {
-  showNetworks: boolean
-  showFolders: boolean
-  showShortcuts: boolean
-  counts: { networks: number; folders: number; shortcuts: number }
-  onToggleNetworks: () => void
-  onToggleFolders: () => void
-  onToggleShortcuts: () => void
+  label: string
+  checked: boolean
+  count: number
+  onChange: () => void
 }) {
-  const [open, setOpen] = useState(false)
-  const ref = React.useRef<HTMLDivElement>(null)
-
-  const allActive = showNetworks && showFolders && showShortcuts
-  const noneActive = !showNetworks && !showFolders && !showShortcuts
-  const activeCount = [showNetworks, showFolders, showShortcuts].filter(Boolean).length
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  const options = [
-    { label: 'Networks', active: showNetworks, count: counts.networks, onToggle: onToggleNetworks },
-    { label: 'Folders', active: showFolders, count: counts.folders, onToggle: onToggleFolders },
-    { label: 'Shortcuts', active: showShortcuts, count: counts.shortcuts, onToggle: onToggleShortcuts },
-  ]
-
   return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className={`
-          inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-          border transition-colors duration-150 select-none
-          ${
-            allActive
-              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-              : noneActive
-              ? 'bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground'
-              : 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600'
-          }
-        `}
-      >
-        File Type
-        {!allActive && !noneActive && (
-          <span className="text-white/70">{activeCount}/3</span>
-        )}
-        <svg
-          className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-popover border border-border rounded-lg shadow-md py-1 min-w-[180px]">
-          {options.map((opt) => (
-            <button
-              key={opt.label}
-              type="button"
-              className="flex items-center gap-3 w-full px-3 py-2 text-sm hover:bg-accent transition-colors"
-              onClick={opt.onToggle}
-            >
-              <div
-                className={`
-                  h-4 w-4 rounded border flex items-center justify-center shrink-0
-                  ${opt.active ? 'bg-blue-600 border-blue-600' : 'border-muted-foreground/40'}
-                `}
-              >
-                {opt.active && (
-                  <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </div>
-              <span className="flex-1 text-left">{opt.label}</span>
-              <span className="text-muted-foreground text-xs tabular-nums">
-                {opt.count.toLocaleString()}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="h-3.5 w-3.5 rounded border-border accent-blue-600"
+      />
+      <span>{label}</span>
+      <span className="tabular-nums text-muted-foreground/70">
+        {count.toLocaleString()}
+      </span>
+    </label>
   )
 }
 
@@ -597,6 +517,19 @@ function SearchResultsPageContent() {
     )
   }
 
+  // For anonymous users, only public results exist — no point showing the visibility group at all.
+  const showVisibilityGroup = isAuthenticated
+
+  // Reset is meaningful when any filter differs from defaults
+  const hasActiveFilters =
+    showMine ||
+    !showPublic ||
+    !showPrivate ||
+    !showNetworks ||
+    !showFolders ||
+    !showShortcuts ||
+    hasColumnSort
+
   return (
     <div className="container mx-auto px-4 py-4 flex flex-col h-full overflow-hidden">
       {/* Header */}
@@ -612,8 +545,8 @@ function SearchResultsPageContent() {
         </div>
       </div>
 
-      {/* Filter chips */}
-      <div className="flex items-center gap-2 mb-4 shrink-0 flex-wrap">
+      {/* Filter bar */}
+      <div className="flex items-center gap-3 mb-4 shrink-0 flex-wrap">
         {/* Only Mine checkbox */}
         {isAuthenticated && currentUserName && (
           <label
@@ -629,37 +562,55 @@ function SearchResultsPageContent() {
             Only mine
           </label>
         )}
-        <FilterChip
-          label="Public"
-          active={showPublic}
-          count={filterCounts.public}
-          onClick={() => setShowPublic(!showPublic)}
-        />
-        {isAuthenticated && (
-          <FilterChip
-            label="Private"
-            active={showPrivate}
-            count={filterCounts.private}
-            onClick={() => setShowPrivate(!showPrivate)}
-          />
+
+        {/* Visibility group — labeled, bordered row of chips */}
+        {showVisibilityGroup && (
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md border border-border bg-muted/30">
+            <span className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-medium pr-0.5">
+              Visibility
+            </span>
+            <VisibilityChip
+              label="Public"
+              active={showPublic}
+              count={filterCounts.public}
+              onClick={() => setShowPublic(!showPublic)}
+            />
+            <VisibilityChip
+              label="Private"
+              active={showPrivate}
+              count={filterCounts.private}
+              onClick={() => setShowPrivate(!showPrivate)}
+            />
+          </div>
         )}
-        <TypeFilterChip
-          showNetworks={showNetworks}
-          showFolders={showFolders}
-          showShortcuts={showShortcuts}
-          counts={{
-            networks: filterCounts.networks,
-            folders: filterCounts.folders,
-            shortcuts: filterCounts.shortcuts,
-          }}
-          onToggleNetworks={() => setShowNetworks(!showNetworks)}
-          onToggleFolders={() => setShowFolders(!showFolders)}
-          onToggleShortcuts={() => setShowShortcuts(!showShortcuts)}
-        />
+
+        {/* File type group — inline checkboxes */}
+        <div className="inline-flex items-center gap-3 px-2.5 py-1 rounded-md border border-border bg-muted/30">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-medium">
+            Type
+          </span>
+          <FileTypeCheckbox
+            label="Networks"
+            checked={showNetworks}
+            count={filterCounts.networks}
+            onChange={() => setShowNetworks(!showNetworks)}
+          />
+          <FileTypeCheckbox
+            label="Folders"
+            checked={showFolders}
+            count={filterCounts.folders}
+            onChange={() => setShowFolders(!showFolders)}
+          />
+          <FileTypeCheckbox
+            label="Shortcuts"
+            checked={showShortcuts}
+            count={filterCounts.shortcuts}
+            onChange={() => setShowShortcuts(!showShortcuts)}
+          />
+        </div>
 
         {/* Reset filters — only show when something differs from defaults */}
-        {(showMine || !showPublic || !showPrivate ||
-          !showNetworks || !showFolders || !showShortcuts || hasColumnSort) && (
+        {hasActiveFilters && (
           <button
             type="button"
             className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1"
