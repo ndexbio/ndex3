@@ -1,11 +1,16 @@
 import DocTemplate from '../components/DocTemplate'
+import uploadMenu from '@/images/upload_menu.png'
+import uploadPopup from '@/images/upload_popup.png'
+import sharableLink from '@/images/sharable_network_link.png'
+import shareUsers from '@/images/share_users.png'
+import shareUsersPermissions from '@/images/share_users_permissions.png'
 
 export default function SharingAndAccessingPage() {
   return (
     <DocTemplate
       title="Uploading and Sharing Networks"
       description="Learn how to upload, share, and manage access to networks in NDEx"
-      lastUpdated="December 12, 2018"
+      lastUpdated="April 2026"
       sections={[
         {
           title: 'Overview',
@@ -36,11 +41,34 @@ export default function SharingAndAccessingPage() {
         {
           title: 'Uploading via Cytoscape',
           blocks: [
-            {
-              type: 'text',
-              content:
-                'The easiest way to upload networks is through Cytoscape. Cytoscape 3.7+ includes built-in NDEx integration via the CyNDEx-2 app, making upload fast and simple.',
-            },
+              {
+                type: 'text',
+                content: (
+                  <>
+                    The easiest way to upload networks is through Cytoscape. Cytoscape 3.7+
+                    includes built-in NDEx integration via the CyNDEx-2 app, making upload
+                    fast and simple. A quick guide with screenshots is available in the{' '}
+                    <a
+                      href="https://apps.cytoscape.org/apps/cyndex2"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      CyNDEx-2 App Store
+                    </a>{' '}
+                    page; alternatively, instructions can also be found in the{' '}
+                    <a
+                      href="http://manual.cytoscape.org/en/stable/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      Cytoscape Online Manual
+                    </a>
+                    .
+                  </>
+                ),
+              },
             {
               type: 'steps',
               steps: [
@@ -48,13 +76,6 @@ export default function SharingAndAccessingPage() {
                 'Use the NDEx integration to upload',
                 'Follow prompts to publish your network',
               ],
-            },
-            {
-              type: 'image',
-              image: {
-                src: 'Cytoscape upload workflow',
-                alt: 'Cytoscape upload workflow',
-              },
             },
           ],
         },
@@ -87,9 +108,9 @@ export default function SharingAndAccessingPage() {
             {
               type: 'steps',
               steps: [
-                'Click "Upload Networks" in My Account',
-                'Select CX file(s)',
-                'Click "Upload All"',
+                'Click "New" in My Account on the top left.',
+                'Select CX2 file(s)',
+                'Click "Import Network"',
                 'Wait for processing to complete',
                 'Check status indicators (success, warning, or error)',
               ],
@@ -97,15 +118,15 @@ export default function SharingAndAccessingPage() {
             {
               type: 'image',
               image: {
-                src: 'Upload networks button',
+                src: uploadMenu,
                 alt: 'Upload networks button',
               },
             },
             {
               type: 'image',
               image: {
-                src: 'Upload results status indicators',
-                alt: 'Upload results status indicators',
+                src: uploadPopup,
+                alt: 'Upload browser',
               },
             },
           ],
@@ -121,34 +142,16 @@ export default function SharingAndAccessingPage() {
             {
               type: 'steps',
               steps: [
-                'Open your network',
-                'Click "More" → "Share"',
-                'Enable Sharable URL',
+                'Select the network hamburger menu for the network of interest from either your account or the search results page.',
+                'Click "Share"',
+                'Enable "Anyone with link selector" to generate URL"',
                 'Copy and distribute the link',
                 'Share only with trusted users',
               ],
             },
             {
               type: 'image',
-              image: { src: 'Share menu option', alt: 'Share menu option' },
-            },
-            {
-              type: 'image',
-              image: {
-                src: 'Enable sharable URL button',
-                alt: 'Enable sharable URL button',
-              },
-            },
-            {
-              type: 'image',
-              image: { src: 'Copy URL interface', alt: 'Copy URL interface' },
-            },
-            {
-              type: 'image',
-              image: {
-                src: 'Shared network view',
-                alt: 'Shared network view',
-              },
+              image: { src: sharableLink, alt: 'Share menu option' },
             },
             {
               type: 'note',
@@ -162,87 +165,35 @@ export default function SharingAndAccessingPage() {
             {
               type: 'text',
               content:
-                'You can share networks directly with NDEx users or groups using permissions.',
+                'You can share networks directly with NDEx users using permissions.',
             },
             {
               type: 'steps',
               steps: [
-                'Open network → click "More" → "Share"',
-                'Search for users or groups',
-                'Click "Add"',
-                'Assign permission level (read, edit, admin)',
-                'Click "Save Changes"',
+                'Open network → click the hamburger menu → "Share"',
+                'Search for users',
+                'Select the users of interest',
+                'Assign permission level (read, edit, or transfer ownership). Ownership can also be revoked here.',
+                'Click "Done"',
               ],
             },
             {
               type: 'image',
               image: {
-                src: 'User/group sharing interface',
+                src: shareUsers,
                 alt: 'User/group sharing interface',
               },
             },
-          ],
-        },
-        {
-          title: 'Requesting Access to a Network',
-          blocks: [
-            {
-              type: 'text',
-              content:
-                'If you need higher permissions on a network, you can request access.',
-            },
-            {
-              type: 'steps',
-              steps: [
-                'Open the network',
-                'Click "More" → "Upgrade permission"',
-                'Add a message explaining your request',
-                'Submit request',
-                'Track status in Tasks & Notifications',
-              ],
-            },
             {
               type: 'image',
               image: {
-                src: 'Access request dialog',
-                alt: 'Access request dialog',
+                src: shareUsersPermissions,
+                alt: 'User/group sharing interface',
               },
-            },
-            {
-              type: 'image',
-              image: {
-                src: 'Tasks & notifications panel',
-                alt: 'Tasks & notifications panel',
-              },
-            },
-          ],
-        },
-        {
-          title: 'Granting Access to a Network',
-          blocks: [
-            {
-              type: 'text',
-              content:
-                'As a network owner, you can approve or deny access requests from others.',
-            },
-            {
-              type: 'steps',
-              steps: [
-                'Go to "Tasks & Notifications"',
-                'Review incoming requests',
-                'Open request details',
-                'Accept or decline',
-                'Optionally add a message',
-              ],
-            },
-            {
-              type: 'image',
-              image: { src: 'Grant access dialog', alt: 'Grant access dialog' },
             },
             {
               type: 'note',
-              content:
-                'Be cautious when granting edit access—users can modify your network.',
+              content: 'Permissions for sharing folders and shortcuts are also done via this method. All subfiles within a folder will be shared as well. This is useful for sharing multiple networks at once with the same users.',
             },
           ],
         },
