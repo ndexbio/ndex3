@@ -1,6 +1,4 @@
 import DocTemplate from '../components/DocTemplate'
-import searchSettings from '@/images/search_settings.png'
-import searchBar from '@/images/search_bar.png'
 import searchResults from '@/images/search_results.png'
 import networkView from '@/images/network_view.png'
 import queryRunner from '@/images/query_runner.png'
@@ -39,10 +37,6 @@ export default function FindingAndQuerying() {
                 'Enter a keyword in the search bar to find networks across NDEx. Search matches against network titles, descriptions, and indexed attributes (see "Indexed Attributes" below for the full list). Folders and shortcuts are also displayed in the results.',
             },
             {
-              type: 'image',
-              image: { src: searchBar, alt: 'NDEx search bar' },
-            },
-            {
               type: 'steps',
               steps: [
                 'Enter a keyword in the search bar',
@@ -50,13 +44,6 @@ export default function FindingAndQuerying() {
                 'Filter by ownership, visibility, and file type',
                 'Click a result to open the network',
               ],
-            },
-            {
-              type: 'image',
-              image: {
-                src: searchSettings,
-                alt: 'Search results with sort and filter controls',
-              },
             },
             {
               type: 'image',

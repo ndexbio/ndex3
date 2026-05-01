@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import DocsFooter from './components/DocsFooter'
 import Image from 'next/image'
+import DocsFooter from './components/DocsFooter'
 import anonSearch from '@/images/anonymous_search.png'
 import networkViewer from '@/images/network_viewer.png'
 import networkViewerQuery from '@/images/viewer_query.png'
@@ -65,20 +65,20 @@ export default function DocsPage() {
             </>,
             <>Browse results across networks, users, and groups</>,
             <>Hover a network name to preview its description</>,
-            <>Use <strong>Browse</strong> to explore all content</>,
+            <>
+              Use <strong>Browse</strong> to explore all content
+            </>,
             <>
               Try <strong>Search Examples</strong> for advanced queries
             </>,
           ]}
         />
-        <Image src={anonSearch} alt="..." />
+        <Image src={anonSearch} alt="Anonymous search example" />
       </section>
 
       {/* View */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-semibold">
-          2. View a Network
-        </h2>
+        <h2 className="text-2xl font-semibold">2. View a Network</h2>
 
         <StepList
           steps={[
@@ -90,19 +90,19 @@ export default function DocsPage() {
             </>,
           ]}
         />
-        <Image src={networkViewer} alt="..." />
+        <Image src={networkViewer} alt="Network viewer" />
       </section>
 
       {/* Query */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-semibold">
-          3. Run a Query
-        </h2>
+        <h2 className="text-2xl font-semibold">3. Run a Query</h2>
 
         <StepList
           steps={[
             <>Use the query input box</>,
-            <>Enter a term like <strong>akt</strong></>,
+            <>
+              Enter a term like <strong>akt</strong>
+            </>,
             <>
               Select <strong>1-step neighborhood</strong>
             </>,
@@ -112,7 +112,7 @@ export default function DocsPage() {
           ]}
         />
 
-        <Image src={networkViewerQuery} alt="..." />
+        <Image src={networkViewerQuery} alt="Query input" />
         <div className="p-5 rounded-xl border bg-muted/30">
           <p className="text-sm text-muted-foreground">
             This will return a subnetwork showing related nodes and edges.
@@ -122,11 +122,11 @@ export default function DocsPage() {
         <Image src={networkViewerQueryResult} alt="Result of query" />
       </section>
 
-      {/* Resources */}
       <DocsFooter />
     </div>
   )
 }
+
 
 /* --- Components --- */
 
@@ -135,61 +135,12 @@ function StepList({ steps }: { steps: React.ReactNode[] }) {
     <div className="space-y-3">
       {steps.map((step, i) => (
         <div key={i} className="flex gap-3">
-          <div className="text-xs font-medium text-primary mt-1">
-            {i + 1}.
-          </div>
+          <div className="text-xs font-medium text-primary mt-1">{i + 1}.</div>
           <p className="text-muted-foreground text-sm leading-relaxed">
             {step}
           </p>
         </div>
       ))}
-    </div>
-  )
-}
-
-function ImagePlaceholder({ label }: { label: string }) {
-  return (
-    <div className="rounded-xl border bg-muted/20 p-6 text-center">
-      <p className="text-sm text-muted-foreground italic">
-        📷 {label} (screenshot placeholder)
-      </p>
-    </div>
-  )
-}
-
-function DocLink({
-  title,
-  links,
-}: {
-  title: string
-  links: { label: string; href: string }[]
-}) {
-  return (
-    <div className="rounded-xl border p-5 bg-card">
-      <h3 className="font-semibold mb-3">{title}</h3>
-      <ul className="space-y-2">
-        {links.map((link) => (
-          <li key={link.href}>
-            {link.href.startsWith('http') ? (
-              <a
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline"
-              >
-                {link.label}
-              </a>
-            ) : (
-              <Link
-                href={link.href}
-                className="text-sm text-primary hover:underline"
-              >
-                {link.label}
-              </Link>
-            )}
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }
