@@ -101,22 +101,18 @@ export function LogoCarousel() {
         className="logoSwiper" // optional custom class
       >
         {logos.map((logo: Logo, index: number) => (
-          <SwiperSlide key={index} className="flex items-center justify-center">
-            <a 
+          <SwiperSlide key={index} className="flex items-center justify-center !overflow-visible">
+            <a
               href={logo.href}
               target="_blank"
               rel="noopener noreferrer"
               title={logo.title}
-              className="block"
+              className="flex items-center justify-start h-14"
             >
-              <Image
+              <img
                 src={`${config.uiContent.contentRootPath}/${logo.image}`.trim()}
                 alt={logo.title}
-                width={100}
-                height={150} // Adjust height as needed
-                className="h-14 w-14 items-center w-auto object-contain hover:opacity-80 transition-opacity"
-                unoptimized // Disable Next.js image optimization for external images
-                priority={index === 0} // Add priority to the first image for LCP optimization
+                className="h-14 w-auto max-w-none object-contain hover:opacity-80 transition-opacity"
               />
             </a>
           </SwiperSlide>
