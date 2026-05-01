@@ -8,6 +8,7 @@ import { MainPanel } from '@/components/MainPanel'
 import { Footer } from '@/components/Footer'
 import { ToastContextProvider } from '@/lib/contexts/ToastContext'
 import { BASE_PATH } from '../../next.config'
+import { GoogleAnalytics } from '@next/third-parties/google'
 
 export const metadata: Metadata = {
   title: 'NDEx 3',
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
     ],
   },
 }
-
+const gaId = process.env.NEXT_PUBLIC_GA_ID
 function DynamicFavicon() {
   const faviconPath = `${BASE_PATH || ''}/ndex-logo.svg`
   return <link rel="icon" type="image/svg+xml" href={faviconPath} />
@@ -67,6 +68,8 @@ export default function RootLayout({
             </ToastContextProvider>
           </KeycloakProvider>
         </ConfigProvider>
+        {gaId ? <GoogleAnalytics gaId={gaId} /> : null}
+
       </body>
     </html>
   )

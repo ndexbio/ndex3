@@ -135,3 +135,6 @@ The app builds to `out/` directory for static hosting:
 ### Local Development vs Production
 - Dev: Uses Next.js dev server with dynamic config loading
 - Production: Static files with config copied to base path location
+
+### Google Analytics 
+- In order to enable Google Analytics, export NEXT_PUBLIC_GA_ID=GS-XXXXX (the analytics ID) prior to running the build.

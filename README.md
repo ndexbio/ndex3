@@ -208,6 +208,8 @@ For Apache deployments, see [`APACHE_STATIC_DEPLOYMENT.md`](./APACHE_STATIC_DEPL
 
 NDEx3 uses Keycloak for authentication. Configure your Keycloak server details in the `keycloakConfig` section of `public/config.json`.
 
+### Google Analytics
+In order to enable Google Analytics, export NEXT_PUBLIC_GA_ID=GS-XXXXX (the analytics ID) prior to running the build.
 ## Contributing
 
 1. Fork the repository
