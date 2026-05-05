@@ -32,7 +32,8 @@ const DownloadMenu: React.FC<{
   networkId: string
   networkName: string
   onClose: () => void
-}> = ({ networkId, networkName, onClose }) => {
+  openToLeft?: boolean
+}> = ({ networkId, networkName, onClose, openToLeft }) => {
   const [isOpen, setIsOpen] = useState(false)
   const { downloadNetwork, isDownloading } = useNetworkDownload()
 
@@ -66,7 +67,7 @@ const DownloadMenu: React.FC<{
       </button>
 
       {isOpen && (
-        <div className="absolute left-full top-0 ml-1 w-44 rounded-md bg-white shadow-lg">
+        <div className={`absolute ${openToLeft ? 'right-full mr-1' : 'left-full ml-1'} top-0 w-44 rounded-md bg-white shadow-lg`}>
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
             onClick={(e) => {
@@ -219,8 +220,8 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   // Calculate position
   const rect = targetElement.getBoundingClientRect()
 
-  // Check if dropdown would go off-screen horizontally
-  const isRightAligned = window.innerWidth - rect.right < 180
+  // Check if dropdown would go off-screen horizontally (increased threshold to account for submenus)
+  const isRightAligned = window.innerWidth - rect.right < 240
 
   // Estimate dropdown height - these are approximate
   const dropdownHeight =
@@ -518,6 +519,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             networkId={openDropdownId}
             networkName={item.name || 'network'}
             onClose={onClose}
+            openToLeft={isRightAligned}
           />
           {/* Only show "Move to Trash" if user is the owner in Shared tab */}
           {!shouldHideMoveToTrash && (
@@ -578,6 +580,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             networkId={openDropdownId}
             networkName={item.name || 'network'}
             onClose={onClose}
+            openToLeft={isRightAligned}
           />
           {/* Show Rename for shortcuts, Edit Properties for regular networks (signed-in only) */}
           {isSignedIn && (item.type === NDExFileType.SHORTCUT ? (
