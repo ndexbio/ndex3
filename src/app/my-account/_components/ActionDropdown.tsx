@@ -385,7 +385,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
         : openDropdownId
 
     const baseUrl = config.cytoscapeWebUrl || 'https://web.cytoscape.org'
-    window.open(`${baseUrl}/?ndexNetworkId=${targetId}`, '_blank', 'noopener,noreferrer')
+    window.open(`${baseUrl}/0/networks/${targetId}`, '_blank', 'noopener,noreferrer')
     onClose()
   }
 
