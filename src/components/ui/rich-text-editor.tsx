@@ -63,6 +63,11 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     },
     editable: !disabled,
     immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        class: 'min-h-[150px] focus:outline-none prose prose-sm dark:prose-invert max-w-none',
+      },
+    },
   })
 
   // Update editor content when prop changes
@@ -409,10 +414,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       </div>
 
       {/* Editor Content */}
-      <div className="min-h-[100px] p-3">
+      <div 
+        className="min-h-[150px] p-3 cursor-text"
+        onClick={() => editor.chain().focus().run()}
+      >
         <EditorContent
           editor={editor}
-          className="prose prose-sm dark:prose-invert max-w-none focus:outline-none"
           placeholder={placeholder}
         />
       </div>
