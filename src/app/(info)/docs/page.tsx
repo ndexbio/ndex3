@@ -63,14 +63,7 @@ export default function DocsPage() {
             <>
               Enter <strong>cell cycle</strong> in the search bar and press enter
             </>,
-            <>Browse results across networks, users, and groups</>,
-            <>Hover a network name to preview its description</>,
-            <>
-              Use <strong>Browse</strong> to explore all content
-            </>,
-            <>
-              Try <strong>Search Examples</strong> for advanced queries
-            </>,
+            <>Browse results — networks, folders, and shortcuts matching your search are shown</>,
           ]}
         />
         <Image src={anonSearch} alt="Anonymous search example" />
@@ -82,12 +75,9 @@ export default function DocsPage() {
 
         <StepList
           steps={[
-            <>Click any public network to open it</>,
+            <>Double-click any public network to open it</>,
             <>Review metadata in the right-side panel</>,
             <>Scroll to explore references and properties</>,
-            <>
-              Toggle <strong>Table</strong> view to switch layouts
-            </>,
           ]}
         />
         <Image src={networkViewer} alt="Network viewer" />
@@ -99,15 +89,15 @@ export default function DocsPage() {
 
         <StepList
           steps={[
-            <>Use the query input box indicated with the red arrow in the image below</>,
+            <>Use the query input box at the bottom of the network viewer</>,
             <>
-              You can enter one or more terms to query the network and choose from 4 different types of query.
+              Enter one or more terms to query the network and select a query type from the dropdown.
             </>,
             <>
-              Enter a term like <strong>akt</strong> and select <strong>1-step neighborhood</strong>. The query will find a neighborhood around all nodes that reference the akt term.
+              Enter a term like <strong>akt</strong> and select <strong>1-Step Neighborhood</strong>. The query will find a neighborhood around all nodes that reference the akt term.
             </>,
             <>
-              Click <strong>Run Query</strong>
+              Click the search icon to run the query
             </>,
           ]}
         />
