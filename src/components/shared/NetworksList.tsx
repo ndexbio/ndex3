@@ -9,6 +9,12 @@ import {
   Trophy,
   Lock,
 } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { ItemIcon } from '@/components/ui/ItemIcon'
 import { useRouter } from 'next/navigation'
 import { useDrag } from 'react-dnd'
@@ -169,48 +175,55 @@ const GridNetworkItem = ({
 }) => {
   const isSelected = selectedItems.includes(network.uuid)
   const isUnavailable = isUnavailableShortcut(network)
+  const hasError = hasNetworkError(network)
   const userOwns = isOwner(network, currentUserName)
   const showRemoveButton = isUnavailable && !!onRemoveShortcut && userOwns
 
-  // Create drag source for network items (only if not read-only)
+  // Create drag source for network items (only if not read-only and not invalid)
   const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.DRIVE_ITEM,
-    item: readOnly ? null : () => ({
+    item: readOnly || hasError ? null : () => ({
       ids: selectedItems.includes(network.uuid)
         ? selectedItems
         : [network.uuid],
       type: network.type,
     }),
-    collect: (monitor) => ({ isDragging: !readOnly && monitor.isDragging() }),
-    canDrag: !readOnly,
+    collect: (monitor) => ({ isDragging: !readOnly && !hasError && monitor.isDragging() }),
+    canDrag: !readOnly && !hasError,
   })
 
   // Create a ref function for drag
   const dragRef = useCallback((element: HTMLDivElement | null) => {
-    if (!readOnly) {
+    if (!readOnly && !hasError) {
       drag(element)
     }
-  }, [drag, readOnly])
+  }, [drag, readOnly, hasError])
 
   return (
     <div
       key={network.uuid}
       data-item={network.uuid}
       ref={dragRef}
-      className={getGridItemClasses(isSelected, isDragging, readOnly || false)}
-      onClick={(e) => onSelect?.(e, network.uuid, index, network.type, [])}
-      onDoubleClick={(e) => onDoubleClick(e, network.uuid)}
+      className={getGridItemClasses(isSelected, isDragging, readOnly || false, hasError)}
+      onClick={(e) => {
+        if (hasError) return
+        onSelect?.(e, network.uuid, index, network.type, [])
+      }}
+      onDoubleClick={(e) => {
+        if (hasError) return
+        onDoubleClick(e, network.uuid)
+      }}
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center">
-          <div className="flex-shrink-0 mr-3">
+          <div className="flex-shrink-0 mr-3 cursor-pointer pointer-events-auto relative z-10">
             <ItemIcon
               type={network.type === NDExFileType.SHORTCUT ? NDExFileType.NETWORK : network.type}
               isShortcut={network.type === NDExFileType.SHORTCUT}
               isShared={isSharedNetwork(network)}
               isValid={isNetworkValid(network)}
               hasWarnings={hasNetworkWarnings(network)}
-              hasError={hasNetworkError(network)}
+              hasError={hasError}
               onWarningClick={() => onWarningClick(network)}
               onErrorClick={() => onErrorClick(network)}
               className="h-5 w-5"
@@ -221,7 +234,11 @@ const GridNetworkItem = ({
               type="checkbox"
               checked={isSelected}
               onChange={() => {}}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                if (hasError) return
+                e.stopPropagation()
+              }}
+              disabled={hasError}
               className={tableStyles.checkbox}
             />
           )}
@@ -259,21 +276,32 @@ const GridNetworkItem = ({
         )}
       </div>
       <div className="space-y-2">
-        <h3 className={`${tableStyles.text.name} ${getUnavailableTextClass(isUnavailable)} flex items-center gap-2`}>
-          <span className="truncate">{getDisplayName(network, 'Untitled Network')}</span>
-          {/* Show Trophy icon for networks with valid DOI */}
-          {network.type === NDExFileType.NETWORK && hasValidDOI(network) && (
-            <div title="Published network with DOI">
-              <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
-            </div>
-          )}
-          {/* Show Lock icon for read-only networks (without DOI) */}
-          {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !hasValidDOI(network) && (
-            <div title="Read-only network">
-              <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            </div>
-          )}
-        </h3>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <h3 className={`${tableStyles.text.name} ${getUnavailableTextClass(isUnavailable)} flex items-center gap-2`}>
+                <span className="truncate">{getDisplayName(network, 'Untitled Network')}</span>
+                {/* Show Trophy icon for networks with valid DOI */}
+                {network.type === NDExFileType.NETWORK && hasValidDOI(network) && (
+                  <div title="Published network with DOI">
+                    <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                  </div>
+                )}
+                {/* Show Lock icon for read-only networks (without DOI) */}
+                {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !hasValidDOI(network) && (
+                  <div title="Read-only network">
+                    <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  </div>
+                )}
+              </h3>
+            </TooltipTrigger>
+            {hasError && (
+              <TooltipContent>
+                <p>This network is invalid. Click the red icon to find out why.</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   )
@@ -325,6 +353,7 @@ const ListNetworkItem = ({
 }) => {
   const isSelected = selectedItems.includes(network.uuid)
   const isUnavailable = isUnavailableShortcut(network)
+  const hasError = hasNetworkError(network)
   const userOwns = isOwner(network, currentUserName)
   const showRemoveButton = isUnavailable && !!onRemoveShortcut && userOwns
 
@@ -332,24 +361,24 @@ const ListNetworkItem = ({
   // Same approach as FoldersList - make the entire row draggable
   const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.DRIVE_ITEM,
-    item: readOnly ? null : () => ({
+    item: readOnly || hasError ? null : () => ({
       ids: selectedItems.includes(network.uuid)
         ? selectedItems
         : [network.uuid],
       type: network.type,
     }),
-    collect: (monitor) => ({ isDragging: !readOnly && monitor.isDragging() }),
-    canDrag: !readOnly,
+    collect: (monitor) => ({ isDragging: !readOnly && !hasError && monitor.isDragging() }),
+    canDrag: !readOnly && !hasError,
   })
 
   // Create a ref function for drag using useCallback
   const dragRef = useCallback(
     (element: HTMLTableRowElement | null) => {
-      if (!readOnly) {
+      if (!readOnly && !hasError) {
         drag(element)
       }
     },
-    [drag, readOnly],
+    [drag, readOnly, hasError],
   )
 
   return (
@@ -357,41 +386,58 @@ const ListNetworkItem = ({
       key={network.uuid}
       data-item={network.uuid}
       ref={dragRef}
-      className={getRowClasses(isSelected, isDragging, readOnly || false)}
-      onClick={(e) => onSelect?.(e, network.uuid, index, network.type, [])}
-      onDoubleClick={(e) => onDoubleClick(e, network.uuid)}
+      className={getRowClasses(isSelected, isDragging, readOnly || false, hasError)}
+      onClick={(e) => {
+        if (hasError) return
+        onSelect?.(e, network.uuid, index, network.type, [])
+      }}
+      onDoubleClick={(e) => {
+        if (hasError) return
+        onDoubleClick(e, network.uuid)
+      }}
     >
       <td className={getTdClasses('left')}>
         <div className="flex items-center w-full">
-          <div className="flex-shrink-0 mr-3">
+          <div className="flex-shrink-0 mr-3 cursor-pointer pointer-events-auto relative z-10">
             <ItemIcon
               type={network.type === NDExFileType.SHORTCUT ? NDExFileType.NETWORK : network.type}
               isShortcut={network.type === NDExFileType.SHORTCUT}
               isShared={isSharedNetwork(network)}
               isValid={isNetworkValid(network)}
               hasWarnings={hasNetworkWarnings(network)}
-              hasError={hasNetworkError(network)}
+              hasError={hasError}
               onWarningClick={() => onWarningClick(network)}
               onErrorClick={() => onErrorClick(network)}
               className="h-5 w-5"
             />
           </div>
           <div className="flex-1 overflow-hidden">
-            <div className={`text-sm font-medium truncate ${getUnavailableTextClass(isUnavailable)} flex items-center gap-2`}>
-              <span className="truncate">{getDisplayName(network, 'Untitled Network')}</span>
-              {/* Show Trophy icon for networks with valid DOI */}
-              {network.type === NDExFileType.NETWORK && hasValidDOI(network) && (
-                <div title="Published network with DOI">
-                  <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                </div>
-              )}
-              {/* Show Lock icon for read-only networks (without DOI) */}
-              {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !hasValidDOI(network) && (
-                <div title="Read-only network">
-                  <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                </div>
-              )}
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={`text-sm font-medium truncate ${getUnavailableTextClass(isUnavailable)} flex items-center gap-2`}>
+                    <span className="truncate">{getDisplayName(network, 'Untitled Network')}</span>
+                    {/* Show Trophy icon for networks with valid DOI */}
+                    {network.type === NDExFileType.NETWORK && hasValidDOI(network) && (
+                      <div title="Published network with DOI">
+                        <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                      </div>
+                    )}
+                    {/* Show Lock icon for read-only networks (without DOI) */}
+                    {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !hasValidDOI(network) && (
+                      <div title="Read-only network">
+                        <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      </div>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                {hasError && (
+                  <TooltipContent>
+                    <p>This network is invalid. Click the red icon to find out why.</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       </td>

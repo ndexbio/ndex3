@@ -21,9 +21,10 @@ export const tableStyles = {
     hover: "hover:bg-accent/50",
     dragging: "opacity-50",
     readOnly: "cursor-default",
+    disabled: "opacity-60 cursor-not-allowed",
   },
   td: {
-    base: "px-6 py-2 whitespace-nowrap",
+    base: "px-6 py-2 whitespace-nowrap cursor-inherit",
     left: "text-left",
     center: "text-center",
     right: "text-right",
@@ -38,6 +39,7 @@ export const tableStyles = {
       hover: "hover:bg-accent/50",
       dragging: "opacity-50",
       readOnly: "cursor-default",
+      disabled: "opacity-60 cursor-not-allowed",
     },
   },
   
@@ -64,26 +66,32 @@ export const tableStyles = {
 export const getRowClasses = (
   isSelected: boolean,
   isDragging: boolean,
-  readOnly: boolean
+  readOnly: boolean,
+  isDisabled: boolean = false
 ) => {
+  const cursorClass = isDisabled ? tableStyles.tr.disabled : (readOnly ? tableStyles.tr.readOnly : tableStyles.tr.base);
+  
   return [
-    tableStyles.tr.base,
-    isSelected && !readOnly ? tableStyles.tr.selected : tableStyles.tr.hover,
+    "transition-colors duration-150",
+    cursorClass,
+    isSelected && !readOnly && !isDisabled ? tableStyles.tr.selected : tableStyles.tr.hover,
     isDragging ? tableStyles.tr.dragging : '',
-    readOnly ? tableStyles.tr.readOnly : '',
   ].filter(Boolean).join(' ')
 }
 
 export const getGridItemClasses = (
   isSelected: boolean,
   isDragging: boolean,
-  readOnly: boolean
+  readOnly: boolean,
+  isDisabled: boolean = false
 ) => {
+  const cursorClass = isDisabled ? tableStyles.grid.item.disabled : (readOnly ? tableStyles.grid.item.readOnly : tableStyles.grid.item.base);
+
   return [
-    tableStyles.grid.item.base,
-    isSelected && !readOnly ? tableStyles.grid.item.selected : tableStyles.grid.item.hover,
+    "p-3 rounded-md border border-border transition-all duration-200",
+    cursorClass,
+    isSelected && !readOnly && !isDisabled ? tableStyles.grid.item.selected : tableStyles.grid.item.hover,
     isDragging ? tableStyles.grid.item.dragging : '',
-    readOnly ? tableStyles.grid.item.readOnly : '',
   ].filter(Boolean).join(' ')
 }
 

@@ -64,18 +64,38 @@ export const ItemIcon: React.FC<ItemIconProps> = ({
       } else if (hasError) {
         // Error state: Red XCircle icon (second priority)
         return (
-          <XCircle
-            className={`${className} text-red-500 cursor-pointer`}
-            onClick={onErrorClick}
-          />
+          <button 
+            type="button"
+            className="cursor-pointer pointer-events-auto inline-flex p-0 border-none bg-transparent focus:outline-none relative z-20" 
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onErrorClick?.()
+            }}
+          >
+            <XCircle
+              className={`${className} text-red-500`}
+              title="Invalid network. Click for details."
+            />
+          </button>
         )
       } else if (hasWarnings) {
         // Warning state: Yellow TriangleAlert icon (third priority)
         return (
-          <TriangleAlert
-            className={`${className} text-yellow-500 cursor-pointer`}
-            onClick={onWarningClick}
-          />
+          <button 
+            type="button"
+            className="cursor-pointer pointer-events-auto inline-flex p-0 border-none bg-transparent focus:outline-none relative z-20" 
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onWarningClick?.()
+            }}
+          >
+            <TriangleAlert 
+              className={`${className} text-yellow-500`}
+              title="Network data warnings. Click for details."
+            />
+          </button>
         )
       } else if (isShared) {
         // Shared network: FileUser icon
