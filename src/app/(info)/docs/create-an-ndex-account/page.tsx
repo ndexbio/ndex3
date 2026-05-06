@@ -2,6 +2,7 @@
 
 import DocTemplate from '../components/DocTemplate'
 import createAccountButton from '@/images/login_button.png'
+import loginModal from '@/images/login_modal.png'
 import myAccount from '@/images/my_account.png'
 import accountSettings from '@/images/account_settings.png'
 import editProfile from '@/images/edit_profile.png'
@@ -39,7 +40,7 @@ export default function CreateAccountPage() {
                   >
                     NDEx website
                   </a>{' '}
-                  and click <strong>Login/Register</strong>.
+                  and click <strong>Login</strong> in the top-right corner.
                 </>
               ),
             },
@@ -56,33 +57,23 @@ export default function CreateAccountPage() {
               content: 'Then choose how you want to sign up:',
             },
             {
+              type: 'image',
+              image: {
+                src: loginModal,
+                alt: 'NDEx login screen showing sign-in options and Register link',
+              },
+            },
+            {
               type: 'steps',
               steps: [
-                'Click Login/Register in the top-right',
-                'Choose Sign in with Google (recommended)',
-                'Or use manual signup',
-                'Select your Google account',
-                'Accept terms and click Sign Up',
+                'Choose Sign in with Google and select your Google account (recommended)',
+                'Or click "New user? Register" for manual signup — use a unique username and email, then verify your email',
+                'Fill in all required fields and click Register',
               ],
             },
             {
               type: 'note',
               content: 'Using a Google account is faster and recommended.',
-            },
-          ],
-        },
-        {
-          title: 'Manual Signup',
-          blocks: [
-            {
-              type: 'steps',
-              steps: [
-                'Click the manual signup link',
-                'Fill in all required fields',
-                'Use a unique username and email',
-                'Accept Terms & Conditions',
-                'Verify your email',
-              ],
             },
           ],
         },

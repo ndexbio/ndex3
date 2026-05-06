@@ -33,8 +33,8 @@ export default function PublishingPage() {
             {
               type: 'steps',
               steps: [
-                'Open network → click the hamburger menu → "Share"',
-                'Assign visibility as PUBLIC or UNLISTED.',
+                'Click the ⋮ Actions menu for the network → "Share"',
+                'Set Visibility to "Public" or "Unlisted"',
                 'Click "Done"',
               ],
             },
@@ -42,7 +42,7 @@ export default function PublishingPage() {
               type: 'image',
               image: {
                 src: sharableLink,
-                alt: 'Edit network properties button',
+                alt: 'Share dialog showing visibility options',
               },
             },
           ],
@@ -72,7 +72,7 @@ export default function PublishingPage() {
               type: 'image',
               image: {
                 src: uploadMenu,
-                alt: 'Edit network properties button',
+                alt: 'Upload networks button',
               },
             },
             {
@@ -120,7 +120,7 @@ export default function PublishingPage() {
             {
               type: 'steps',
               steps: [
-                'Open network hamburger menu from search or account page → Request DOI',
+                'Click the ⋮ Actions menu for the network → "Request DOI"',
                 'Fill required metadata fields (Title, Description, Version, Author)',
                 'Select Rights and Rights Holder',
                 'Optionally add a reference',

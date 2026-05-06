@@ -2,7 +2,6 @@ import DocTemplate from '../components/DocTemplate'
 import uploadMenu from '@/images/upload_menu.png'
 import uploadPopup from '@/images/upload_popup.png'
 import sharableLink from '@/images/sharable_network_link.png'
-import shareUsers from '@/images/share_users.png'
 import shareUsersPermissions from '@/images/share_users_permissions.png'
 
 export default function SharingAndAccessingPage() {
@@ -58,7 +57,7 @@ export default function SharingAndAccessingPage() {
                     </a>{' '}
                     page; alternatively, instructions can also be found in the{' '}
                     <a
-                      href="http://manual.cytoscape.org/en/stable/"
+                      href="https://manual.cytoscape.org/en/stable/"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:underline"
@@ -108,8 +107,8 @@ export default function SharingAndAccessingPage() {
             {
               type: 'steps',
               steps: [
-                'Click "New" in My Account on the top left.',
-                'Select CX2 file(s)',
+                'Click "+ New" → "Upload Networks" in My Drive',
+                'Select a CX2 file',
                 'Click "Import Network"',
                 'Wait for processing to complete',
                 'Check status indicators (success, warning, or error)',
@@ -142,10 +141,10 @@ export default function SharingAndAccessingPage() {
             {
               type: 'steps',
               steps: [
-                'Select the network hamburger menu for the network of interest from either your account or the search results page.',
+                'Click the ⋮ Actions menu for the network (from My Drive or search results)',
                 'Click "Share"',
-                'Enable "Anyone with link selector" to generate URL"',
-                'Copy and distribute the link',
+                'Check "Anyone with the link" to generate a sharable URL',
+                'Click "Copy link" and distribute it',
                 'Share only with trusted users',
               ],
             },
@@ -170,19 +169,12 @@ export default function SharingAndAccessingPage() {
             {
               type: 'steps',
               steps: [
-                'Open network → click the hamburger menu → "Share"',
-                'Search for users',
-                'Select the users of interest',
-                'Assign permission level (read, edit, or transfer ownership). Ownership can also be revoked here.',
+                'Click the ⋮ Actions menu for a network → "Share"',
+                'Type an email or username in the "Add people" field',
+                'Select a user from the autocomplete suggestions',
+                'Set the permission level (Read, Edit, or Transfer ownership) — use the dropdown to also remove access',
                 'Click "Done"',
               ],
-            },
-            {
-              type: 'image',
-              image: {
-                src: shareUsers,
-                alt: 'User/group sharing interface',
-              },
             },
             {
               type: 'image',

@@ -148,7 +148,7 @@ export default function FindingAndQuerying() {
             {
               type: 'text',
               content:
-                'Click a network in the search results to open it. The network page shows the graphic rendering on the left and an info panel on the right with the description, references, and properties.',
+                'Click a network in the search results to open it. The network page shows the graphic rendering on the left and an info panel on the right with Network, Nodes, and Edges tabs for description, properties, and tabular data.',
             },
             {
               type: 'image',
@@ -161,8 +161,7 @@ export default function FindingAndQuerying() {
               type: 'steps',
               steps: [
                 'Scroll the info panel to see description, reference info, and network properties',
-                'Use the Table button (bottom right) to switch between graphic and tabular views',
-                'Toggle back to the graphic view with the same button',
+                'Use the Nodes or Edges tabs in the right panel to browse tabular data',
               ],
             },
           ],
@@ -188,7 +187,7 @@ export default function FindingAndQuerying() {
               steps: [
                 'Type one or more query terms (e.g. a gene name) in the query box',
                 'Choose a query type from the dropdown',
-                'Click Run Query',
+                'Click the search icon or press Enter to run the query',
               ],
             },
           ],
@@ -236,7 +235,7 @@ export default function FindingAndQuerying() {
               steps: [
                 'Inspect nodes and edges in the graph or in tabular view',
                 'Download the result as a tab-separated text file',
-                'Click Back to Original Network to clear the result',
+                'Click the ✕ button in the query bar to return to the full network',
                 'If logged in, save the result to your NDEx account',
                 'Open the result in Cytoscape for further analysis',
               ],
