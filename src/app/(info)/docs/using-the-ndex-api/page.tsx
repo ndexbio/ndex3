@@ -4,7 +4,7 @@ export default function UsingNdexApiPage() {
   return (
     <DocTemplate
       title="Using the NDEx API"
-      description="Overview of the NDEx 2.5 REST API and how to work with networks programmatically"
+      description="Overview of the NDEx 3.0 REST API and how to work with networks programmatically"
       lastUpdated="April 2026"
       sections={[
         {
@@ -14,9 +14,8 @@ export default function UsingNdexApiPage() {
               type: 'text',
               content: (
                 <>
-                  The NDEx 2.5 API is the current REST API for interacting with
-                  networks. It allows applications to create, retrieve, update,
-                  and manage networks programmatically.
+                  The NDEx 3.0 REST API allows applications to create, retrieve,
+                  update, and manage networks programmatically.
                   <br />
                   <br />
                   For full endpoint details, visit the{' '}
@@ -119,8 +118,6 @@ export default function UsingNdexApiPage() {
               type: 'steps',
               steps: [
                 'Basic Auth is supported',
-                'Google OAuth is also supported',
-                'Bearer tokens are used for OAuth requests',
                 'Some endpoints allow optional authentication',
               ],
             },
@@ -141,7 +138,7 @@ export default function UsingNdexApiPage() {
                 'Group → collaboration and access control',
                 'Network → core data objects (CX format)',
                 'Task → async operations and exports',
-                'Network Set → collections of networks',
+                'Folder → collections of networks (replaces deprecated Network Sets)',
               ],
             },
           ],
