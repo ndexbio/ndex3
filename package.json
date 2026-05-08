@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "npm run generate-config && next build",
+    "build": "npm run generate-config && next build && node scripts/copy-static-html.js",
     "start": "next start",
     "lint": "next lint",
     "generate-config": "node scripts/generate-config.js"

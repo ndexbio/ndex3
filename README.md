@@ -180,6 +180,8 @@ npm run build
 
 The exported files will be in the `out/` directory.
 
+run `tar czf ndex3.tar.gz -s '/^out/ndex3/' out ` to create a single tarball that can be uncompressed on deployment server from the parent directory that should contain the entire 'ndex3' webapp distro.
+
 ### Apache Configuration
 
 For Apache deployments, see [`APACHE_STATIC_DEPLOYMENT.md`](./APACHE_STATIC_DEPLOYMENT.md) for detailed configuration instructions.
