@@ -1,10 +1,10 @@
 'use client'
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
-import { AlertCircle, RefreshCcw } from 'lucide-react'
+import { AlertCircle, RefreshCcw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -168,6 +168,7 @@ function syncFiltersToUrl(
 // --- Main SearchResultsPage (inner content, must be inside DialogProvider) ---
 function SearchResultsPageContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const config = useConfig()
   const query = searchParams.get('q') || ''
   const { isAuthenticated, token, user } = useAuth()
@@ -534,8 +535,17 @@ function SearchResultsPageContent() {
     <div className="container mx-auto px-4 py-4 flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="mb-3 flex items-center justify-between shrink-0">
-        <div className="text-sm text-muted-foreground">
-          Search &gt; &ldquo;{query}&rdquo;
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Search</span>
+          <span className="text-muted-foreground/50">›</span>
+          <button
+            onClick={() => router.push('/search')}
+            aria-label={`Clear search: ${query}`}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted border border-border text-foreground hover:bg-destructive/10 hover:border-destructive/40 hover:text-destructive transition-colors text-xs font-medium"
+          >
+            <span>&ldquo;{query}&rdquo;</span>
+            <X className="h-3 w-3" />
+          </button>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">
