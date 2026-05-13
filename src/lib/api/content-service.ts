@@ -12,7 +12,7 @@ import { AppConfig, MainContentItem, Logo } from '@/types/entities/AppConfig';
  * SWR fetcher function for JSON data
  */
 const fetcher = async (url: string) => {
-  const response = await fetch(url)
+  const response = await fetch(url, { cache: 'no-cache' })
 
   if (!response.ok) {
     throw new Error(`Failed to fetch data: ${response.statusText}`)
@@ -25,7 +25,7 @@ const fetcher = async (url: string) => {
  * SWR fetcher function for HTML/text data
  */
 const textFetcher = async (url: string) => {
-  const response = await fetch(url)
+  const response = await fetch(url, { cache: 'no-cache' })
 
   if (!response.ok) {
     throw new Error(`Failed to fetch data: ${response.statusText}`)
