@@ -1,19 +1,109 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { useToast } from '@/lib/contexts/ToastContext'
 import { CyNDExService, NDExFileType } from '@js4cytoscape/ndex-client'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 
+const CYNDEX_PORT = 1234 // Default Cytoscape REST API port
+const POLL_INTERVAL_MS = 4000 // How often to re-check Cytoscape availability
+
+/**
+ * Module-level singleton poller for Cytoscape Desktop availability.
+ *
+ * All useCyNDEx() consumers share ONE interval and ONE in-flight status check
+ * instead of each component polling localhost:1234 independently. Components
+ * subscribe to the shared state and are notified whenever it changes.
+ */
+let cyStatusAvailable = false
+let cyStatusChecking = true // true until the first probe resolves
+let cyPollInterval: ReturnType<typeof setInterval> | null = null
+let cyInFlight = false
+const cyStatusListeners = new Set<(available: boolean, checking: boolean) => void>()
+
+const notifyCyStatusListeners = () => {
+  cyStatusListeners.forEach((fn) => fn(cyStatusAvailable, cyStatusChecking))
+}
+
+const probeCytoscape = async () => {
+  // Avoid overlapping probes if a previous one is still pending
+  if (cyInFlight) return
+  cyInFlight = true
+  const prevAvailable = cyStatusAvailable
+  const wasChecking = cyStatusChecking
+  try {
+    const cyNDEx = new CyNDExService(CYNDEX_PORT)
+    await cyNDEx.getCyNDExStatus()
+    cyStatusAvailable = true
+  } catch {
+    cyStatusAvailable = false
+  } finally {
+    cyStatusChecking = false
+    cyInFlight = false
+    // Only notify when something actually changed (avoids needless re-renders)
+    if (cyStatusAvailable !== prevAvailable || wasChecking) {
+      notifyCyStatusListeners()
+    }
+  }
+}
+
+const startCyPolling = () => {
+  if (cyPollInterval !== null) return // Already polling
+  // Fire an immediate probe, then poll on an interval
+  void probeCytoscape()
+  cyPollInterval = setInterval(() => void probeCytoscape(), POLL_INTERVAL_MS)
+}
+
+const stopCyPolling = () => {
+  if (cyPollInterval !== null) {
+    clearInterval(cyPollInterval)
+    cyPollInterval = null
+  }
+}
+
+const subscribeCyStatus = (
+  listener: (available: boolean, checking: boolean) => void
+) => {
+  cyStatusListeners.add(listener)
+  // First subscriber starts the shared poller
+  if (cyStatusListeners.size === 1) {
+    startCyPolling()
+  }
+  // Push current state immediately so the new subscriber isn't stale
+  listener(cyStatusAvailable, cyStatusChecking)
+
+  return () => {
+    cyStatusListeners.delete(listener)
+    // Last subscriber stops the shared poller and resets to a checking state
+    if (cyStatusListeners.size === 0) {
+      stopCyPolling()
+      cyStatusChecking = true
+    }
+  }
+}
+
 /**
  * Custom hook for CyNDEx operations
- * Handles opening networks in Cytoscape Desktop with proper token management
+ * Handles opening networks in Cytoscape Desktop with proper token management,
+ * and exposes shared live availability of Cytoscape Desktop.
  */
 export const useCyNDEx = () => {
   const config = useConfig()
   const { keycloak, isAuthenticated, token } = useAuth()
   const { addToast } = useToast()
   const [isOpening, setIsOpening] = useState<Record<string, boolean>>({})
+
+  // Live availability of Cytoscape Desktop, backed by the shared singleton poller.
+  const [isCytoscapeAvailable, setIsCytoscapeAvailable] = useState(cyStatusAvailable)
+  const [isCheckingCytoscape, setIsCheckingCytoscape] = useState(cyStatusChecking)
+
+  useEffect(() => {
+    const unsubscribe = subscribeCyStatus((available, checking) => {
+      setIsCytoscapeAvailable(available)
+      setIsCheckingCytoscape(checking)
+    })
+    return unsubscribe
+  }, [])
 
   /**
    * Recursively resolves a shortcut chain to find the final target network UUID
@@ -176,7 +266,7 @@ export const useCyNDEx = () => {
       const idToken = await getFreshIdToken()
 
       // Step 3: Create CyNDEx service instance
-      const cyNDEx = new CyNDExService(1234) // Default Cytoscape REST API port
+      const cyNDEx = new CyNDExService(CYNDEX_PORT)
 
       // Ensure URL has protocol (following pattern from ndex-client-manager.ts)
       const ndexUrl = config.ndexBaseUrl && config.ndexBaseUrl.startsWith('http')
@@ -233,5 +323,7 @@ export const useCyNDEx = () => {
   return {
     openInCytoscape,
     isOpening,
+    isCytoscapeAvailable,
+    isCheckingCytoscape,
   }
 }

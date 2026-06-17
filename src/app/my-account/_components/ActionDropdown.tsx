@@ -154,7 +154,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   } = useDialogs()
   const { copyFile, isCopying } = useNetworkCopy()
   const { setNetworkReadOnly, isUpdating } = useNetworkReadOnly()
-  const { openInCytoscape, isOpening } = useCyNDEx()
+  const { openInCytoscape, isOpening, isCytoscapeAvailable, isCheckingCytoscape } = useCyNDEx()
   const config = useConfig()
 
   // Check DOI, readonly status, and error status for networks
@@ -196,6 +196,22 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     if (hasDOI) return "Networks with DOI can't be deleted"
     if (isReadOnly) return "Read-only networks can't be deleted"
     return ""
+  }
+
+  // "Open in Cytoscape Desktop" is only enabled when Cytoscape Desktop is running
+  // and reachable (CyNDEx-2 responding on localhost). Disabled while we're still
+  // probing or when it can't be reached.
+  const isCytoscapeOpening = openDropdownId ? isOpening[openDropdownId] : false
+  const shouldDisableOpenInCytoscape =
+    isCytoscapeOpening || isCheckingCytoscape || !isCytoscapeAvailable
+
+  const getOpenInCytoscapeTooltip = (): string => {
+    if (isCytoscapeOpening) return ''
+    if (isCheckingCytoscape) return 'Checking for Cytoscape Desktop…'
+    if (!isCytoscapeAvailable) {
+      return 'Cannot connect to Cytoscape. Please make sure Cytoscape Desktop is installed and running (with the CyNDEx-2 app), then try again.'
+    }
+    return ''
   }
 
   // Add an effect to mark the component as mounted for event handling
@@ -538,22 +554,24 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       ) : (
         // Regular network options (no errors)
         <div className="py-2">
-          <button
-            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-              isOpening[openDropdownId]
-                ? 'text-gray-400 cursor-not-allowed'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-            onClick={isOpening[openDropdownId] ? undefined : handleButtonClick(handleOpenInCytoscape)}
-            disabled={isOpening[openDropdownId]}
-          >
-            {isOpening[openDropdownId] ? (
-              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-            ) : (
-              <ExternalLink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            )}
-            {isOpening[openDropdownId] ? 'Opening...' : 'Open in Cytoscape Desktop'}
-          </button>
+          <div title={getOpenInCytoscapeTooltip()}>
+            <button
+              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
+                shouldDisableOpenInCytoscape ? disabledClass : enabledClass
+              }`}
+              onClick={shouldDisableOpenInCytoscape ? undefined : handleButtonClick(handleOpenInCytoscape)}
+              disabled={shouldDisableOpenInCytoscape}
+            >
+              {isCytoscapeOpening ? (
+                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+              ) : (
+                <ExternalLink className={`h-4 w-4 ${
+                  shouldDisableOpenInCytoscape ? disabledIconClass : enabledIconClass
+                }`} />
+              )}
+              {isCytoscapeOpening ? 'Opening...' : 'Open in Cytoscape Desktop'}
+            </button>
+          </div>
           <button
             className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
             onClick={handleButtonClick(handleOpenInCytoscapeWeb)}
