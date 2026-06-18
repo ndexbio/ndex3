@@ -1,10 +1,10 @@
 'use client'
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
-import { AlertCircle, RefreshCcw, X } from 'lucide-react'
+import { AlertCircle, RefreshCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -168,7 +168,6 @@ function syncFiltersToUrl(
 // --- Main SearchResultsPage (inner content, must be inside DialogProvider) ---
 function SearchResultsPageContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
   const config = useConfig()
   const query = searchParams.get('q') || ''
   const { isAuthenticated, token, user } = useAuth()
@@ -216,6 +215,14 @@ function SearchResultsPageContent() {
   // --- Hooks ---
   const { createShortcut } = useShortcut(null)
   const { publicResults, privateResults, refetch } = useFileSearch(query)
+
+  // "Load more" must advance BOTH cursors — public and private are paginated
+  // independently in the hook, then merged/deduped here. Advancing only public
+  // would silently cap the private side.
+  const handleLoadMore = useCallback(() => {
+    if (publicResults.hasMore) publicResults.loadMore()
+    if (privateResults.hasMore) privateResults.loadMore()
+  }, [publicResults, privateResults])
 
   // Current user's username for "My Networks" filter
   const currentUserName = user?.userName || null
@@ -325,14 +332,12 @@ function SearchResultsPageContent() {
   ])
 
   const { folders, networks } = useMemo(() => splitByType(filteredItems), [filteredItems])
-
   const isLoading = publicResults.isLoading || privateResults.isLoading
   const hasError = !!(publicResults.error || privateResults.error)
   const bothFailed = !!(publicResults.error && privateResults.error)
 
-  const hasMore = publicResults.hasMore
-  const loadMore = publicResults.loadMore
-
+  const hasMore = publicResults.hasMore || privateResults.hasMore
+  const loadMore = handleLoadMore
   const allSearchItems = mergedItems
 
   // Close dropdown on outside click
@@ -472,29 +477,29 @@ function SearchResultsPageContent() {
     void handleRefreshSearchResults()
   }, [handleRefreshSearchResults])
 
-    const handleRemoveShortcut = useCallback(
-      async (shortcutId: string) => {
-        try {
-          const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-          await ndexClient.files.deleteShortcut(shortcutId)
-          addToast({
-            title: 'Shortcut removed',
-            description: 'The shortcut has been removed',
-            type: 'success',
-            duration: 3000,
-          })
-          await handleRefreshSearchResults()
-        } catch (error) {
-          addToast({
-            title: 'Error',
-            description: 'Failed to remove shortcut',
-            type: 'error',
-            duration: 4000,
-          })
-        }
-      },
-      [config.ndexBaseUrl, token, addToast, handleRefreshSearchResults],
-    )
+  const handleRemoveShortcut = useCallback(
+    async (shortcutId: string) => {
+      try {
+        const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+        await ndexClient.files.deleteShortcut(shortcutId)
+        addToast({
+          title: 'Shortcut removed',
+          description: 'The shortcut has been removed',
+          type: 'success',
+          duration: 3000,
+        })
+        await handleRefreshSearchResults()
+      } catch (error) {
+        addToast({
+          title: 'Error',
+          description: 'Failed to remove shortcut',
+          type: 'error',
+          duration: 4000,
+        })
+      }
+    },
+    [config.ndexBaseUrl, token, addToast, handleRefreshSearchResults],
+  )
 
   // Add to history when query changes
   useEffect(() => {
@@ -535,17 +540,8 @@ function SearchResultsPageContent() {
     <div className="container mx-auto px-4 py-4 flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="mb-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Search</span>
-          <span className="text-muted-foreground/50">›</span>
-          <button
-            onClick={() => router.push('/search')}
-            aria-label={`Clear search: ${query}`}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted border border-border text-foreground hover:bg-destructive/10 hover:border-destructive/40 hover:text-destructive transition-colors text-xs font-medium"
-          >
-            <span>&ldquo;{query}&rdquo;</span>
-            <X className="h-3 w-3" />
-          </button>
+        <div className="text-sm text-muted-foreground">
+          Search &gt; &ldquo;{query}&rdquo;
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">
