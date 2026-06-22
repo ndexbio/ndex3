@@ -327,3 +327,23 @@ export const useCyNDEx = () => {
     isCheckingCytoscape,
   }
 }
+
+/**
+ * Test-only: reset the module-level singleton poller state.
+ *
+ * The availability poller keeps process-wide state (interval handle, in-flight
+ * flag, cached availability, listeners). Across tests in a single module that
+ * state would otherwise leak — e.g. a pending probe leaves cyInFlight=true,
+ * causing the next test's probe to early-return. Call this in beforeEach.
+ * Not used in production code.
+ */
+export const __resetCyStatusForTests = () => {
+  if (cyPollInterval !== null) {
+    clearInterval(cyPollInterval)
+    cyPollInterval = null
+  }
+  cyStatusListeners.clear()
+  cyStatusAvailable = false
+  cyStatusChecking = true
+  cyInFlight = false
+}
