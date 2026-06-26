@@ -41,3 +41,46 @@ export async function mockFileSearch(
     })
   })
 }
+
+/**
+ * Paginated mock for the public /v3/search/files calls.
+ *
+ * The page uses useSWRInfinite with a hardcoded page size of 500, and
+ * hasMore = (pagesLoaded * 500) < numFound. So to exercise "Load more"
+ * we report a numFound > 500 while serving small slices keyed on `start`.
+ *
+ * - start=0   -> page1 items, numFound
+ * - start=500 -> page2 items, numFound
+ * After page 2 loads, size=2 -> 2*500=1000 < numFound(600) is false -> button gone.
+ */
+export async function mockFileSearchPaginated(
+  page: Page,
+  opts: {
+    page1: unknown[]
+    page2: unknown[]
+    numFound: number // must be > 500 and <= 1000 to give exactly one "load more"
+  }
+) {
+  await page.route('**/v3/search/files**', async (route) => {
+    const url = new URL(route.request().url())
+    const visibility = url.searchParams.get('visibility')
+    const start = Number(url.searchParams.get('start') ?? '0')
+
+    // Anonymous: only PUBLIC is requested. Return empty for anything else.
+    if (visibility !== 'PUBLIC') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ numFound: 0, start, files: [] }),
+      })
+      return
+    }
+
+    const items = start === 0 ? opts.page1 : opts.page2
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ numFound: opts.numFound, start, files: items }),
+    })
+  })
+}
