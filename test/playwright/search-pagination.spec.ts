@@ -33,4 +33,13 @@ test.describe('search results — pagination (anonymous)', () => {
 
     await expect(page.getByRole('button', { name: /load more results/i })).toHaveCount(0)
   })
+  test('no Load more button when numFound fits in one page', async ({ page }) => {
+      // numFound <= 500 means hasMore is false from the start. This is the
+      // direct guard on the hasMore = size*500 < numFound boundary.
+      await mockFileSearchPaginated(page, { page1: PAGE1, page2: [], numFound: 3 })
+      await page.goto('/search?q=test')
+
+      await expect(page.getByText('Alpha Network', { exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: /load more results/i })).toHaveCount(0)
+    })
 })
