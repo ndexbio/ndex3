@@ -128,12 +128,24 @@ export const useCyNDEx = () => {
     let depth = 0
     let accessKey: string | undefined
 
-    // If it's already a network, return immediately
-    if (currentType === NDExFileType.NETWORK) {
+    // A caller (e.g. the search results page) may hand us a shortcut typed as
+    // NETWORK via the dropdownType fallback. Don't trust the type label on its
+    // own — if the attributes carry a `target`, treat the item as a shortcut.
+    const looksLikeShortcut =
+      currentType === NDExFileType.SHORTCUT ||
+      (currentAttributes?.target as string | undefined) != null
+
+    // Genuine network (no shortcut target attributes) — return immediately.
+    if (currentType === NDExFileType.NETWORK && !looksLikeShortcut) {
       return {
         networkId: currentId,
         accessKey: currentAttributes?.accessKey as string | undefined
       }
+    }
+
+    // Normalize: attributes say shortcut even if the type was passed as NETWORK.
+    if (looksLikeShortcut) {
+      currentType = NDExFileType.SHORTCUT
     }
 
     // Resolve shortcut chain
@@ -145,17 +157,24 @@ export const useCyNDEx = () => {
         throw new Error('Shortcut chain too deep. Maximum depth of 10 exceeded.')
       }
 
-      // Check if shortcut is active (attributes use snake_case)
-      const targetStatus = currentAttributes?.target_status as string
-      if (targetStatus !== 'ACTIVE') {
+      // Check if shortcut is active (attributes use snake_case).
+      // Search-result items may omit target_status; absence is treated as ACTIVE.
+      const targetStatus = currentAttributes?.target_status as string | undefined
+      if (targetStatus != null && targetStatus !== 'ACTIVE') {
         throw new Error('This shortcut is no longer valid. The target has been deleted.')
       }
 
-      // Get target information (attributes use snake_case)
-      const targetId = currentAttributes?.target as string
-      const targetType = currentAttributes?.target_type as NDExFileType
+      // Get target information (attributes use snake_case).
+      const targetId = currentAttributes?.target as string | undefined
 
-      if (!targetId || !targetType) {
+      // target_type may be absent on lightweight search items. When the target
+      // UUID is present but the type is missing, assume it points to a NETWORK
+      // (the overwhelmingly common case for "Open in Cytoscape Desktop").
+      const targetType =
+        (currentAttributes?.target_type as NDExFileType | undefined) ??
+        NDExFileType.NETWORK
+
+      if (!targetId) {
         throw new Error('Invalid shortcut: missing target information.')
       }
 
