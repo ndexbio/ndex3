@@ -77,7 +77,9 @@ const subscribeCyStatus = (
     // Last subscriber stops the shared poller and resets to a checking state
     if (cyStatusListeners.size === 0) {
       stopCyPolling()
+      cyStatusAvailable = false
       cyStatusChecking = true
+      cyInFlight = false
     }
   }
 }
