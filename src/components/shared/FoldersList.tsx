@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
 import {
   MoreVertical,
   ArrowUp,
@@ -20,6 +19,7 @@ import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClasses } from '@/components/shared/table-styles'
 import { formatDate, getDisplayName } from '@/components/shared/table-utils'
+import { OwnerCell } from '@/components/shared/OwnerCell'
 
 // Helper function to check if folder is shared
 const isSharedFolder = (folder: FileItemBase): boolean => {
@@ -61,57 +61,6 @@ const getUnavailableTextClass = (isUnavailable: boolean) =>
 const isOwner = (item: FileItemBase, currentUserName: string | null): boolean => {
   if (!currentUserName) return false
   return item.owner === currentUserName
-}
-
-// Renders the owner name. Links to the user's profile (by ownerUUID) when the
-// item belongs to someone other than the current user; falls back to plain
-// text (or "Me") otherwise. Click/dblclick propagation is stopped so
-// navigating to the profile doesn't select the row or navigate into the folder.
-// Falls back to plain text if ownerUUID is missing (older records).
-const OwnerCell = ({
-  owner,
-  ownerUUID,
-  currentUserName,
-  readOnly,
-}: {
-  owner?: string | null
-  ownerUUID?: string | null
-  currentUserName: string | null
-  readOnly?: boolean
-}) => {
-  if (!owner) {
-    return (
-      <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
-        <span className="truncate">{readOnly ? '' : 'Me'}</span>
-      </div>
-    )
-  }
-
-  const isCurrentUser = !!currentUserName && owner === currentUserName
-
-  // Plain text when it's the current user, or when we don't have a UUID to link to
-  if (isCurrentUser || !ownerUUID) {
-    return (
-      <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
-        <span className="truncate">{owner}</span>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex items-center justify-start w-full text-sm">
-      <Link
-        href={`/users/${ownerUUID}`}
-        onClick={(e) => e.stopPropagation()}
-        onDoubleClick={(e) => e.stopPropagation()}
-        title={`View ${owner}'s profile`}
-        data-testid="owner-link"
-        className="truncate text-muted-foreground hover:text-foreground hover:underline transition-colors"
-      >
-        {owner}
-      </Link>
-    </div>
-  )
 }
 
 // Sort direction type (also accepts null for "unsorted" defaults)
