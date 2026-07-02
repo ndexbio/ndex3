@@ -1,4 +1,57 @@
-import { Page } from '@playwright/test'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import { test as base, expect, Page } from '@playwright/test'
+
+// Read public/config.json once at module load. Tests own this data — the dev
+// server is not involved. If the real config file grows a new required field,
+// the tests pick it up automatically on the next run.
+//
+// Path is resolved relative to the repo root (process.cwd() at test time),
+// which is where Playwright is invoked from.
+const CONFIG_PATH = path.resolve(process.cwd(), 'public/config.json')
+const APP_CONFIG_JSON = fs.readFileSync(CONFIG_PATH, 'utf-8')
+
+// Regex matcher for /config.json with optional trailing slash. Next.js's
+// trailingSlash:true config rewrites internal fetches to include a trailing
+// slash; the `**/config.json` glob doesn't match `/config.json/`. Regex
+// gives us tighter control.
+const CONFIG_ROUTE = /\/config\.json\/?$/
+
+// Override the `context` fixture to install the /config.json mock during
+// context creation, BEFORE Playwright creates the page for the test. Doing
+// this in beforeEach with page.route() leaves a race window where firefox
+// (and occasionally chromium under load) can fire the fetch before the route
+// handler finishes attaching, letting the real request through and hanging
+// the app on the "Loading configuration..." boot screen.
+//
+// Any spec that imports `test` from this file gets this behavior for free.
+export const test = base.extend({
+  context: async ({ context }, use) => {
+    await context.route(CONFIG_ROUTE, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: APP_CONFIG_JSON,
+      })
+    })
+    await use(context)
+  },
+})
+
+export { expect }
+
+// Legacy explicit helper — kept for any spec that still uses page.route in a
+// beforeEach. New specs should import `test` above instead; the config mock
+// then attaches at context creation and there's no need to call this.
+export async function mockAppBoot(page: Page) {
+  await page.route(CONFIG_ROUTE, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: APP_CONFIG_JSON,
+    })
+  })
+}
 
 // Minimal items mirroring the /v3/search/files shape.
 // Known composition lets us assert exact filter counts.
