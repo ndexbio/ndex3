@@ -12,6 +12,10 @@ import Link from 'next/link'
 //
 // Falls back to plain text when ownerUUID is missing, so older records
 // without that field don't render broken links.
+//
+// data-testid="owner-cell" is on the wrapper in every branch so tests can
+// scope assertions to the owner column; the inner <Link> additionally
+// carries data-testid="owner-link" only when the linked variant renders.
 export const OwnerCell = ({
   owner,
   ownerUUID,
@@ -25,7 +29,10 @@ export const OwnerCell = ({
 }) => {
   if (!owner) {
     return (
-      <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
+      <div
+        data-testid="owner-cell"
+        className="flex items-center justify-start w-full text-sm text-muted-foreground"
+      >
         <span className="truncate">{readOnly ? '' : 'Me'}</span>
       </div>
     )
@@ -36,14 +43,20 @@ export const OwnerCell = ({
   // Plain text when it's the current user, or when we don't have a UUID to link to
   if (isCurrentUser || !ownerUUID) {
     return (
-      <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
+      <div
+        data-testid="owner-cell"
+        className="flex items-center justify-start w-full text-sm text-muted-foreground"
+      >
         <span className="truncate">{owner}</span>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center justify-start w-full text-sm">
+    <div
+      data-testid="owner-cell"
+      className="flex items-center justify-start w-full text-sm"
+    >
       <Link
         href={`/users/${ownerUUID}`}
         onClick={(e) => e.stopPropagation()}
