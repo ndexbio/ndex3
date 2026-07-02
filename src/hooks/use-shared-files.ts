@@ -42,7 +42,10 @@ export const useSharedFiles = (): SharedContents => {
         modificationTime: item.modificationTime || item.modifiedTime || item.creationTime,
         // Top-level attributes (moved from nested in ndex-client v2)
         owner: item.owner,
-        ownerUUID: item.ownerUUID,
+        // The listShares endpoint returns the owner's UUID as `owner_id`;
+        // other endpoints already use `ownerUUID`. Accept either so OwnerCell
+        // can render a profile link consistently.
+        ownerUUID: item.ownerUUID ?? item.owner_id,
         visibility: item.visibility,
         updatedBy: item.updatedBy,
         edges: item.edges,
@@ -86,4 +89,4 @@ export const useSharedFiles = (): SharedContents => {
     isEmpty: !data || data.length === 0,
     refresh,
   }
-} 
+}
