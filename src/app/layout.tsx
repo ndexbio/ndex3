@@ -9,6 +9,7 @@ import { Footer } from '@/components/Footer'
 import { ToastContextProvider } from '@/lib/contexts/ToastContext'
 import { BASE_PATH } from '../../next.config'
 import { GoogleAnalytics } from '@next/third-parties/google'
+import LegacyHashRedirect from '@/components/LegacyHashRedirect'
 
 export const metadata: Metadata = {
   title: 'NDEx 3',
@@ -38,6 +39,7 @@ function DynamicFavicon() {
  * - Metadata (for SEO)
  * - Global styles
  * - ToastContextProvider (for showing notifications)
+ * - LegacyHashRedirect (redirects legacy hash-router / DOI URLs to new routes)
  *
  * @param children
  * @returns
@@ -53,6 +55,7 @@ export default function RootLayout({
         <DynamicFavicon />
       </head>
       <body className={`antialiased min-h-screen bg-background text-foreground`}>
+        <LegacyHashRedirect />
         <ConfigProvider>
           <KeycloakProvider>
             <ToastContextProvider>
@@ -69,7 +72,6 @@ export default function RootLayout({
           </KeycloakProvider>
         </ConfigProvider>
         {gaId ? <GoogleAnalytics gaId={gaId} /> : null}
-
       </body>
     </html>
   )
