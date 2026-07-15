@@ -4,7 +4,14 @@ A new Next.js-based frontend for the Network Data Exchange (NDEx) platform, prov
 
 ## Overview
 
-NDEx3 is a complete rewrite of the NDEx frontend using web technologies including Next.js, TypeScript, and Tailwind CSS. It provides users with tools to manage, share, and explore biological network data through an intuitive web interface.
+NDEx3 is a complete rewrite of the NDEx frontend using web technologies including Next.js, TypeScript, and Tailwind CSS. It is the frontend for **managing and organizing networks** — uploading, browsing, searching, sharing, and folder-organizing biological network data.
+
+This app does not implement network visualization itself. For certain functions it redirects users to sibling applications, which may be deployed on the same host or a different one, entirely driven by `public/config.json`:
+
+- **Cytoscape Web** — "Open in Cytoscape Web" opens the selected network's UUID in the Cytoscape Web application at `<cytoscapeWebUrl>/0/networks/<uuid>`. The base URL comes from the `cytoscapeWebUrl` config value (falls back to `https://web.cytoscape.org` if unset); in this repo's dev config it points at a same-host sibling app (`https://dev3.ndex.ucsd.edu/cytoscape`). See [`ActionDropdown.tsx`](./src/app/my-account/_components/ActionDropdown.tsx).
+- **NDEx Network Viewer** — legacy hash-router network-viewing links (e.g. `#/network/<uuid>`, `#/networkset/<uuid>`) are redirected client-side to the NDEx Network Viewer, a sibling app deployed on the same host at the `/viewer/networks/<uuid>` route. The legacy `public.ndexbio.org` host is also canonicalized to `www.ndexbio.org`, unconditionally and independent of whether the link matches a known legacy pattern. See [`src/utils/legacyRedirect.ts`](./src/utils/legacyRedirect.ts).
+
+This app also redirects a few legacy URL shapes from the previous NDEx2 frontend to their NDEx3 equivalents (host canonicalization, hash-fragment rewriting, and a legacy bare-pathname route) — see [docs/legacy-redirects.md](./docs/legacy-redirects.md) for the full set of rules and why they're split across two implementations.
 
 ## Key Features
 

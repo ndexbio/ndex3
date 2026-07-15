@@ -1,4 +1,50 @@
-import { resolveLegacyRedirect } from './legacyRedirect';
+import { resolveLegacyRedirect, resolveHostRedirect, resolveFragmentRedirect } from './legacyRedirect';
+
+describe('resolveHostRedirect', () => {
+  it('legacy host -> canonical host, https', () => {
+    expect(resolveHostRedirect(new URL('http://public.ndexbio.org/'))).toBe('https://www.ndexbio.org');
+  });
+
+  it('canonical host over http -> https', () => {
+    expect(resolveHostRedirect(new URL('http://www.ndexbio.org/'))).toBe('https://www.ndexbio.org');
+  });
+
+  it('canonical host already https -> null', () => {
+    expect(resolveHostRedirect(new URL('https://www.ndexbio.org/'))).toBeNull();
+  });
+
+  it('non-prod host (localhost) -> null', () => {
+    expect(resolveHostRedirect(new URL('http://localhost:3000/'))).toBeNull();
+  });
+});
+
+describe('resolveFragmentRedirect', () => {
+  it('#/network/{id} -> /viewer/networks/{id}', () => {
+    expect(resolveFragmentRedirect(new URL('https://www.ndexbio.org/#/network/abc'))).toBe(
+      '/viewer/networks/abc'
+    );
+  });
+
+  it('#/networkset/{id}?accesskey=... -> /folders/{id}?accesskey=...', () => {
+    expect(resolveFragmentRedirect(new URL('https://www.ndexbio.org/#/networkset/abc?accesskey=xyz'))).toBe(
+      '/folders/abc?accesskey=xyz'
+    );
+  });
+
+  it('ignores pathname entirely', () => {
+    expect(resolveFragmentRedirect(new URL('https://www.ndexbio.org/index.html#/network/abc'))).toBe(
+      '/viewer/networks/abc'
+    );
+  });
+
+  it('unrecognized hash -> null', () => {
+    expect(resolveFragmentRedirect(new URL('https://www.ndexbio.org/#/user/abc'))).toBeNull();
+  });
+
+  it('no hash -> null', () => {
+    expect(resolveFragmentRedirect(new URL('https://www.ndexbio.org/'))).toBeNull();
+  });
+});
 
 describe('resolveLegacyRedirect', () => {
   it('public.ndexbio.org network -> www viewer (http->https, accesskey kept)', () => {
@@ -14,6 +60,12 @@ describe('resolveLegacyRedirect', () => {
   it('www network hash -> viewer', () => {
     expect(
       resolveLegacyRedirect('https://www.ndexbio.org/#/network/98ba6a19-586e-11e7-8f50-0ac135e8bacf')
+    ).toBe('https://www.ndexbio.org/viewer/networks/98ba6a19-586e-11e7-8f50-0ac135e8bacf');
+  });
+
+  it('index.html network -> viewer (pathname ignored)', () => {
+    expect(
+      resolveLegacyRedirect('https://www.ndexbio.org/index.html#/network/98ba6a19-586e-11e7-8f50-0ac135e8bacf')
     ).toBe('https://www.ndexbio.org/viewer/networks/98ba6a19-586e-11e7-8f50-0ac135e8bacf');
   });
 
@@ -44,5 +96,15 @@ describe('resolveLegacyRedirect', () => {
     expect(resolveLegacyRedirect('http://localhost:3000/#/network/abc')).toBe(
       'http://localhost:3000/viewer/networks/abc'
     );
+  });
+
+  it('public.ndexbio.org with unrecognized hash -> host fixed, hash left alone', () => {
+    expect(resolveLegacyRedirect('https://public.ndexbio.org/#/user/abc')).toBe(
+      'https://www.ndexbio.org/#/user/abc'
+    );
+  });
+
+  it('public.ndexbio.org with no hash -> host fixed', () => {
+    expect(resolveLegacyRedirect('http://public.ndexbio.org/')).toBe('https://www.ndexbio.org/');
   });
 });

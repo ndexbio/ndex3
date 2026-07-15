@@ -9,7 +9,9 @@ The "Open in Cytoscape Desktop" feature enables users to seamlessly transfer net
 ### Directory Structure
 ```
 src/hooks/
-└── use-cyndex.ts                # CyNDEx operations hook with shortcut resolution
+├── use-cyndex.ts                # CyNDEx operations hook, shortcut resolution, shared availability poller
+├── use-cyndex.test.ts           # Hook + poller tests
+└── use-cyndex.shortcut.test.ts  # Shortcut chain resolution tests
 
 src/app/my-account/_components/
 └── ActionDropdown.tsx           # UI integration (handler for button click)
@@ -52,9 +54,18 @@ interface CyNDExHook {
     itemType: NDExFileType,
     itemAttributes: Record<string, any>
   ) => Promise<void>;
-  isOpening: Record<string, boolean>; // Track loading state per item
+  isOpening: Record<string, boolean>;     // Track loading state per item
+  isCytoscapeAvailable: boolean;          // Live reachability of Cytoscape Desktop
+  isCheckingCytoscape: boolean;           // True until the first probe resolves
 }
 ```
+
+**Shared availability poller**: `isCytoscapeAvailable` / `isCheckingCytoscape` are backed by a module-level singleton poller, not per-component state. All `useCyNDEx()` consumers subscribe to one shared interval and one in-flight status check against `localhost:1234` instead of each component polling independently.
+
+- **Polling**: Fires an immediate probe on first subscriber, then every `POLL_INTERVAL_MS` (4000ms). The interval is torn down when the last subscriber unmounts, and `isCheckingCytoscape` resets to `true` so the next mount starts fresh.
+- **Probe timeout**: Each probe (`cyNDEx.getCyNDExStatus()`) is raced against a `PROBE_TIMEOUT_MS` (3000ms) client-side timeout, independent of the CyNDEx service's own internal timeout. This guards against a hung `getCyNDExStatus()` call (e.g. a request that never reaches the network layer) leaving the shared `cyInFlight` flag stuck `true`, which would otherwise cause every subsequent probe to early-return and permanently strand the UI in a "checking" state.
+- **Change-only notifications**: Listeners are only notified when availability or checking state actually changes, to avoid needless re-renders across all subscribing components.
+- **Consumer**: `ActionDropdown.tsx` reads `isCytoscapeAvailable` / `isCheckingCytoscape` to disable the "Open in Cytoscape Desktop" button and show an explanatory tooltip while Cytoscape isn't reachable (see Section 3.1).
 
 **Key Functions**:
 
@@ -196,7 +207,7 @@ This pattern matches `ndex-client-manager.ts:8` for consistency.
 ### 3. User Interface Integration
 
 #### 3.1 ActionDropdown Button
-**Path**: `src/app/my-account/_components/ActionDropdown.tsx:444-459`
+**Path**: `src/app/my-account/_components/ActionDropdown.tsx`
 
 **Button States**:
 ```typescript
@@ -206,9 +217,21 @@ This pattern matches `ndex-client-manager.ts:8` for consistency.
 // Loading state (while operation in progress)
 <Loader2 spin /> "Opening..."
 
-// Disabled state
-opacity-50, cursor-not-allowed
+// Disabled state — opacity-50, cursor-not-allowed. Disabled while:
+//   - an open is already in progress for this item (isOpening), OR
+//   - the shared poller hasn't completed its first probe yet (isCheckingCytoscape), OR
+//   - the shared poller reports Cytoscape isn't reachable (!isCytoscapeAvailable)
 ```
+
+**Tooltip** (via `getOpenInCytoscapeTooltip()`), shown on the wrapping `<div title=...>`:
+| Condition | Tooltip |
+|-----------|---------|
+| `isCheckingCytoscape` | "Checking for Cytoscape Desktop…" |
+| `!isCytoscapeAvailable` | "Cannot connect to Cytoscape. Please make sure Cytoscape Desktop is installed and running (with the CyNDEx-2 app), then try again." |
+| Opening in progress | none |
+| Available | none |
+
+This availability gating is driven by the shared singleton poller in `use-cyndex.ts` (Section 2.1) — the button reflects live Cytoscape reachability rather than only failing after the user clicks.
 
 #### 3.2 Click Handler
 ```typescript
@@ -227,10 +250,11 @@ const handleOpenInCytoscape = () => {
 }
 ```
 
-**Double-Click Prevention Strategy** (3 layers):
+**Double-Click Prevention Strategy** (4 layers):
 1. **Primary**: Menu closes immediately on click
 2. **Secondary**: Button disabled during operation (`isOpening` state)
 3. **Tertiary**: Visual loading feedback (spinner + "Opening..." text)
+4. **Availability gate**: Button is disabled outright whenever the shared poller reports Cytoscape isn't reachable, so a click can't even be attempted (Section 3.1)
 
 #### 3.3 Toast Notifications
 
@@ -514,6 +538,11 @@ Result: ❌ Error toast: "Unable to connect to Cytoscape Desktop. Please ensure 
 - [CyNDEx-2 Documentation](https://github.com/cytoscape/cyndex-2) - External dependency
 
 ## Changelog
+
+### Unreleased
+- ✅ Shared singleton poller for live Cytoscape Desktop availability (`isCytoscapeAvailable`, `isCheckingCytoscape`), replacing "fail only after click"
+- ✅ "Open in Cytoscape Desktop" button now disabled + tooltip-gated based on live reachability
+- ✅ Probe hardened with a client-side timeout (`PROBE_TIMEOUT_MS`) so a hung status check can't permanently stall the poller
 
 ### Version 1.0.0 (2025-09-30)
 - ✅ Initial implementation

@@ -11,6 +11,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` - Run ESLint
 - `npm run generate-config` - Generate Next.js config from public/config.json
 
+### Testing
+- `npm run test` - Run Jest unit tests
+- `npm run test:watch` - Run Jest in watch mode
+- `npm run test:e2e` - Run Playwright end-to-end tests (config: `playwright.config.ts`, specs in `test/playwright/`)
+
 ### Configuration Management
 The application uses a **single source of truth** configuration system:
 - Main config: `public/config.json` (edit this file)

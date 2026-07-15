@@ -100,7 +100,7 @@ The static export supports both static and dynamic routes through a hybrid appro
 ### Dynamic Routes (Client-side Rendered)
 - `/ndex3/folders/[uuid]/` - Folder pages
 - `/ndex3/users/[uuid]/` - User profile pages
-- `/ndex3/networkset/[uuid]/` - Legacy folder redirects
+- `/ndex3/networkset/[uuid]/` - Legacy folder redirects (see [docs/legacy-redirects.md](./legacy-redirects.md) for this and other legacy URL redirect rules)
 
 ## Hybrid Routing for Static Export
 

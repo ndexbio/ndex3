@@ -193,7 +193,7 @@ Two-pane layout reusing `FileRenderer` pattern:
 - **Bottom pane**: `NetworksList` — shows networks and network-type shortcuts matching the search
 
 Both components are configured with:
-- `showOwnerColumn={true}` — always show owner (users are discovering content across NDEx)
+- `showOwnerColumn={true}` — always show owner (users are discovering content across NDEx). Rendered via the shared `OwnerCell` component, which links the owner name to their profile page (`/users/{ownerUUID}`) when the item isn't owned by the current user — see [My Account Page docs](./my-account-page.md#owner-column).
 - `showVisibilityColumn` — varies by tab:
   - **My Networks**: `true` — items have mixed visibility (public + private merged)
   - **Public / Networks (anonymous)**: `false` — all items are public, column adds no information
