@@ -7,6 +7,7 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
 import { usePublicFolderContents, useFolder } from '@/hooks/use-folder'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
+import FolderPageSkeleton from './FolderPageSkeleton'
 
 interface PublicFolderViewProps {
   uuid: string
@@ -75,6 +76,10 @@ export default function PublicFolderView({ uuid, accessKey }: PublicFolderViewPr
     }
   }
 
+  if (isLoading) {
+    return <FolderPageSkeleton />
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
@@ -87,18 +92,7 @@ export default function PublicFolderView({ uuid, accessKey }: PublicFolderViewPr
         </p>
       </div>
 
-      {isLoading && (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-12 w-full rounded-md bg-primary/10 animate-pulse"
-            />
-          ))}
-        </div>
-      )}
-
-      {!isLoading && error && (
+      {error && (
         <div className="bg-muted/50 rounded-lg p-8 text-center">
           <h2 className="text-xl font-semibold mb-2">
             {authDenied ? 'This folder is private' : 'Folder unavailable'}
@@ -111,7 +105,7 @@ export default function PublicFolderView({ uuid, accessKey }: PublicFolderViewPr
         </div>
       )}
 
-      {!isLoading && !error && isEmpty && (
+      {!error && isEmpty && (
         <div className="bg-muted/50 rounded-lg p-8 text-center">
           <h2 className="text-xl font-semibold mb-2">This folder is empty</h2>
           <p className="text-muted-foreground">
@@ -120,7 +114,7 @@ export default function PublicFolderView({ uuid, accessKey }: PublicFolderViewPr
         </div>
       )}
 
-      {!isLoading && !error && !isEmpty && (
+      {!error && !isEmpty && (
         <ul className="divide-y rounded-lg border">
           {items.map((item) => {
             const href = resolveHref(item)
