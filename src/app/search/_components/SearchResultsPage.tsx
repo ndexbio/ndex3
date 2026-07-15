@@ -77,6 +77,7 @@ function VisibilityChip({
   return (
     <button
       type="button"
+      data-testid={`filter-vis-${label.toLowerCase()}`}
       onClick={onClick}
       className={`
         inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium
@@ -116,7 +117,10 @@ function FileTypeCheckbox({
   onChange: () => void
 }) {
   return (
-    <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+    <label
+      data-testid={`filter-type-${label.toLowerCase()}`}
+      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+    >
       <input
         type="checkbox"
         checked={checked}

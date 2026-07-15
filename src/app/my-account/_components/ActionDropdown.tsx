@@ -390,7 +390,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
 
     onClose()
   }
-  // Handle opening network in Cytoscape Web
+  // Redirects to the Cytoscape Web sibling app (config.cytoscapeWebUrl) with this network's UUID
   const handleOpenInCytoscapeWeb = () => {
     if (!item || !openDropdownId) return
 

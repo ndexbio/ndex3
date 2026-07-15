@@ -29,6 +29,7 @@ import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClas
 import { formatDate, formatCount, getDisplayName } from '@/components/shared/table-utils'
 import { NetworkStatusDialog } from '@/components/dialogs/NetworkStatusDialog'
 import { hasNetworkError } from '@/lib/utils/network-status'
+import { OwnerCell } from '@/components/shared/OwnerCell'
 
 // Helper function to format permission display text
 const formatPermission = (permission?: Permission): string => {
@@ -443,11 +444,12 @@ const ListNetworkItem = ({
       </td>
       {showOwnerColumn && (
         <td className={getTdClasses('left')}>
-          <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
-            <span className="truncate">
-              {network.owner || (readOnly ? '' : 'Me')}
-            </span>
-          </div>
+          <OwnerCell
+            owner={network.owner}
+            ownerUUID={network.ownerUUID}
+            currentUserName={currentUserName}
+            readOnly={readOnly}
+          />
         </td>
       )}
 {isUnavailable ? (

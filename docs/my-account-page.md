@@ -591,8 +591,9 @@ The NetworksList and FoldersList components support conditional column display b
 - **Hidden in**:
   - "My networks" tab
   - Trash tab
-- **Data Source**: `item.owner` (username of the file owner)
+- **Data Source**: `item.owner` (username), `item.ownerUUID` (for linking)
 - **Alignment**: Left-aligned for better readability
+- **Rendering**: Delegated to the shared `OwnerCell` component (`src/components/shared/OwnerCell.tsx`), used by both `FoldersList` and `NetworksList`. When the item belongs to someone other than the current user and `ownerUUID` is present, the owner name is a link to that user's profile page (`/users/{ownerUUID}`); click/dblclick on the link stop propagation so it doesn't trigger row selection or the row's double-click handler. Renders plain text for the current user's own items ("Me") or when `ownerUUID` is missing (e.g. older records).
 
 #### Permission Column
 - **Displayed in**:

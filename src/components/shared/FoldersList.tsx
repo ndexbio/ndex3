@@ -19,6 +19,7 @@ import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClasses } from '@/components/shared/table-styles'
 import { formatDate, getDisplayName } from '@/components/shared/table-utils'
+import { OwnerCell } from '@/components/shared/OwnerCell'
 
 // Helper function to check if folder is shared
 const isSharedFolder = (folder: FileItemBase): boolean => {
@@ -390,11 +391,12 @@ const ListFolderItem = ({
         <>
           {showOwnerColumn && (
             <td className={getTdClasses('left')}>
-              <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
-                <span className="truncate">
-                  {folder.owner || 'Me'}
-                </span>
-              </div>
+              <OwnerCell
+                owner={folder.owner}
+                ownerUUID={folder.ownerUUID}
+                currentUserName={currentUserName}
+                readOnly={readOnly}
+              />
             </td>
           )}
           <td className={getTdClasses('left')}>

@@ -7,6 +7,7 @@ import { getNdexClient } from '@/lib/api/ndex-client-manager'
 
 const CYNDEX_PORT = 1234 // Default Cytoscape REST API port
 const POLL_INTERVAL_MS = 4000 // How often to re-check Cytoscape availability
+const PROBE_TIMEOUT_MS = 3000 // Hard cap on a single probe so a hung request can't stall the poller forever
 
 /**
  * Module-level singleton poller for Cytoscape Desktop availability.
@@ -25,6 +26,27 @@ const notifyCyStatusListeners = () => {
   cyStatusListeners.forEach((fn) => fn(cyStatusAvailable, cyStatusChecking))
 }
 
+/**
+ * Rejects if `promise` hasn't settled within `ms`. The underlying promise is
+ * left to settle on its own (its result is simply ignored) — this only
+ * bounds how long the caller waits.
+ */
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Cytoscape status probe timed out')), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timer)
+        reject(error)
+      }
+    )
+  })
+}
+
 const probeCytoscape = async () => {
   // Avoid overlapping probes if a previous one is still pending
   if (cyInFlight) return
@@ -33,7 +55,10 @@ const probeCytoscape = async () => {
   const wasChecking = cyStatusChecking
   try {
     const cyNDEx = new CyNDExService(CYNDEX_PORT)
-    await cyNDEx.getCyNDExStatus()
+    // Bounded independently of the client's own timeout so a hung request
+    // (e.g. one that never reaches the network layer) can't leave
+    // cyInFlight stuck true and permanently stall all future probes.
+    await withTimeout(cyNDEx.getCyNDExStatus(), PROBE_TIMEOUT_MS)
     cyStatusAvailable = true
   } catch {
     cyStatusAvailable = false
