@@ -84,6 +84,84 @@ export const useFolderContents = (
 }
 
 /**
+ * Hook to fetch the *public* contents of a folder (read-only).
+ *
+ * Unlike `useFolderContents`, this intentionally fetches the folder list with a
+ * TOKENLESS client. The backend `GET /v3/files/folders/{id}/list` endpoint scopes
+ * its result to the requesting user when an auth token is present, so an
+ * authenticated user viewing a public folder they do not own would otherwise get
+ * an empty list. Fetching without the token makes the backend serve the folder's
+ * public contents regardless of who is viewing.
+ *
+ * @param folderId UUID of the folder to fetch contents from.
+ * @param accessKey Optional access key for shared / unlisted folders.
+ * @returns Object containing folder contents, loading state, and error.
+ */
+export const usePublicFolderContents = (
+  folderId: string | null = null,
+  accessKey?: string,
+): FolderContents => {
+  const config = useConfig()
+
+  // Public contents don't depend on auth; cache purely by folder + accessKey.
+  const cacheKey = folderId
+    ? ['publicFolderContents', folderId, accessKey]
+    : null
+
+  const fetcher = async () => {
+    if (!folderId) {
+      return []
+    }
+
+    try {
+      // Tokenless client: no user scoping applied by the backend.
+      const ndexClient = getNdexClient(config.ndexBaseUrl)
+      const items = await ndexClient.files.getFolderList(
+        folderId,
+        accessKey,
+        'compact',
+      )
+      return items || []
+    } catch (error) {
+      // A private folder correctly rejects an anonymous/unauthorized read.
+      // That's expected, user-facing state (handled in PublicFolderView), not
+      // an application bug, so don't spam the console for it.
+      const denied =
+        (error as any)?.statusCode === 401 ||
+        (error as any)?.statusCode === 403 ||
+        (error as any)?.name === 'NDExAuthError'
+      if (!denied) {
+        console.error('Error fetching public folder contents:', error)
+      }
+      throw error
+    }
+  }
+
+  const { data, error, isLoading, mutate } = useSWR<FileItemBase[]>(
+    cacheKey,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000,
+    },
+  )
+
+  const refresh = async () => {
+    if (cacheKey) {
+      await mutate()
+    }
+  }
+
+  return {
+    items: data || [],
+    isLoading,
+    error,
+    isEmpty: !data || data.length === 0,
+    refresh,
+  }
+}
+
+/**
  * Hook to fetch and manage a folder
  * @param folderId UUID of the folder to fetch. If null, only creates hook functions.
  * @param accessKey Optional access key for shared folders
@@ -97,23 +175,29 @@ export const useFolder = (
   const { token, isAuthenticated } = useAuth()
 
   // Create a cache key for revalidation
-  const cacheKey = folderId 
-    ? isAuthenticated 
-      ? ['folder', folderId, token, accessKey] 
+  const cacheKey = folderId
+    ? isAuthenticated
+      ? ['folder', folderId, token, accessKey]
       : ['folder', folderId, accessKey]
     : null
 
   // Fetcher function that uses ndexClient
   const fetcher = async () => {
     const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-    
+
     try {
       if (folderId) {
         return await ndexClient.files.getFolder(folderId, accessKey)
       }
       return null
     } catch (error) {
-      console.error('Error fetching folder:', error)
+      const denied =
+        (error as any)?.statusCode === 401 ||
+        (error as any)?.statusCode === 403 ||
+        (error as any)?.name === 'NDExAuthError'
+      if (!denied) {
+        console.error('Error fetching folder:', error)
+      }
       throw error
     }
   }
@@ -152,7 +236,7 @@ export const useFolder = (
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
       const result = await ndexClient.files.createFolder(name, parentFolderId || undefined)
-      
+
       // Refresh parent folder contents if it's being viewed
       globalMutate((key) =>
         Array.isArray(key) &&
@@ -160,7 +244,7 @@ export const useFolder = (
         key[1] === parentFolderId &&
         key[2] === token
       )
-      
+
       return result
     } catch (error) {
       console.error('Error creating folder:', error)
@@ -226,10 +310,10 @@ export const useFolder = (
 
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      
+
       // Get the folder data first (to know its parent) if not the current one
       let parentFolderId
-      
+
       if (folderId === folderIdToDelete && data) {
         parentFolderId = data.parent
       } else {
@@ -239,7 +323,7 @@ export const useFolder = (
 
       // Delete the folder
       await ndexClient.files.deleteFolder(folderIdToDelete)
-      
+
       // Refresh parent folder contents if it's being viewed
       globalMutate((key) =>
         Array.isArray(key) &&
@@ -247,7 +331,7 @@ export const useFolder = (
         key[1] === parentFolderId &&
         key[2] === token
       )
-      
+
     } catch (error) {
       console.error('Error deleting folder:', error)
       throw error

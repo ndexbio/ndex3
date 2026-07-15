@@ -2,8 +2,10 @@
 
 import React from 'react'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
+import { useFolder } from '@/hooks/use-folder'
 import MyAccount from '@/app/my-account/_components/MyAccount'
 import { MyAccountTabType } from '@/types/ui/myAccount'
+import PublicFolderView from './PublicFolderView'
 
 interface FolderViewerProps {
   uuid?: string
@@ -11,16 +13,30 @@ interface FolderViewerProps {
 
 /**
  * FolderViewer Component
- * 
- * Smart folder viewer that provides different experiences based on authentication:
- * - Authenticated users: Full MyAccount experience with all management features
- * - Anonymous users: Simplified public folder viewer (read-only)
+ *
+ * Routes a folder URL to the right experience based on OWNERSHIP, not merely on
+ * authentication:
+ *  - Owner (authenticated, folder.owner === current user): full MyAccount
+ *    management experience.
+ *  - Everyone else (anonymous, or authenticated non-owner): read-only
+ *    PublicFolderView.
+ *
+ * The key correctness point is that authentication alone must not switch the data
+ * source. The public listing endpoint scopes results to the requesting user when a
+ * token is present, so routing a non-owner through MyAccount produced an empty
+ * folder. PublicFolderView fetches the public contents tokenless instead.
  */
 export default function FolderViewer({ uuid }: FolderViewerProps) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
 
-  // Handle placeholder UUID from static generation
-  if (!uuid || uuid === 'placeholder') {
+  const validUuid = uuid && uuid !== 'placeholder' ? uuid : null
+
+  // Fetch folder metadata to determine ownership. useFolder builds an anonymous
+  // cache key when not authenticated, so this works for public folders too.
+  const { folder, isLoading } = useFolder(validUuid)
+
+  // Handle placeholder UUID from static generation / missing uuid
+  if (!validUuid) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
@@ -33,38 +49,36 @@ export default function FolderViewer({ uuid }: FolderViewerProps) {
     )
   }
 
-  // Authenticated users get the full MyAccount experience
-  if (isAuthenticated) {
+  // Same ownership check used by NetworksList / FoldersList.
+  const currentUserName = user?.userName || null
+  const userOwns =
+    isAuthenticated &&
+    !!currentUserName &&
+    !!folder?.owner &&
+    folder.owner === currentUserName
+
+  // For authenticated users, wait for metadata before deciding, to avoid a flash
+  // of the public view for an owner (who should land in MyAccount).
+  if (isAuthenticated && isLoading) {
     return (
-      <MyAccount 
-        tabState={MyAccountTabType.MYNETWORKS} 
-        uuid={uuid}
-      />
+      <div className="container mx-auto px-4 py-8">
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-12 w-full rounded-md bg-primary/10 animate-pulse"
+            />
+          ))}
+        </div>
+      </div>
     )
   }
 
-  // Anonymous users get the simplified public viewer
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Public Folder</h1>
-        <p className="text-muted-foreground mt-2">
-          Viewing contents of folder: {uuid}
-        </p>
-      </div>
-      
-      {/* TODO: Implement public folder content display */}
-      <div className="bg-muted/50 rounded-lg p-8 text-center">
-        <h2 className="text-xl font-semibold mb-2">Public Folder Viewer</h2>
-        <p className="text-muted-foreground mb-4">
-          This component will display public folder contents for UUID: <code className="bg-muted px-2 py-1 rounded text-sm">{uuid}</code>
-        </p>
-        <div className="space-y-2 text-sm text-muted-foreground">
-          <p>• Anonymous access (read-only)</p>
-          <p>• <strong>Sign in for full folder management features</strong></p>
-          <p>• Public folder sharing supported</p>
-        </div>
-      </div>
-    </div>
-  )
+  // Owners get the full management experience.
+  if (userOwns) {
+    return <MyAccount tabState={MyAccountTabType.MYNETWORKS} uuid={validUuid} />
+  }
+
+  // Anonymous users and authenticated non-owners get the read-only public view.
+  return <PublicFolderView uuid={validUuid} />
 }
