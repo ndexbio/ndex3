@@ -16,7 +16,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { ItemIcon } from '@/components/ui/ItemIcon'
-import { useRouter } from 'next/navigation'
 import { useDrag } from 'react-dnd'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { useConfig } from '@/lib/contexts/ConfigContext'
@@ -24,12 +23,12 @@ import { ItemTypes } from '@/types/dnd/DndTypes'
 import { MyAccountTabType } from '@/types/ui/myAccount'
 import { NDExFileType, Permission } from '@js4cytoscape/ndex-client'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
-import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClasses } from '@/components/shared/table-styles'
 import { formatDate, formatCount, getDisplayName } from '@/components/shared/table-utils'
 import { NetworkStatusDialog } from '@/components/dialogs/NetworkStatusDialog'
 import { hasNetworkError } from '@/lib/utils/network-status'
 import { OwnerCell } from '@/components/shared/OwnerCell'
+import { withAccessKey } from '@/lib/utils/access-key'
 
 // Helper function to format permission display text
 const formatPermission = (permission?: Permission): string => {
@@ -47,6 +46,8 @@ interface NetworksListProps {
   tabState?: MyAccountTabType
   viewMode: 'grid' | 'list'
   readOnly?: boolean
+  /** Access key inherited from the current folder URL. */
+  accessKey?: string
   showOwnerColumn?: boolean
   showVisibilityColumn?: boolean
   showPermissionColumn?: boolean
@@ -552,6 +553,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
   tabState,
   viewMode,
   readOnly = false,
+  accessKey,
   showOwnerColumn = false,
   showVisibilityColumn = true,
   showPermissionColumn = false,
@@ -563,9 +565,8 @@ const NetworksList: React.FC<NetworksListProps> = ({
   sortable = true,
   onSortChange,
 }) => {
-  const router = useRouter()
   const config = useConfig()
-  const { token, user } = useAuth()
+  const { user } = useAuth()
   const currentUserName = user?.userName || null
   const [sortField, setSortField] = useState<SortField>(defaultSort.field)
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSort.direction)
@@ -589,8 +590,8 @@ const NetworksList: React.FC<NetworksListProps> = ({
   })
 
   // Handle double click on network to open it
-const handleNetworkDoubleClick = useCallback(
-    async (event: React.MouseEvent, networkId: string) => {
+  const handleNetworkDoubleClick = useCallback(
+    (event: React.MouseEvent, networkId: string) => {
       event.preventDefault()
       event.stopPropagation()
 
@@ -601,33 +602,30 @@ const handleNetworkDoubleClick = useCallback(
         return
       }
 
-      // If it's a shortcut, resolve the target UUID from attributes
-      if (networkItem?.type === NDExFileType.SHORTCUT) {
-        const targetId = networkItem.attributes?.target
-        if (targetId) {
-          window.open(
-            `https://${config.ndexBaseUrl}/viewer/networks/${targetId}`,
-            '_blank',
-          )
-          return
-        }
-      }
+      if (!readOnly && tabState === MyAccountTabType.TRASH) return
 
-      if (readOnly) {
-        window.open(
-          `https://${config.ndexBaseUrl}/viewer/networks/${networkId}`,
-          '_blank',
-        )
-      } else {
-        if (tabState !== MyAccountTabType.TRASH) {
-          window.open(
-            `https://${config.ndexBaseUrl}/viewer/networks/${networkId}`,
-            '_blank',
-          )
-        }
-      }
+      // A list item already carries the target of a network shortcut. Keep
+      // this synchronous so the browser treats window.open as part of the
+      // double-click gesture rather than blocking it as a popup.
+      const targetId =
+        networkItem?.type === NDExFileType.SHORTCUT
+          ? networkItem.attributes?.target
+          : networkId
+      if (!targetId) return
+
+      const baseUrl = config.ndexBaseUrl.startsWith('http')
+        ? config.ndexBaseUrl
+        : `https://${config.ndexBaseUrl}`
+      const targetAccessKey =
+        (networkItem?.attributes?.accessKey as string | undefined) ?? accessKey
+      const viewerUrl = withAccessKey(
+        `${baseUrl.replace(/\/$/, '')}/viewer/networks/${targetId}`,
+        targetAccessKey,
+      )
+
+      window.open(viewerUrl, '_blank')
     },
-    [items, config.ndexBaseUrl, readOnly, tabState]
+    [items, config.ndexBaseUrl, readOnly, tabState, accessKey],
   )
 
   // Handle warning icon click

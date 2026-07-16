@@ -69,8 +69,18 @@ interface CyNDExHook {
 
 **Key Functions**:
 
-##### `resolveShortcutChain()`
+##### `resolveNetworkTarget()`
 Recursively resolves shortcut chains to find the final target network.
+
+> **Shared module:** this resolver lives in `src/lib/utils/shortcut-resolver.ts`
+> (exported as `resolveNetworkTarget`), not inside `use-cyndex.ts`. It is the
+> single implementation used by all three network actions that must operate on a
+> shortcut's target rather than the shortcut itself: **Open in Cytoscape
+> Desktop**, **Open in Cytoscape Web**, and **Download**. `use-cyndex.ts`
+> delegates to it. The module also exports `targetsNetwork(item)` /
+> `targetsFolder(item)`, the helpers `ActionDropdown` uses to decide whether a
+> row may show network actions at all (folders and shortcuts-to-folders never
+> do).
 
 **Algorithm**:
 ```
@@ -89,7 +99,10 @@ Recursively resolves shortcut chains to find the final target network.
 ```typescript
 itemId: string              // Starting UUID (network or shortcut)
 itemType: NDExFileType      // Type of starting item
-itemAttributes: Record<string, any>  // Attributes containing target info
+itemAttributes: Record<string, any> | undefined  // Attributes containing target info
+options: { ndexBaseUrl: string; token?: string; accessKey?: string }
+// The page key resolves protected intermediate shortcuts and is returned when
+// the shortcut chain does not carry a more specific key.
 ```
 
 **Returns**:
@@ -106,7 +119,7 @@ itemAttributes: Record<string, any>  // Attributes containing target info
 | `target_status !== 'ACTIVE'` | "This shortcut is no longer valid. The target has been deleted." |
 | Chain depth > 10 | "Shortcut chain too deep. Maximum depth of 10 exceeded." |
 | Missing target info | "Invalid shortcut: missing target information." |
-| Target is FOLDER | "Cannot open FOLDER in Cytoscape Desktop. Only networks are supported." |
+| Target is FOLDER | "Cannot resolve a FOLDER target. Only networks are supported." |
 | API fetch fails | "Failed to resolve shortcut chain: [error details]" |
 
 ##### `getFreshIdToken()`
@@ -243,7 +256,8 @@ const handleOpenInCytoscape = () => {
     openDropdownId,
     item.name || 'Unnamed network',
     dropdownType || NDExFileType.NETWORK,
-    item.attributes || {}
+    item.attributes || {},
+    accessKey
   )
 
   onClose()  // ⚠️ Critical: Close BEFORE async operation

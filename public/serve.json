@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "folders/**", "destination": "/index.html" },
+    { "source": "users/**", "destination": "/index.html" },
+    { "source": "networkset/**", "destination": "/index.html" }
+  ]
+}

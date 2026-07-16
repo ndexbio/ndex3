@@ -3,7 +3,7 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { useToast } from '@/lib/contexts/ToastContext'
 import { CyNDExService, NDExFileType } from '@js4cytoscape/ndex-client'
-import { getNdexClient } from '@/lib/api/ndex-client-manager'
+import { resolveNetworkTarget } from '@/lib/utils/shortcut-resolver'
 
 const CYNDEX_PORT = 1234 // Default Cytoscape REST API port
 const POLL_INTERVAL_MS = 4000 // How often to re-check Cytoscape availability
@@ -133,121 +133,6 @@ export const useCyNDEx = () => {
   }, [])
 
   /**
-   * Recursively resolves a shortcut chain to find the final target network UUID
-   *
-   * @param itemId - Starting UUID (could be network or shortcut)
-   * @param itemType - Type of the starting item
-   * @param itemAttributes - Attributes of the starting item
-   * @returns Object with final network UUID and access key (if needed)
-   * @throws Error if shortcut chain is broken or exceeds max depth
-   */
-  const resolveShortcutChain = async (
-    itemId: string,
-    itemType: NDExFileType,
-    itemAttributes: Record<string, any>
-  ): Promise<{ networkId: string; accessKey?: string }> => {
-    const MAX_DEPTH = 10 // Prevent infinite loops
-    let currentId = itemId
-    let currentType = itemType
-    let currentAttributes = itemAttributes
-    let depth = 0
-    let accessKey: string | undefined
-
-    // A caller (e.g. the search results page) may hand us a shortcut typed as
-    // NETWORK via the dropdownType fallback. Don't trust the type label on its
-    // own — if the attributes carry a `target`, treat the item as a shortcut.
-    const looksLikeShortcut =
-      currentType === NDExFileType.SHORTCUT ||
-      (currentAttributes?.target as string | undefined) != null
-
-    // Genuine network (no shortcut target attributes) — return immediately.
-    if (currentType === NDExFileType.NETWORK && !looksLikeShortcut) {
-      return {
-        networkId: currentId,
-        accessKey: currentAttributes?.accessKey as string | undefined
-      }
-    }
-
-    // Normalize: attributes say shortcut even if the type was passed as NETWORK.
-    if (looksLikeShortcut) {
-      currentType = NDExFileType.SHORTCUT
-    }
-
-    // Resolve shortcut chain
-    while (currentType === NDExFileType.SHORTCUT) {
-      depth++
-
-      // Prevent infinite loops
-      if (depth > MAX_DEPTH) {
-        throw new Error('Shortcut chain too deep. Maximum depth of 10 exceeded.')
-      }
-
-      // Check if shortcut is active (attributes use snake_case).
-      // Search-result items may omit target_status; absence is treated as ACTIVE.
-      const targetStatus = currentAttributes?.target_status as string | undefined
-      if (targetStatus != null && targetStatus !== 'ACTIVE') {
-        throw new Error('This shortcut is no longer valid. The target has been deleted.')
-      }
-
-      // Get target information (attributes use snake_case).
-      const targetId = currentAttributes?.target as string | undefined
-
-      // target_type may be absent on lightweight search items. When the target
-      // UUID is present but the type is missing, assume it points to a NETWORK
-      // (the overwhelmingly common case for "Open in Cytoscape Desktop").
-      const targetType =
-        (currentAttributes?.target_type as NDExFileType | undefined) ??
-        NDExFileType.NETWORK
-
-      if (!targetId) {
-        throw new Error('Invalid shortcut: missing target information.')
-      }
-
-      // If target is a network, we're done
-      if (targetType === NDExFileType.NETWORK) {
-        // Keep the access key from the deepest level that has one
-        if (!accessKey && currentAttributes?.accessKey) {
-          accessKey = currentAttributes.accessKey as string
-        }
-        return { networkId: targetId, accessKey }
-      }
-
-      // If target is another shortcut, fetch it and continue
-      if (targetType === NDExFileType.SHORTCUT) {
-        try {
-          const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-          const shortcutData = await ndexClient.files.getShortcut(targetId)
-
-          // Update for next iteration
-          // Note: API returns camelCase (targetType), but we need to handle both formats
-          currentId = (shortcutData as any).uuid || targetId
-          currentType = NDExFileType.SHORTCUT
-
-          // Convert API response (camelCase) to attributes format (snake_case) for consistency
-          currentAttributes = {
-            target: shortcutData.target,
-            target_type: shortcutData.targetType,
-            target_status: (shortcutData as any).targetStatus || 'ACTIVE',
-            accessKey: (shortcutData as any).accessKey
-          }
-
-          // Preserve access key if we don't have one yet
-          if (!accessKey && currentAttributes.accessKey) {
-            accessKey = currentAttributes.accessKey as string
-          }
-        } catch (error) {
-          throw new Error(`Failed to resolve shortcut chain: ${error instanceof Error ? error.message : 'Unknown error'}`)
-        }
-      } else {
-        // Target is neither NETWORK nor SHORTCUT (e.g., FOLDER)
-        throw new Error(`Cannot open ${targetType} in Cytoscape Desktop. Only networks are supported.`)
-      }
-    }
-
-    throw new Error('Invalid shortcut chain.')
-  }
-
-  /**
    * Get a fresh ID token for CyNDEx operations
    *
    * Strategy: Always call updateToken() before getting idToken to ensure freshness
@@ -290,22 +175,26 @@ export const useCyNDEx = () => {
    * @param itemName - Name of the item (for display in toast)
    * @param itemType - Type of the item (NETWORK or SHORTCUT)
    * @param itemAttributes - Attributes of the item
+   * @param pageAccessKey - Access key inherited from the current folder URL
    * @returns Promise<void>
    */
   const openInCytoscape = async (
     itemId: string,
     itemName: string,
     itemType: NDExFileType,
-    itemAttributes: Record<string, any>
+    itemAttributes: Record<string, any>,
+    pageAccessKey?: string,
   ): Promise<void> => {
     setIsOpening((prev) => ({ ...prev, [itemId]: true }))
 
     try {
       // Step 1: Resolve shortcut chain to get final network UUID
-      const { networkId, accessKey } = await resolveShortcutChain(
+      // (shared resolver — same one used by Download and Open in Cytoscape Web)
+      const { networkId, accessKey } = await resolveNetworkTarget(
         itemId,
         itemType,
-        itemAttributes
+        itemAttributes,
+        { ndexBaseUrl: config.ndexBaseUrl, token, accessKey: pageAccessKey }
       )
 
       // Step 2: Get fresh ID token (if authenticated)

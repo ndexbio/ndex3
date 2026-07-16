@@ -148,6 +148,22 @@ describe('useCyNDEx.openInCytoscape — network shortcut resolution', () => {
     expect(mockPostNetwork).toHaveBeenCalledWith(TARGET_ID, 'abc123')
   })
 
+  it('passes the page access key through for a plain network', async () => {
+    const { result } = renderHook(() => useCyNDEx())
+
+    await act(async () => {
+      await result.current.openInCytoscape(
+        NETWORK_ID,
+        'Shared Network',
+        NDExFileType.NETWORK,
+        {},
+        'page-key',
+      )
+    })
+
+    expect(mockPostNetwork).toHaveBeenCalledWith(NETWORK_ID, 'page-key')
+  })
+
   it('follows a shortcut-to-shortcut chain to the final network', async () => {
     // First shortcut points to a second shortcut; that one points to a network.
     mockGetShortcut.mockResolvedValue({
@@ -167,7 +183,7 @@ describe('useCyNDEx.openInCytoscape — network shortcut resolution', () => {
       })
     })
 
-    expect(mockGetShortcut).toHaveBeenCalledWith(TARGET_ID)
+    expect(mockGetShortcut).toHaveBeenCalledWith(TARGET_ID, undefined)
     expect(mockPostNetwork).toHaveBeenCalledWith(SECOND_TARGET_ID, undefined)
   })
 

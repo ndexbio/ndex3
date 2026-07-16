@@ -20,6 +20,7 @@ import { MyAccountTabType } from '@/types/ui/myAccount'
 import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClasses } from '@/components/shared/table-styles'
 import { formatDate, getDisplayName } from '@/components/shared/table-utils'
 import { OwnerCell } from '@/components/shared/OwnerCell'
+import { withAccessKey } from '@/lib/utils/access-key'
 
 // Helper function to check if folder is shared
 const isSharedFolder = (folder: FileItemBase): boolean => {
@@ -73,6 +74,8 @@ interface FoldersListProps {
   tabState?: MyAccountTabType
   viewMode: 'grid' | 'list'
   readOnly?: boolean
+  /** Access key inherited from the current folder URL. */
+  accessKey?: string
   showOwnerColumn?: boolean
   showVisibilityColumn?: boolean
   showPermissionColumn?: boolean
@@ -485,6 +488,7 @@ const FoldersList: React.FC<FoldersListProps> = ({
   viewMode,
   tabState,
   readOnly = false,
+  accessKey,
   showOwnerColumn = false,
   showVisibilityColumn = true,
   showPermissionColumn = false,
@@ -530,11 +534,11 @@ const FoldersList: React.FC<FoldersListProps> = ({
             try {
               // Get the NDEx client to fetch the shortcut
               const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-              const shortcut = await ndexClient.files.getShortcut(folderId)
+              const shortcut = await ndexClient.files.getShortcut(folderId, accessKey)
 
               // Check if the target is a folder, if so navigate to it
               if (shortcut && shortcut.target) {
-                router.push(`/folders/${shortcut.target}`)
+                router.push(withAccessKey(`/folders/${shortcut.target}`, accessKey))
                 return
               }
             } catch (error) {
@@ -544,10 +548,10 @@ const FoldersList: React.FC<FoldersListProps> = ({
         }
 
         // Default behavior - navigate to the folder directly
-        router.push(`/folders/${folderId}`)
+        router.push(withAccessKey(`/folders/${folderId}`, accessKey))
       }
     },
-    [router, readOnly, tabState, folders, config.ndexBaseUrl, token]
+    [router, readOnly, tabState, folders, config.ndexBaseUrl, token, accessKey]
   )
 
   // Handle sort column click
