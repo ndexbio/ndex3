@@ -9,6 +9,7 @@ import { resolveNetworkTarget } from '@/lib/utils/shortcut-resolver'
 
 const mockOpenInCytoscape = jest.fn()
 const mockCopyFile = jest.fn()
+const mockDownloadNetwork = jest.fn()
 
 jest.mock('@/lib/contexts/KeycloakContext', () => ({
   useAuth: jest.fn(),
@@ -35,7 +36,7 @@ jest.mock('@/lib/contexts/ToastContext', () => ({
 }))
 jest.mock('@/hooks/use-network-download', () => ({
   useNetworkDownload: () => ({
-    downloadNetwork: jest.fn(),
+    downloadNetwork: mockDownloadNetwork,
     downloadMultipleNetworks: jest.fn(),
     isDownloading: {},
   }),
@@ -136,6 +137,7 @@ beforeEach(() => {
   mockResolve.mockReset()
   mockOpenInCytoscape.mockReset()
   mockCopyFile.mockReset()
+  mockDownloadNetwork.mockReset()
 })
 
 describe('ActionDropdown — folder rows never get network actions', () => {
@@ -234,6 +236,38 @@ describe('ActionDropdown — signed-in non-owner', () => {
 })
 
 describe('ActionDropdown — shortcut target resolution', () => {
+  it('shows download progress while a shortcut target is downloading', async () => {
+    mockUseAuth.mockReturnValue(anonymousAuth)
+    mockResolve.mockResolvedValue({ networkId: 'n-9' })
+
+    let finishDownload!: (result: { success: boolean; networkId: string }) => void
+    mockDownloadNetwork.mockReturnValue(
+      new Promise((resolve) => {
+        finishDownload = resolve
+      }),
+    )
+
+    renderDropdown(networkShortcutItem, NDExFileType.NETWORK)
+    fireEvent.click(buttonFor('Download'))
+    fireEvent.click(buttonFor('CX Format'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Downloading...')).toBeInTheDocument()
+      expect(buttonFor('CX Format')).toBeDisabled()
+      expect(mockDownloadNetwork).toHaveBeenCalledWith(
+        'n-9',
+        'Network Shortcut',
+        { format: 'CX' },
+        undefined,
+      )
+    })
+
+    finishDownload({ success: true, networkId: 'n-9' })
+    await waitFor(() => {
+      expect(screen.queryByText('Downloading...')).not.toBeInTheDocument()
+    })
+  })
+
   it('passes the page access key to Cytoscape Desktop', () => {
     mockUseAuth.mockReturnValue(anonymousAuth)
 

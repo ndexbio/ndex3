@@ -48,12 +48,16 @@ const DownloadMenu: React.FC<{
   urlAccessKey?: string
 }> = ({ itemId, item, onClose, openToLeft, urlAccessKey }) => {
   const [isOpen, setIsOpen] = useState(false)
-  const { downloadNetwork, isDownloading } = useNetworkDownload()
+  const [isDownloadingItem, setIsDownloadingItem] = useState(false)
+  const { downloadNetwork } = useNetworkDownload()
   const { addToast } = useToast()
   const config = useConfig()
   const { token } = useAuth()
 
   const handleDownload = async (format: 'CX' | 'CX2') => {
+    if (isDownloadingItem) return
+    setIsDownloadingItem(true)
+
     try {
       const { networkId, accessKey } = await resolveNetworkTarget(
         itemId,
@@ -74,9 +78,11 @@ const DownloadMenu: React.FC<{
         type: 'error',
         duration: 6000,
       })
+    } finally {
+      setIsDownloadingItem(false)
+      setIsOpen(false)
+      onClose()
     }
-    setIsOpen(false)
-    onClose()
   }
 
   return (
@@ -87,9 +93,10 @@ const DownloadMenu: React.FC<{
           e.stopPropagation()
           setIsOpen(!isOpen)
         }}
+        disabled={isDownloadingItem}
       >
         <Download className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-        {isDownloading[itemId] ? (
+        {isDownloadingItem ? (
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>Downloading...</span>
@@ -110,6 +117,7 @@ const DownloadMenu: React.FC<{
               e.stopPropagation()
               handleDownload('CX')
             }}
+            disabled={isDownloadingItem}
           >
             <span>CX Format</span>
           </button>
@@ -119,6 +127,7 @@ const DownloadMenu: React.FC<{
               e.stopPropagation()
               handleDownload('CX2')
             }}
+            disabled={isDownloadingItem}
           >
             <span>CX2 Format</span>
           </button>
