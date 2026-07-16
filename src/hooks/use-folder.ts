@@ -3,6 +3,7 @@ import useSWR, { mutate as globalMutate } from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
+import { isExpectedViewError } from '@/lib/utils/ndex-errors'
 import { FileItemBase } from '@/types/api/ndex/File'
 
 interface FolderContents {
@@ -19,40 +20,69 @@ export interface Folder extends FileItemBase {
 }
 
 /**
- * Hook to fetch contents of a folder (networks and sub-folders)
- * @param folderId UUID of the folder to fetch contents from. If null, fetches home folder contents.
+ * SWR cache keys for folder data.
+ *
+ * The key shape is load-bearing: mutate() filters elsewhere pattern-match on
+ * ['folderContents', folderId, token] (token at index 2), so token must stay
+ * in that position. Keys are null while Keycloak is still restoring the
+ * session — fetching before auth state is known would fire a throwaway
+ * anonymous request (and a spurious 401 on private folders).
+ */
+export const folderContentsKey = (
+  folderId: string | null,
+  token: string,
+  accessKey: string | undefined,
+  isInitializing: boolean,
+): [string, string | null, string, string | null] | null =>
+  isInitializing ? null : ['folderContents', folderId, token, accessKey ?? null]
+
+export const folderKey = (
+  folderId: string | null,
+  token: string,
+  accessKey: string | undefined,
+  isInitializing: boolean,
+): [string, string, string, string | null] | null =>
+  folderId === null || isInitializing
+    ? null
+    : ['folder', folderId, token, accessKey ?? null]
+
+/**
+ * Hook to fetch contents of a folder (networks and sub-folders).
+ *
+ * Works for every viewer: the current token (empty when anonymous) and the
+ * optional access key are simply passed through — the server decides what the
+ * caller may see. 401/403/404 are expected view states surfaced via `error`.
+ *
+ * @param folderId UUID of the folder to fetch contents from. If null, fetches
+ *   home folder contents (only meaningful for signed-in users).
+ * @param accessKey Optional access key granting READ on the folder.
  * @returns Object containing folder contents, loading state, and error
  */
 export const useFolderContents = (
   folderId: string | null = null,
+  accessKey?: string,
 ): FolderContents => {
   const config = useConfig()
-  const { token, isAuthenticated } = useAuth()
+  const { token, isInitializing } = useAuth()
 
-  // Create a cache key for revalidation
-  const cacheKey = isAuthenticated ? ['folderContents', folderId, token] : null
+  const cacheKey = folderContentsKey(folderId, token, accessKey, isInitializing)
 
   // Fetcher function that uses ndexClient
   const fetcher = async () => {
-    if (!isAuthenticated) {
-      return []
-    }
-
     try {
       const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-      let items
-
-      if (folderId === null) {
-        // Get home folder contents
-        items = await ndexClient.files.getFolderList('home', undefined, 'compact')
-      } else {
-        // Get specific folder contents
-        items = await ndexClient.files.getFolderList(folderId, undefined, 'compact')
-      }
-
+      const items = (await ndexClient.files.getFolderList(
+        folderId === null ? 'home' : folderId,
+        accessKey,
+        'compact',
+      )) as unknown as FileItemBase[]
       return items || []
     } catch (error) {
-      console.error('Error fetching folder contents:', error)
+      // Permission-denied / not-found are expected, user-facing states the
+      // view renders as messages — don't log them as application errors.
+      if (!isExpectedViewError(error)) {
+        console.error('Error fetching folder contents:', error)
+      }
       throw error
     }
   }
@@ -64,6 +94,9 @@ export const useFolderContents = (
     {
       revalidateOnFocus: false,
       dedupingInterval: 60000, // 1 minute
+      // The cache key changes when auth resolves (token appears); keep showing
+      // the previous listing instead of flashing a loading state.
+      keepPreviousData: true,
     },
   )
 
@@ -94,26 +127,23 @@ export const useFolder = (
   accessKey?: string
 ) => {
   const config = useConfig()
-  const { token, isAuthenticated } = useAuth()
+  const { token, isAuthenticated, isInitializing } = useAuth()
 
-  // Create a cache key for revalidation
-  const cacheKey = folderId 
-    ? isAuthenticated 
-      ? ['folder', folderId, token, accessKey] 
-      : ['folder', folderId, accessKey]
-    : null
+  const cacheKey = folderKey(folderId, token, accessKey, isInitializing)
 
   // Fetcher function that uses ndexClient
   const fetcher = async () => {
     const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-    
+
     try {
       if (folderId) {
         return await ndexClient.files.getFolder(folderId, accessKey)
       }
       return null
     } catch (error) {
-      console.error('Error fetching folder:', error)
+      if (!isExpectedViewError(error)) {
+        console.error('Error fetching folder:', error)
+      }
       throw error
     }
   }
@@ -125,6 +155,7 @@ export const useFolder = (
     {
       revalidateOnFocus: false,
       dedupingInterval: 60000, // 1 minute
+      keepPreviousData: true,
     }
   )
 

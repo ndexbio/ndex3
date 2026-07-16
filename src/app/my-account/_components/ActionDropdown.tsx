@@ -23,22 +23,58 @@ import { useNetworkDownload } from '@/hooks/use-network-download'
 import { useNetworkCopy } from '@/hooks/use-network-copy'
 import { useNetworkReadOnly } from '@/hooks/use-network-readonly'
 import { useCyNDEx } from '@/hooks/use-cyndex'
+import { useToast } from '@/lib/contexts/ToastContext'
 import { hasNetworkError, hasValidDOI as hasValidNetworkDOI, isNetworkReadOnly } from '@/lib/utils/network-status'
+import { isItemOwner } from '@/lib/utils/permissions'
+import { resolveNetworkTarget, targetsFolder } from '@/lib/utils/shortcut-resolver'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { useConfig } from '@/lib/contexts/ConfigContext'
+import MenuItemButton from '@/components/shared/MenuItemButton'
+import { withAccessKey } from '@/lib/utils/access-key'
 
-// Add a dropdown menu for download formats
+/** Tooltip shown on edit actions greyed out for anonymous viewers. */
+const SIGN_IN_TOOLTIP = 'Sign in to use this feature'
+
+// Add a dropdown menu for download formats.
+// Downloads always operate on the resolved TARGET network — for shortcut rows
+// the shortcut chain is resolved first, so the shortcut's own UUID is never
+// sent to the network endpoints.
 const DownloadMenu: React.FC<{
-  networkId: string
-  networkName: string
+  itemId: string
+  item: FileItemBase
   onClose: () => void
   openToLeft?: boolean
-}> = ({ networkId, networkName, onClose, openToLeft }) => {
+  /** Access key from the folder URL — cascades READ to contained networks. */
+  urlAccessKey?: string
+}> = ({ itemId, item, onClose, openToLeft, urlAccessKey }) => {
   const [isOpen, setIsOpen] = useState(false)
   const { downloadNetwork, isDownloading } = useNetworkDownload()
+  const { addToast } = useToast()
+  const config = useConfig()
+  const { token } = useAuth()
 
   const handleDownload = async (format: 'CX' | 'CX2') => {
-    await downloadNetwork(networkId, networkName, { format })
+    try {
+      const { networkId, accessKey } = await resolveNetworkTarget(
+        itemId,
+        item.type,
+        item.attributes,
+        { ndexBaseUrl: config.ndexBaseUrl, token, accessKey: urlAccessKey },
+      )
+      await downloadNetwork(
+        networkId,
+        item.name || `network_${networkId}`,
+        { format },
+        accessKey ?? urlAccessKey,
+      )
+    } catch (error) {
+      addToast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred',
+        type: 'error',
+        duration: 6000,
+      })
+    }
     setIsOpen(false)
     onClose()
   }
@@ -53,7 +89,7 @@ const DownloadMenu: React.FC<{
         }}
       >
         <Download className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-        {isDownloading[networkId] ? (
+        {isDownloading[itemId] ? (
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>Downloading...</span>
@@ -99,6 +135,10 @@ interface ActionDropdownProps {
   tabState: MyAccountTabType
   currentFolderId: string | null
   currentFolderName?: string
+  /** Whether the viewer owns the folder being viewed (drives Add Shortcut target etc.). */
+  canEditFolder?: boolean
+  /** Access key from the folder URL — READ bypass cascading to folder contents. */
+  accessKey?: string
   onClose: () => void
   onDelete: (itemIds: string[]) => Promise<void>
   onRestore: (itemIds: string[]) => Promise<void>
@@ -125,6 +165,19 @@ const networkHasError = (item: FileItemBase | null): boolean => {
   return hasNetworkError(item)
 }
 
+/**
+ * ActionDropdown
+ *
+ * Per-item "⋯" menu. What it offers is decided by three inputs (see
+ * docs/folder-viewing-feature.md):
+ *  - viewer class: anonymous viewers get READ actions only — edit actions are
+ *    greyed out (never hidden) with a sign-in tooltip
+ *  - per-item permission: owner → everything; WRITE permission → edit-level
+ *    actions; otherwise read-only
+ *  - item type: Download / Open in Cytoscape are NETWORK actions — folder rows
+ *    and shortcuts-to-folders never see them; shortcut rows resolve these
+ *    actions against the shortcut's TARGET network
+ */
 const ActionDropdown: React.FC<ActionDropdownProps> = ({
   openDropdownId,
   dropdownType,
@@ -132,6 +185,8 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   tabState,
   currentFolderId,
   currentFolderName,
+  canEditFolder = true,
+  accessKey,
   onClose,
   onDelete,
   onRestore,
@@ -142,7 +197,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   onShareSuccess,
 }) => {
   const actionDropdownRef = useRef<HTMLDivElement>(null)
-  const { user, isAuthenticated: isSignedIn } = useAuth()
+  const { user, isAuthenticated: isSignedIn, token } = useAuth()
   const {
     openRenameFolderDialog,
     openMoveFolderDialog,
@@ -155,6 +210,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const { copyFile, isCopying } = useNetworkCopy()
   const { setNetworkReadOnly, isUpdating } = useNetworkReadOnly()
   const { openInCytoscape, isOpening, isCytoscapeAvailable, isCheckingCytoscape } = useCyNDEx()
+  const { addToast } = useToast()
   const config = useConfig()
 
   // Check DOI, readonly status, and error status for networks
@@ -163,13 +219,18 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const hasError = dropdownType === NDExFileType.NETWORK && networkHasError(item)
 
   // Check if the current user is the owner
-  const isOwner = item?.owner === user?.userName
+  const isOwner = isItemOwner(item, user)
 
   // Check permission - in Shared tab, user needs WRITE permission to edit
   const hasWritePermission = item?.permission === Permission.WRITE
 
   // Can the user edit this item? (owner or has write permission)
-  const canEdit = isOwner || hasWritePermission
+  // Anonymous viewers can never edit — their actions are greyed out below.
+  const canEdit = isSignedIn && (isOwner || hasWritePermission)
+
+  // Anonymous edit actions: visible but disabled, with a sign-in hint
+  const anonymous = !isSignedIn
+  const editTooltip = anonymous ? SIGN_IN_TOOLTIP : undefined
 
   // Determine when to show Request DOI button (owner-only, networks only, not shortcuts)
   const shouldShowRequestDOI =
@@ -179,23 +240,22 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
 
   // Determine which menu items should be disabled
   const shouldDisableRequestDOI = hasDOI
-  const shouldDisableEditProperties =
-    hasDOI ||
-    isReadOnly ||
-    !canEdit
+  const shouldDisableEditProperties = hasDOI || isReadOnly || !canEdit
   const shouldDisableRenameShortcut = !canEdit
   const shouldDisableShare = !canEdit
-  const shouldDisableMoveToTrash = hasDOI || isReadOnly
+  const shouldDisableMoveToTrash = hasDOI || isReadOnly || !isOwner
   const shouldDisableMove = !canEdit
 
-  // Hide Move to Trash if not the owner
-  const shouldHideMoveToTrash = !isOwner
+  // Hide Move to Trash only for signed-in non-owners (existing behavior);
+  // anonymous viewers see it greyed out like every other edit action.
+  const shouldHideMoveToTrash = isSignedIn && !isOwner
 
   // Tooltip messages for disabled items
-  const getMoveToTrashTooltip = (): string => {
+  const getMoveToTrashTooltip = (): string | undefined => {
+    if (anonymous) return SIGN_IN_TOOLTIP
     if (hasDOI) return "Networks with DOI can't be deleted"
     if (isReadOnly) return "Read-only networks can't be deleted"
-    return ""
+    return undefined
   }
 
   // "Open in Cytoscape Desktop" is only enabled when Cytoscape Desktop is running
@@ -205,13 +265,13 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const shouldDisableOpenInCytoscape =
     isCytoscapeOpening || isCheckingCytoscape || !isCytoscapeAvailable
 
-  const getOpenInCytoscapeTooltip = (): string => {
-    if (isCytoscapeOpening) return ''
+  const getOpenInCytoscapeTooltip = (): string | undefined => {
+    if (isCytoscapeOpening) return undefined
     if (isCheckingCytoscape) return 'Checking for Cytoscape Desktop…'
     if (!isCytoscapeAvailable) {
       return 'Cannot connect to Cytoscape. Please make sure Cytoscape Desktop is installed and running (with the CyNDEx-2 app), then try again.'
     }
-    return ''
+    return undefined
   }
 
   // Add an effect to mark the component as mounted for event handling
@@ -227,6 +287,11 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
 
   if (!openDropdownId || !item) return null
 
+  // Folder-behaving rows (folders and shortcuts-to-folders) get the folder
+  // menu for EVERY viewer — network actions (Download / Open in Cytoscape)
+  // must never appear on them.
+  const isFolderRow = dropdownType === NDExFileType.FOLDER || targetsFolder(item)
+
   // Position the dropdown
   const targetElement = document.querySelector(
     `[data-dropdown-id="${openDropdownId}"]`,
@@ -240,12 +305,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const isRightAligned = window.innerWidth - rect.right < 240
 
   // Estimate dropdown height - these are approximate
-  const dropdownHeight =
-    dropdownType === NDExFileType.NETWORK
-      ? 340
-      : dropdownType === NDExFileType.FOLDER
-      ? 240
-      : 40
+  const dropdownHeight = isFolderRow ? 240 : dropdownType === NDExFileType.NETWORK ? 340 : 40
 
   // Check if dropdown would go below viewport
   const wouldGoBelow = rect.bottom + dropdownHeight > window.innerHeight
@@ -263,12 +323,6 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const style = {
     ...verticalPosition,
     ...horizontalPosition,
-  }
-
-  // Function to prevent event bubbling for button clicks
-  const handleButtonClick = (callback: () => void) => (e: React.MouseEvent) => {
-    e.stopPropagation()
-    callback()
   }
 
   // Handle opening the rename dialog - differentiate shortcuts from folders
@@ -352,14 +406,16 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const handleCopyFile = async () => {
     if (!item || !openDropdownId) return
 
-    // Use the currentFolderId passed as prop, keeping null for home directory
-    const parentFolderId = currentFolderId
+    // Copy into the folder being viewed when the viewer owns it; otherwise
+    // into the viewer's own home folder (null = home).
+    const parentFolderId = canEditFolder ? currentFolderId : null
 
     await copyFile(
       openDropdownId,
       item.name || 'Unnamed file',
       dropdownType || NDExFileType.NETWORK,
-      parentFolderId
+      parentFolderId,
+      accessKey,
     )
 
     onClose() // Close the dropdown
@@ -385,33 +441,42 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       openDropdownId,
       item.name || 'Unnamed network',
       dropdownType || NDExFileType.NETWORK, // Pass the item type
-      item.attributes || {} // Pass all attributes for shortcut resolution
+      item.attributes || {}, // Pass all attributes for shortcut resolution
+      accessKey,
     )
 
     onClose()
   }
-  // Redirects to the Cytoscape Web sibling app (config.cytoscapeWebUrl) with this network's UUID
-  const handleOpenInCytoscapeWeb = () => {
+
+  // Redirects to the Cytoscape Web sibling app (config.cytoscapeWebUrl) with
+  // the TARGET network's UUID — shortcut chains are resolved first via the
+  // shared resolver (same one used by Download and Open in Cytoscape Desktop).
+  const handleOpenInCytoscapeWeb = async () => {
     if (!item || !openDropdownId) return
-
-    // Resolve the actual network UUID — for shortcuts, use the target; otherwise use the item's own UUID
-    const targetId =
-      dropdownType === NDExFileType.SHORTCUT || item.type === NDExFileType.SHORTCUT
-        ? (item.attributes?.target as string) || openDropdownId
-        : openDropdownId
-
-    const baseUrl = config.cytoscapeWebUrl || 'https://web.cytoscape.org'
-    window.open(`${baseUrl}/0/networks/${targetId}`, '_blank', 'noopener,noreferrer')
     onClose()
+
+    try {
+      const { networkId, accessKey: resolvedAccessKey } = await resolveNetworkTarget(
+        openDropdownId,
+        item.type,
+        item.attributes,
+        { ndexBaseUrl: config.ndexBaseUrl, token, accessKey },
+      )
+      const baseUrl = config.cytoscapeWebUrl || 'https://web.cytoscape.org'
+      const url = withAccessKey(
+        `${baseUrl.replace(/\/$/, '')}/0/networks/${networkId}`,
+        resolvedAccessKey ?? accessKey,
+      )
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      addToast({
+        title: 'Failed to open network in Cytoscape Web',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred',
+        type: 'error',
+        duration: 6000,
+      })
+    }
   }
-
-
-
-  // Disabled button style helper
-  const disabledClass = 'text-gray-400 cursor-not-allowed'
-  const enabledClass = 'text-gray-700 hover:bg-gray-100'
-  const disabledIconClass = 'text-gray-400'
-  const enabledIconClass = 'text-gray-500 group-hover:text-gray-700'
 
   // Render different options based on tabState
   return (
@@ -425,305 +490,225 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       {tabState === MyAccountTabType.TRASH ? (
         // Trash tab - only show restore and delete options
         <div className="py-2">
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => {
+          <MenuItemButton
+            icon={History}
+            label="Restore"
+            onClick={() => {
               if (onRestore) onRestore([openDropdownId])
               onClose()
-            })}
-          >
-            <History className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Restore
-          </button>
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-gray-100"
-            onClick={handleButtonClick(() => {
+            }}
+          />
+          <MenuItemButton
+            icon={Trash2}
+            label="Delete permanently"
+            danger
+            onClick={() => {
               onDelete([openDropdownId])
               onClose()
-            })}
-          >
-            <Trash2 className="h-4 w-4 text-red-500 group-hover:text-red-700" />
-            Delete permanently
-          </button>
+            }}
+          />
         </div>
-      ) : dropdownType === NDExFileType.FOLDER && isSignedIn ? (
-        // Regular folder options (signed-in only — folders have no anonymous actions)
+      ) : isFolderRow ? (
+        // Folder / shortcut-to-folder menu — same items for every viewer;
+        // edit actions greyed out for anonymous and read-only viewers.
+        // Never offers Download / Open in Cytoscape (network-only actions).
         <div className="py-2">
           {/* Show Rename for shortcuts, Edit Properties for regular folders */}
           {item.type === NDExFileType.SHORTCUT ? (
-            <button
-              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                shouldDisableRenameShortcut ? disabledClass : enabledClass
-              }`}
-              onClick={shouldDisableRenameShortcut ? undefined : handleButtonClick(handleOpenRenameDialog)}
+            <MenuItemButton
+              icon={FileEdit}
+              label="Rename"
+              onClick={handleOpenRenameDialog}
               disabled={shouldDisableRenameShortcut}
-            >
-              <FileEdit className={`h-4 w-4 ${
-                shouldDisableRenameShortcut ? disabledIconClass : enabledIconClass
-              }`} />
-              Rename
-            </button>
+              disabledTooltip={editTooltip}
+            />
           ) : (
-            <button
-              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                !canEdit ? disabledClass : enabledClass
-              }`}
-              onClick={!canEdit ? undefined : handleButtonClick(handleOpenEditFolderPropertiesDialog)}
+            <MenuItemButton
+              icon={FileEdit}
+              label="Edit Properties"
+              onClick={handleOpenEditFolderPropertiesDialog}
               disabled={!canEdit}
-            >
-              <FileEdit className={`h-4 w-4 ${
-                !canEdit ? disabledIconClass : enabledIconClass
-              }`} />
-              Edit Properties
-            </button>
+              disabledTooltip={editTooltip}
+            />
           )}
-          <button
-            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-              shouldDisableShare ? disabledClass : enabledClass
-            }`}
-            onClick={shouldDisableShare ? undefined : handleButtonClick(handleOpenShareDialog)}
+          <MenuItemButton
+            icon={UserPlus}
+            label="Share"
+            onClick={handleOpenShareDialog}
             disabled={shouldDisableShare}
-          >
-            <UserPlus className={`h-4 w-4 ${
-              shouldDisableShare ? disabledIconClass : enabledIconClass
-            }`} />
-            Share
-          </button>
-          <button
-            className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-              shouldDisableMove ? disabledClass : enabledClass
-            }`}
-            onClick={shouldDisableMove ? undefined : handleButtonClick(handleOpenMoveDialog)}
+            disabledTooltip={editTooltip}
+          />
+          <MenuItemButton
+            icon={FolderInput}
+            label="Move"
+            onClick={handleOpenMoveDialog}
             disabled={shouldDisableMove}
-          >
-            <FolderInput className={`h-4 w-4 ${
-              shouldDisableMove ? disabledIconClass : enabledIconClass
-            }`} />
-            Move
-          </button>
+            disabledTooltip={editTooltip}
+          />
           {/* Only show "Add Shortcut" if the item is not already a shortcut */}
           {item.type !== NDExFileType.SHORTCUT && (
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={handleButtonClick(() => {
+            <MenuItemButton
+              icon={FileSymlink}
+              label="Add Shortcut"
+              onClick={() => {
                 onCreateShortcut(openDropdownId)
                 onClose()
-              })}
-            >
-              <FileSymlink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Add Shortcut
-            </button>
+              }}
+              disabled={anonymous}
+              disabledTooltip={editTooltip}
+            />
           )}
-          {/* Only show "Move to Trash" if user is the owner */}
+          {/* Move to Trash: hidden for signed-in non-owners, greyed for anonymous */}
           {!shouldHideMoveToTrash && (
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={handleButtonClick(() => {
+            <MenuItemButton
+              icon={Trash2}
+              label="Move to Trash"
+              onClick={() => {
                 onDelete([openDropdownId])
                 onClose()
-              })}
-            >
-              <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Move to Trash
-            </button>
+              }}
+              disabled={shouldDisableMoveToTrash}
+              disabledTooltip={getMoveToTrashTooltip()}
+            />
           )}
         </div>
       ) : hasError ? (
         // Networks with errors - only show Download and Move to Trash
         <div className="py-2">
           <DownloadMenu
-            networkId={openDropdownId}
-            networkName={item.name || 'network'}
+            itemId={openDropdownId}
+            item={item}
             onClose={onClose}
             openToLeft={isRightAligned}
+            urlAccessKey={accessKey}
           />
-          {/* Only show "Move to Trash" if user is the owner in Shared tab */}
           {!shouldHideMoveToTrash && (
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={handleButtonClick(() => {
+            <MenuItemButton
+              icon={Trash2}
+              label="Move to Trash"
+              onClick={() => {
                 onDelete([openDropdownId])
                 onClose()
-              })}
-            >
-              <Trash2 className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Move to Trash
-            </button>
+              }}
+              disabled={anonymous}
+              disabledTooltip={editTooltip}
+            />
           )}
         </div>
       ) : (
-        // Regular network options (no errors)
+        // Network / shortcut-to-network menu (no errors).
+        // READ actions (Open in Cytoscape, Download) available to everyone the
+        // server showed the item to; edit actions greyed for non-editors.
         <div className="py-2">
-          <div title={getOpenInCytoscapeTooltip()}>
-            <button
-              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                shouldDisableOpenInCytoscape ? disabledClass : enabledClass
-              }`}
-              onClick={shouldDisableOpenInCytoscape ? undefined : handleButtonClick(handleOpenInCytoscape)}
-              disabled={shouldDisableOpenInCytoscape}
-            >
-              {isCytoscapeOpening ? (
-                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-              ) : (
-                <ExternalLink className={`h-4 w-4 ${
-                  shouldDisableOpenInCytoscape ? disabledIconClass : enabledIconClass
-                }`} />
-              )}
-              {isCytoscapeOpening ? 'Opening...' : 'Open in Cytoscape Desktop'}
-            </button>
-          </div>
-          <button
-            className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={handleButtonClick(handleOpenInCytoscapeWeb)}
-          >
-            <ExternalLink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-            Open in Cytoscape Web
-          </button>
-          {/* Only show "Request DOI" for networks that aren't shortcuts and not in shared tab */}
+          <MenuItemButton
+            icon={isCytoscapeOpening ? Loader2 : ExternalLink}
+            label="Open in Cytoscape Desktop"
+            busy={isCytoscapeOpening}
+            busyLabel="Opening..."
+            onClick={handleOpenInCytoscape}
+            disabled={shouldDisableOpenInCytoscape}
+            disabledTooltip={getOpenInCytoscapeTooltip()}
+          />
+          <MenuItemButton
+            icon={ExternalLink}
+            label="Open in Cytoscape Web"
+            onClick={handleOpenInCytoscapeWeb}
+          />
+          {/* Only show "Request DOI" for networks that aren't shortcuts and owned by the viewer */}
           {shouldShowRequestDOI && (
-            <button
-              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                shouldDisableRequestDOI ? disabledClass : enabledClass
-              }`}
-              onClick={shouldDisableRequestDOI ? undefined : handleButtonClick(handleOpenCreateDOIDialog)}
+            <MenuItemButton
+              icon={BookCopy}
+              label="Request DOI"
+              onClick={handleOpenCreateDOIDialog}
               disabled={shouldDisableRequestDOI}
-            >
-              <BookCopy className={`h-4 w-4 ${
-                shouldDisableRequestDOI ? disabledIconClass : enabledIconClass
-              }`} />
-              Request DOI
-            </button>
+            />
           )}
           <DownloadMenu
-            networkId={openDropdownId}
-            networkName={item.name || 'network'}
+            itemId={openDropdownId}
+            item={item}
             onClose={onClose}
             openToLeft={isRightAligned}
+            urlAccessKey={accessKey}
           />
-          {/* Show Rename for shortcuts, Edit Properties for regular networks (signed-in only) */}
-          {isSignedIn && (item.type === NDExFileType.SHORTCUT ? (
-            <button
-              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                shouldDisableRenameShortcut ? disabledClass : enabledClass
-              }`}
-              onClick={shouldDisableRenameShortcut ? undefined : handleButtonClick(handleOpenRenameDialog)}
+          {/* Show Rename for shortcuts, Edit Properties for regular networks */}
+          {item.type === NDExFileType.SHORTCUT ? (
+            <MenuItemButton
+              icon={FileEdit}
+              label="Rename"
+              onClick={handleOpenRenameDialog}
               disabled={shouldDisableRenameShortcut}
-            >
-              <FileEdit className={`h-4 w-4 ${
-                shouldDisableRenameShortcut ? disabledIconClass : enabledIconClass
-              }`} />
-              Rename
-            </button>
+              disabledTooltip={editTooltip}
+            />
           ) : (
-            <button
-              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                shouldDisableEditProperties ? disabledClass : enabledClass
-              }`}
-              onClick={shouldDisableEditProperties ? undefined : handleButtonClick(handleOpenEditPropertiesDialog)}
+            <MenuItemButton
+              icon={FileEdit}
+              label="Edit Properties"
+              onClick={handleOpenEditPropertiesDialog}
               disabled={shouldDisableEditProperties}
-            >
-              <FileEdit className={`h-4 w-4 ${
-                shouldDisableEditProperties ? disabledIconClass : enabledIconClass
-              }`} />
-              Edit Properties
-            </button>
-          ))}
-          {/* Only show Make a Copy for regular networks, not shortcuts (signed-in only) */}
-          {isSignedIn && item.type !== NDExFileType.SHORTCUT && (
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={handleButtonClick(handleCopyFile)}
-              disabled={isCopying[openDropdownId]}
-            >
-              {isCopying[openDropdownId] ? (
-                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-              ) : (
-                <Copy className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              )}
-              {isCopying[openDropdownId] ? 'Copying...' : 'Make a Copy'}
-            </button>
+              disabledTooltip={editTooltip}
+            />
           )}
-          {isSignedIn && (
-            <button
-              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                shouldDisableShare ? disabledClass : enabledClass
-              }`}
-              onClick={shouldDisableShare ? undefined : handleButtonClick(handleOpenShareDialog)}
-              disabled={shouldDisableShare}
-            >
-              <UserPlus className={`h-4 w-4 ${
-                shouldDisableShare ? disabledIconClass : enabledIconClass
-              }`} />
-              Share
-            </button>
+          {/* Make a Copy writes into the VIEWER's account — any signed-in user may copy */}
+          {item.type !== NDExFileType.SHORTCUT && (
+            <MenuItemButton
+              icon={Copy}
+              label="Make a Copy"
+              busy={isCopying[openDropdownId]}
+              busyLabel="Copying..."
+              onClick={handleCopyFile}
+              disabled={anonymous}
+              disabledTooltip={editTooltip}
+            />
           )}
+          <MenuItemButton
+            icon={UserPlus}
+            label="Share"
+            onClick={handleOpenShareDialog}
+            disabled={shouldDisableShare}
+            disabledTooltip={editTooltip}
+          />
           {/* Only show readonly toggle for regular networks (not shortcuts) that the user owns */}
           {item.type !== NDExFileType.SHORTCUT && isOwner && (
-            <button
-              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                isUpdating[openDropdownId]
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={isUpdating[openDropdownId] ? undefined : handleButtonClick(handleToggleReadOnly)}
-              disabled={isUpdating[openDropdownId]}
-            >
-              {isUpdating[openDropdownId] ? (
-                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-              ) : isReadOnly ? (
-                <LockOpen className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              ) : (
-                <Lock className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              )}
-              {isUpdating[openDropdownId] ? 'Updating...' : isReadOnly ? 'Remove Read-only' : 'Set as Read-only'}
-            </button>
+            <MenuItemButton
+              icon={isReadOnly ? LockOpen : Lock}
+              label={isReadOnly ? 'Remove Read-only' : 'Set as Read-only'}
+              busy={isUpdating[openDropdownId]}
+              busyLabel="Updating..."
+              onClick={handleToggleReadOnly}
+            />
           )}
-          {isSignedIn && (
-            <button
-              className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                shouldDisableMove ? disabledClass : enabledClass
-              }`}
-              onClick={shouldDisableMove ? undefined : handleButtonClick(handleOpenMoveDialog)}
-              disabled={shouldDisableMove}
-            >
-              <FolderInput className={`h-4 w-4 ${
-                shouldDisableMove ? disabledIconClass : enabledIconClass
-              }`} />
-              Move
-            </button>
-          )}
-          {/* Only show "Add a Shortcut" if the item is not already a shortcut (signed-in only) */}
-          {isSignedIn && item.type !== NDExFileType.SHORTCUT && (
-            <button
-              className="group flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={handleButtonClick(() => {
+          <MenuItemButton
+            icon={FolderInput}
+            label="Move"
+            onClick={handleOpenMoveDialog}
+            disabled={shouldDisableMove}
+            disabledTooltip={editTooltip}
+          />
+          {/* Only show "Add a Shortcut" if the item is not already a shortcut */}
+          {item.type !== NDExFileType.SHORTCUT && (
+            <MenuItemButton
+              icon={FileSymlink}
+              label="Add a Shortcut"
+              onClick={() => {
                 onCreateShortcut(openDropdownId)
                 onClose()
-              })}
-            >
-              <FileSymlink className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
-              Add a Shortcut
-            </button>
+              }}
+              disabled={anonymous}
+              disabledTooltip={editTooltip}
+            />
           )}
-          {/* Only show "Move to Trash" if user is the owner */}
+          {/* Move to Trash: hidden for signed-in non-owners, greyed for anonymous */}
           {!shouldHideMoveToTrash && (
-            <div title={shouldDisableMoveToTrash ? getMoveToTrashTooltip() : ""}>
-              <button
-                className={`group flex w-full items-center gap-2 px-4 py-2 text-sm ${
-                  shouldDisableMoveToTrash ? disabledClass : enabledClass
-                }`}
-                onClick={shouldDisableMoveToTrash ? undefined : handleButtonClick(() => {
-                  onDelete([openDropdownId])
-                  onClose()
-                })}
-                disabled={shouldDisableMoveToTrash}
-              >
-                <Trash2 className={`h-4 w-4 ${
-                  shouldDisableMoveToTrash ? disabledIconClass : enabledIconClass
-                }`} />
-                Move to Trash
-              </button>
-            </div>
+            <MenuItemButton
+              icon={Trash2}
+              label="Move to Trash"
+              onClick={() => {
+                onDelete([openDropdownId])
+                onClose()
+              }}
+              disabled={shouldDisableMoveToTrash}
+              disabledTooltip={getMoveToTrashTooltip()}
+            />
           )}
         </div>
       )}

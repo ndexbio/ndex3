@@ -32,19 +32,25 @@ import { useNetworkOperation } from '@/hooks/use-network-operation'
 import ActionDropdown from './ActionDropdown' // Import the new ActionDropdown component
 import { DialogProvider } from '@/lib/contexts/DialogContext' // Import DialogProvider
 import { useFileMoveOperation } from '@/hooks/use-file-move-operation' // Import the new shared move hook
+import { canEditFolder } from '@/lib/utils/permissions'
+import { isAuthError, isNotFoundError } from '@/lib/utils/ndex-errors'
+import FolderErrorState from '@/components/shared/FolderErrorState'
+import { withAccessKey } from '@/lib/utils/access-key'
 
 // Define the props for MyAccount component
 interface MyAccountProps {
   tabState?: MyAccountTabType
   uuid?: string // The folder UUID, if null we're in the home folder
+  accessKey?: string // Access key from the URL granting READ on the folder
 }
 
 function MyAccountContent({
   uuid,
   tabState = MyAccountTabType.MYNETWORKS,
+  accessKey,
 }: MyAccountProps) {
   const config = useConfig()
-  const { isAuthenticated, token, isInitializing } = useAuth()
+  const { isAuthenticated, token, isInitializing, user, login } = useAuth()
   const router = useRouter()
   const { addToast } = useToast()
 
@@ -87,7 +93,16 @@ function MyAccountContent({
   const folderId = uuid || null
 
   // Add the useFolder hook to get folder details and operations
-  const { folder, deleteFolder } = useFolder(folderId)
+  const {
+    folder,
+    deleteFolder,
+    error: folderError,
+  } = useFolder(folderId, accessKey)
+
+  // Ownership decides what this page offers: owners get the full management
+  // experience, everyone else (anonymous or signed-in non-owner) is read-only.
+  // The server remains the authority — this only gates what the UI presents.
+  const canEdit = folderId === null ? isAuthenticated : canEditFolder(folder, user, isAuthenticated)
 
   // State for UI controls
   const [loading, setLoading] = useState(false)
@@ -102,7 +117,6 @@ function MyAccountContent({
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [systemPropertiesOpen, setSystemPropertiesOpen] = useState(false)
   const [showSelectionToolbar, setShowSelectionToolbar] = useState(true)
-  const [currentFolderInfo, setCurrentFolderInfo] = useState<any>(null)
   const [breadcrumbPath, setBreadcrumbPath] = useState<
     { name: string; id: string | null }[]
   >([])
@@ -281,7 +295,7 @@ function MyAccountContent({
   }
 
   // Always call hook but conditionally use results
-  const folderContentsHookResult = useFolderContents(folderId)
+  const folderContentsHookResult = useFolderContents(folderId, accessKey)
   const {
     items: folderContents,
     isLoading,
@@ -390,99 +404,81 @@ function MyAccountContent({
     }
   }, [tabState])
 
-  // Build complete breadcrumb path by recursively fetching parent folders
+  // Build complete breadcrumb path by recursively fetching parent folders.
+  // Works for every viewer: the walk stops quietly at the first ancestor the
+  // viewer cannot read, and only folder owners get the "My Drive" root crumb.
   const buildBreadcrumbPath = useCallback(async (currentFolder: {
     name: string
     parent: string | null
     externalId?: string
     uuid?: string
   }) => {
-    try {
-      // Define the type explicitly to match state type
-      type BreadcrumbItem = { name: string; id: string | null }
+    // Define the type explicitly to match state type
+    type BreadcrumbItem = { name: string; id: string | null }
 
-      // Start with current folder
-      const path: BreadcrumbItem[] = [
-        {
-          name: currentFolder.name,
-          id: currentFolder.externalId || currentFolder.uuid || folderId,
-        },
-      ]
+    // Start with current folder
+    const path: BreadcrumbItem[] = [
+      {
+        name: currentFolder.name,
+        id: currentFolder.externalId || currentFolder.uuid || folderId,
+      },
+    ]
 
-      // Recursively fetch parent folders
-      let parentId = currentFolder.parent
-      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+    // Recursively fetch parent folders
+    let parentId = currentFolder.parent
+    const ndexClient = getNdexClient(config.ndexBaseUrl, token)
 
-      while (parentId) {
-        const parentFolder = await ndexClient.files.getFolder(parentId)
+    while (parentId) {
+      try {
+        const parentFolder = await ndexClient.files.getFolder(parentId, accessKey)
         // Add parent to the beginning of the path
         path.unshift({
           name: parentFolder.name,
           id: parentFolder.externalId || parentFolder.uuid || parentId,
         })
         parentId = parentFolder.parent
+      } catch {
+        // Ancestor not readable by this viewer (or fetch failed) — the trail
+        // simply starts at the highest accessible folder.
+        break
       }
+    }
 
-      // Add "My Drive" as the first item
+    // Only the owner's trail is rooted at their drive
+    if (canEdit) {
       path.unshift({ name: 'My Drive', id: null })
-
-      // Update the breadcrumb path
-      setBreadcrumbPath(path)
-    } catch (error) {
-      console.error('Error building breadcrumb path:', error)
-      // Fallback to simple path on error
-      setBreadcrumbPath([
-        { name: 'My Drive', id: null },
-        { name: currentFolder.name, id: folderId },
-      ])
     }
-  }, [config.ndexBaseUrl, token, folderId])
 
-  // Fetch current folder info if we're in a subfolder
+    setBreadcrumbPath(path)
+  }, [config.ndexBaseUrl, token, folderId, canEdit, accessKey])
+
+  // Keep the breadcrumb in sync with the folder metadata from useFolder
   useEffect(() => {
-    const fetchFolderInfo = async () => {
-      if (folderId) {
-        try {
-          const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-          const folderInfo = await ndexClient.files.getFolder(folderId)
-          setCurrentFolderInfo(folderInfo)
-
-          // After setting current folder info, build the breadcrumb path
-          if (folderInfo) {
-            buildBreadcrumbPath(folderInfo)
-          }
-        } catch (error) {
-          console.error('Error fetching folder info:', error)
-          setErrorMessage('Failed to load folder information')
-        }
+    if (folderId && folder) {
+      buildBreadcrumbPath(folder)
+    } else if (!folderId) {
+      // Reset breadcrumb path based on current view
+      if (tabState === MyAccountTabType.SHARED) {
+        setBreadcrumbPath([{ name: 'Shared with me', id: null }])
+      } else if (tabState === MyAccountTabType.TRASH) {
+        setBreadcrumbPath([{ name: 'Trash', id: null }])
       } else {
-        setCurrentFolderInfo(null)
-        // Reset breadcrumb path based on current view
-        if (tabState === MyAccountTabType.SHARED) {
-          setBreadcrumbPath([{ name: 'Shared with me', id: null }])
-        } else if (tabState === MyAccountTabType.TRASH) {
-          setBreadcrumbPath([{ name: 'Trash', id: null }])
-        } else {
-          setBreadcrumbPath([{ name: 'My Drive', id: null }])
-        }
+        setBreadcrumbPath([{ name: 'My Drive', id: null }])
       }
     }
+  }, [folderId, folder, tabState, buildBreadcrumbPath])
 
-    if (isAuthenticated && token && folderId !== undefined) {
-      fetchFolderInfo()
-    } else if (tabState === MyAccountTabType.SHARED) {
-      // For shared view without folder ID, set the breadcrumb
-      setBreadcrumbPath([{ name: 'Shared with me', id: null }])
-    } else if (tabState === MyAccountTabType.TRASH) {
-      // For trash view without folder ID, set the breadcrumb
-      setBreadcrumbPath([{ name: 'Trash', id: null }])
-    }
-  }, [folderId, isAuthenticated, token, config.ndexBaseUrl, tabState, buildBreadcrumbPath])
-
-  // Redirect if not authenticated - optimized for better UX
+  // Redirect anonymous viewers to home — but ONLY for the account-scoped views
+  // (/my-account, /shared-with-me, /trash). Folder URLs (uuid present) are
+  // viewable by everyone; the server decides what they may see.
   useEffect(() => {
     // Don't redirect while Keycloak is still initializing
     if (isInitializing) {
+      return
+    }
+
+    // Folder views are public-facing — never redirect
+    if (folderId) {
       return
     }
 
@@ -496,7 +492,7 @@ function MyAccountContent({
       console.log('Authentication check failed, redirecting to home')
       router.push('/')
     }
-  }, [isAuthenticated, token, router, isInitializing, currentLoading])
+  }, [isAuthenticated, token, router, isInitializing, currentLoading, folderId])
 
   // Handle clicking a breadcrumb
   const handleBreadcrumbClick = (id: string | null) => {
@@ -507,7 +503,7 @@ function MyAccountContent({
     } else if (id === null) {
       router.push('/my-account')
     } else {
-      router.push(`/folders/${id}`)
+      router.push(withAccessKey(`/folders/${id}`, accessKey))
     }
   }
 
@@ -1061,8 +1057,10 @@ function MyAccountContent({
       // Generate shortcut name
       const shortcutName = `${itemToShortcut.name} - Shortcut`
 
-      // If targetFolderId is null, create in the current folder
-      const parentFolder = targetFolderId || folderId || null
+      // Create in the current folder only when the viewer owns it; otherwise
+      // (browsing someone else's folder) the shortcut goes into the viewer's
+      // own home folder — writing into a folder they can't edit would 403.
+      const parentFolder = targetFolderId || (canEdit ? folderId : null)
 
       // Create the shortcut using the hook
       await createShortcut(
@@ -1104,7 +1102,9 @@ function MyAccountContent({
     }
   }
 
-  if (isInitializing || !isAuthenticated || !token) {
+  // Account-scoped views (no uuid) require a signed-in user; folder views are
+  // open to every viewer, so only wait for Keycloak session restore there.
+  if (isInitializing || (!folderId && (!isAuthenticated || !token))) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="h-16 w-16 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
@@ -1120,6 +1120,30 @@ function MyAccountContent({
     )
   }
 
+  // Folder views map errors to the shared friendly states: 401/403 → private
+  // folder, 404 → does not exist. Metadata errors (useFolder) count too — a
+  // private folder can fail on either request.
+  const folderViewError = folderId ? currentError || folderError : null
+  if (folderViewError) {
+    const variant = isAuthError(folderViewError)
+      ? 'forbidden'
+      : isNotFoundError(folderViewError)
+      ? 'notFound'
+      : 'generic'
+    return (
+      <div className="flex h-screen w-full items-center justify-center px-4">
+        <div className="w-full max-w-lg">
+          <FolderErrorState
+            variant={variant}
+            isAuthenticated={isAuthenticated}
+            onSignIn={() => login()}
+            message={(folderViewError as Error).message}
+          />
+        </div>
+      </div>
+    )
+  }
+
   if (currentError) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -1130,13 +1154,17 @@ function MyAccountContent({
 
   return (
     <div className="flex gap-x-2 p-1 h-full">
-      {/* Sidebar */}
-      <SideBar
-        collapsed={sidebarCollapsed}
-        setCollapsed={setSidebarCollapsed}
-        currentFolderId={folderId}
-        activeView={tabState}
-      />
+      {/* Sidebar — navigation into the viewer's own account, so signed-in
+          users only (owners AND non-owners); anonymous viewers get the
+          full-width listing */}
+      {isAuthenticated && (
+        <SideBar
+          collapsed={sidebarCollapsed}
+          setCollapsed={setSidebarCollapsed}
+          currentFolderId={folderId}
+          activeView={tabState}
+        />
+      )}
 
       {/* Main Content and Details Panel Container */}
       <div className="flex-1 flex overflow-hidden gap-x-2 h-full">
@@ -1215,6 +1243,8 @@ function MyAccountContent({
             itemDataMap={itemDataMap}
             showSelectionToolbar={showSelectionToolbar}
             tabState={tabState}
+            canEditFolder={canEdit}
+            accessKey={accessKey}
             handleCloseToolbar={handleCloseToolbar}
             handleRestoreFromTrash={handleRestoreFromTrash}
             handlePermanentDelete={handlePermanentDelete}
@@ -1243,9 +1273,11 @@ function MyAccountContent({
               selectedItems={selectedItems}
               currentFolderId={folderId}
               uuid={uuid}
+              accessKey={accessKey}
+              canEditFolder={canEdit}
               handleItemSelect={handleItemSelect}
               handleOutsideClick={handleOutsideClick}
-              handleMoveItems={handleMoveItems}
+              handleMoveItems={canEdit ? handleMoveItems : undefined}
               handleDropdownToggle={handleDropdownToggle}
               handleRemoveShortcut={handleRemoveShortcut}
               setSelectedFilters={setSelectedFilters}
@@ -1262,6 +1294,8 @@ function MyAccountContent({
                 tabState={tabState}
                 currentFolderId={folderId}
                 currentFolderName={folder?.name}
+                canEditFolder={canEdit}
+                accessKey={accessKey}
                 onClose={() => {
                   setOpenDropdownId(null)
                   setDropdownType(null)

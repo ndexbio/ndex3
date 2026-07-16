@@ -15,6 +15,11 @@ interface ContentRendererProps {
   selectedItems: string[]
   currentFolderId: string | null
   uuid?: string
+  /** Access key inherited from the current folder URL. */
+  accessKey?: string
+  /** False for read-only viewers (anonymous / non-owners): disables drops and
+      adjusts empty-state copy. Defaults to true (owner view). */
+  canEditFolder?: boolean
   handleItemSelect: (
     event: React.MouseEvent,
     id: string,
@@ -23,7 +28,8 @@ interface ContentRendererProps {
     sortedItems?: FileItemBase[],
   ) => void
   handleOutsideClick: (event: React.MouseEvent) => void
-  handleMoveItems: (itemIds: string[], targetFolderId: string) => Promise<void>
+  /** Omitted for read-only viewers — drops become no-ops. */
+  handleMoveItems?: (itemIds: string[], targetFolderId: string) => Promise<void>
   handleDropdownToggle: (event: React.MouseEvent, id: string, type: any) => void
   handleRemoveShortcut: (shortcutId: string) => Promise<void>
   setSelectedFilters: (filters: Set<any>) => void
@@ -38,6 +44,8 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
   selectedItems,
   currentFolderId,
   uuid,
+  accessKey,
+  canEditFolder = true,
   handleItemSelect,
   handleOutsideClick,
   handleMoveItems,
@@ -72,6 +80,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               viewMode={viewMode}
               tabState={tabState}
               selectedItems={selectedItems}
+              accessKey={accessKey}
               onSelect={(e, id, index) =>
                 handleItemSelect(e, id, index, NDExFileType.FOLDER, trashItems)
               }
@@ -90,6 +99,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               tabState={tabState}
               viewMode={viewMode}
               selectedItems={selectedItems}
+              accessKey={accessKey}
               onSelect={(e, id, index) =>
                 handleItemSelect(e, id, index, NDExFileType.NETWORK, trashItems)
               }
@@ -145,6 +155,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               viewMode={viewMode}
               tabState={tabState}
               selectedItems={selectedItems}
+              accessKey={accessKey}
               showOwnerColumn={true}
               showVisibilityColumn={true}
               showPermissionColumn={true}
@@ -166,6 +177,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               tabState={tabState}
               viewMode={viewMode}
               selectedItems={selectedItems}
+              accessKey={accessKey}
               showOwnerColumn={true}
               showVisibilityColumn={true}
               showPermissionColumn={true}
@@ -196,7 +208,9 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
                   This folder is empty
                 </p>
                 <p className="text-sm text-gray-400">
-                  Upload files or create a folder to get started
+                  {canEditFolder
+                    ? 'Upload files or create a folder to get started'
+                    : 'There are no items in this folder'}
                 </p>
               </>
             ) : (
@@ -230,12 +244,13 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               viewMode={viewMode}
               tabState={tabState}
               selectedItems={selectedItems}
+              accessKey={accessKey}
               showOwnerColumn={!!uuid}
               onSelect={(e, id, index, type, sortedItems) =>
                 handleItemSelect(e, id, index, type, sortedItems)
               }
               currentFolderId={currentFolderId}
-              onDrop={handleMoveItems}
+              onDrop={handleMoveItems ?? (() => {})} // No-op for read-only viewers
               onDropdownToggle={handleDropdownToggle}
               onRemoveShortcut={handleRemoveShortcut}
             />
@@ -249,6 +264,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
               tabState={tabState}
               viewMode={viewMode}
               selectedItems={selectedItems}
+              accessKey={accessKey}
               showOwnerColumn={!!uuid}
               onSelect={(e, id, index, type, sortedItems) =>
                 handleItemSelect(e, id, index, type, sortedItems)

@@ -4,6 +4,15 @@
 
 The My Account page is a comprehensive file management interface for the NDEx3 web application that allows users to manage their networks and folders. It provides a Google Drive-like experience with tabbed navigation, multiple view modes, and sophisticated visual indicators for different file states.
 
+> **Dual role:** `MyAccount` also powers the public folder view at `/folders/{uuid}`. When rendered with a `uuid` it serves *any* viewer — anonymous, signed-in non-owner, or owner — adapting between read-only and full management based on folder ownership (`canEditFolder`). The account-scoped views (`/my-account`, `/shared-with-me`, `/trash`, i.e. no `uuid`) remain signed-in only and redirect anonymous users home. See `docs/folder-viewing-feature.md` for the folder-view spec.
+
+### Viewer modes (folder view)
+
+- **Anonymous / signed-in non-owner:** read-only. No sidebar for anonymous viewers; edit actions greyed out; bulk toolbar limited to Download; drag-and-drop disabled. Errors (401/403/404) render via the shared `FolderErrorState`.
+- **Owner:** full management experience (unchanged from the account view).
+
+`canEditFolder` (from `src/lib/utils/permissions.ts`) is computed once in `MyAccount` and threaded to `SelectionToolbarAndFilters`, `FileRenderer`, and `ActionDropdown`. Folder metadata and contents are fetched via `useFolder` / `useFolderContents`, both of which accept an optional `accessKey` (see the folder-viewing doc for access-key semantics).
+
 ## Architecture & Directory Structure
 
 ```

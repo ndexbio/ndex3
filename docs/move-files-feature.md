@@ -17,6 +17,8 @@
 ### Purpose
 The Move Files feature enables users to relocate files (folders, networks, and shortcuts) within their NDEx workspace using a Google Drive-style interface. The feature supports both drag-and-drop and dialog-based move operations.
 
+> **Permission gating:** move is an edit action. In the public folder view (`/folders/{uuid}`), all three trigger points are gated on `canEditFolder` (the viewer owns the folder being viewed). For read-only viewers — anonymous or signed-in non-owners — the ActionDropdown "Move" item and the SelectionToolbar move icon are greyed out, and drag-and-drop is disabled (`MyAccount` passes `handleMoveItems={undefined}` to `FileRenderer`). See `docs/folder-viewing-feature.md`.
+
 ### Key Features
 - **Multiple file types**: Supports folders, networks, and shortcuts
 - **Dual interaction modes**: Drag-and-drop and dialog-based moves

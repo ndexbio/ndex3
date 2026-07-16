@@ -31,19 +31,23 @@ export default function HomePage() {
     )
   }
 
-  // Handle folder routes that couldn't be statically generated
-  const folderMatch = pathname?.match(/^\/folders\/([^\/]+)$/)
+  // Handle folder routes that couldn't be statically generated.
+  // The optional trailing slash matters: this app sets trailingSlash: true, so
+  // a deep link served through the static rewrite arrives as /folders/{uuid}/.
+  const folderMatch = pathname?.match(/^\/folders\/([^\/]+?)\/?$/)
   if (folderMatch) {
     const uuid = folderMatch[1]
     // Skip if it's the placeholder (should use file-system routing)
     if (uuid !== 'placeholder') {
+      // FolderViewer parses ?accesskey= itself, so shared-link READ access
+      // works identically through this path and the file-system route.
       console.log('Client-side folder route for UUID:', uuid)
       return <FolderViewer uuid={uuid} />
     }
   }
 
   // Handle user profile routes that couldn't be statically generated
-  const userMatch = pathname?.match(/^\/users\/([^\/]+)$/)
+  const userMatch = pathname?.match(/^\/users\/([^\/]+?)\/?$/)
   if (userMatch) {
     const uuid = userMatch[1]
     // Skip if it's the placeholder (should use file-system routing)
@@ -54,7 +58,7 @@ export default function HomePage() {
   }
 
   // Handle legacy networkset routes
-  const networksetMatch = pathname?.match(/^\/networkset\/([^\/]+)$/)
+  const networksetMatch = pathname?.match(/^\/networkset\/([^\/]+?)\/?$/)
   if (networksetMatch) {
     const uuid = networksetMatch[1]
     console.log('Redirecting legacy networkset route to folders:', uuid)

@@ -32,8 +32,9 @@ import { ShareableItem } from '@/types/sharing'
 // Add a dropdown menu for bulk network downloads
 const BulkDownloadMenu: React.FC<{
   selectedItems: Array<{ id: string; name: string; type: NDExFileType }>
+  accessKey?: string
   onClose: () => void
-}> = ({ selectedItems, onClose }) => {
+}> = ({ selectedItems, accessKey, onClose }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -45,6 +46,7 @@ const BulkDownloadMenu: React.FC<{
     .map((item) => ({
       id: item.id,
       name: item.name,
+      accessKey,
     }))
 
   // Close dropdown when clicking outside
@@ -284,6 +286,11 @@ interface SelectionToolbarAndFiltersProps {
   itemDataMap?: Record<string, { name: string; type: NDExFileType; visibility?: string }>
   showSelectionToolbar: boolean
   tabState: MyAccountTabType
+  /** False for read-only viewers (anonymous / non-owners): bulk edit actions
+      (Share / Move / Trash / Read-only) are greyed out; Download stays. */
+  canEditFolder?: boolean
+  /** Access key inherited from the current folder URL. */
+  accessKey?: string
   handleCloseToolbar: (event: React.MouseEvent) => void
   handleRestoreFromTrash: (ids: string[]) => void
   handlePermanentDelete: (ids?: string[]) => void
@@ -323,6 +330,8 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
   itemDataMap = {},
   showSelectionToolbar,
   tabState,
+  canEditFolder = true,
+  accessKey,
   handleCloseToolbar,
   handleRestoreFromTrash,
   handlePermanentDelete,
@@ -565,21 +574,33 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                 </TooltipProvider>
               </>
             ) : (
-              // Regular actions for My Networks and Shared
+              // Regular actions for My Networks and Shared.
+              // Bulk EDIT actions (Share / Read-only / Move / Trash) are
+              // greyed out for read-only viewers; Download always works on
+              // whatever the server let the viewer see.
               <>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
+                        className={`p-1.5 rounded-full transition-colors ${
+                          canEditFolder
+                            ? 'hover:bg-accent hover:text-accent-foreground'
+                            : 'opacity-40 cursor-not-allowed'
+                        }`}
                         title="Share"
                         data-action-button
-                        onClick={handleOpenShareDialog}
+                        disabled={!canEditFolder}
+                        onClick={canEditFolder ? handleOpenShareDialog : undefined}
                       >
                         <UserPlus className="h-5 w-5 text-muted-foreground" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Share with others</TooltipContent>
+                    <TooltipContent>
+                      {canEditFolder
+                        ? 'Share with others'
+                        : 'Requires permission to modify this folder'}
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
 
@@ -588,6 +609,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                     <TooltipTrigger asChild>
                       <BulkDownloadMenu
                         selectedItems={getSelectedItemObjects()}
+                        accessKey={accessKey}
                         onClose={() => {}}
                       />
                     </TooltipTrigger>
@@ -595,7 +617,7 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                   </Tooltip>
                 </TooltipProvider>
 
-                {tabState !== MyAccountTabType.SHARED && (
+                {tabState !== MyAccountTabType.SHARED && canEditFolder && (
                   <BulkReadOnlyMenu
                     selectedItems={getSelectedItemObjects()}
                     onClose={() => {}}
@@ -609,16 +631,25 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
+                        className={`p-1.5 rounded-full transition-colors ${
+                          canEditFolder
+                            ? 'hover:bg-accent hover:text-accent-foreground'
+                            : 'opacity-40 cursor-not-allowed'
+                        }`}
                         title="Move"
                         data-action-button
-                        onClick={handleOpenMoveDialog}
+                        disabled={!canEditFolder}
+                        onClick={canEditFolder ? handleOpenMoveDialog : undefined}
                       >
                         <FolderInput className="h-5 w-5 text-muted-foreground" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Move selected items</p>
+                      <p>
+                        {canEditFolder
+                          ? 'Move selected items'
+                          : 'Requires permission to modify this folder'}
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -627,15 +658,28 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        className="p-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors"
+                        className={`p-1.5 rounded-full transition-colors ${
+                          canEditFolder
+                            ? 'hover:bg-accent hover:text-accent-foreground'
+                            : 'opacity-40 cursor-not-allowed'
+                        }`}
                         title="Delete"
                         data-action-button
-                        onClick={() => handleDeleteItems(selectedItems)}
+                        disabled={!canEditFolder}
+                        onClick={
+                          canEditFolder
+                            ? () => handleDeleteItems(selectedItems)
+                            : undefined
+                        }
                       >
                         <Trash2 className="h-5 w-5 text-muted-foreground" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Move to trash</TooltipContent>
+                    <TooltipContent>
+                      {canEditFolder
+                        ? 'Move to trash'
+                        : 'Requires permission to modify this folder'}
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </>

@@ -32,7 +32,7 @@ Rules 1 and 2 are composed by `resolveLegacyRedirect()` and fire together from o
   |---|---|
   | `#/network/{id}` | `/viewer/networks/{id}` — the **NDEx Network Viewer**, a sibling app on the same host, not a route in this Next.js app |
   | `#/networkset/{id}` | `/folders/{id}` — a route inside this app |
-- Any trailing query string on the fragment (e.g. `?accesskey=...`) is carried across unchanged
+- Any trailing query string on the fragment (e.g. `?accesskey=...`) is carried across unchanged. The destination `/folders/{id}?accesskey=...` now honors that access key end-to-end: `FolderViewer` parses it and passes it to the folder API calls as a READ bypass (see [`docs/folder-viewing-feature.md`](./folder-viewing-feature.md)).
 - Returns `null` if the hash doesn't start with `#/` or doesn't match a known prefix — the hash is left alone (host canonicalization from Rule 1 can still apply independently)
 
 ### Composition — `resolveLegacyRedirect(href)`
@@ -45,6 +45,8 @@ Combines both rules into a single target URL so `http://public.ndexbio.org/#/net
 **Where it runs**: [`page.tsx`](../src/app/page.tsx#L56-L67), the root route component. Because this app uses static export (`output: 'export'`) with client-side routing for dynamic UUID paths (see [`docs/APACHE_STATIC_DEPLOYMENT.md`](./APACHE_STATIC_DEPLOYMENT.md#hybrid-routing-for-static-export)), Apache's catch-all rewrite sends any unrecognized path — including `/networkset/{id}` — to `index.html`, which mounts `HomePage`. `HomePage` pattern-matches the pathname and, for `/networkset/{id}`, calls `router.replace('/folders/{id}')` — a client-side SPA navigation (no full page reload, unlike Rules 1 & 2).
 
 This is **not the same URL shape** as Rule 2's `#/networkset/{id}` — this is a bare path with no hash. It's a distinct legacy link format that predates or coexists with the hash-router era and needs its own handling since the fragment never reaches the server or `LegacyHashRedirect` in a form Rule 2 would recognize (Rule 2 only inspects `url.hash`).
+
+> **Trailing-slash note:** the `networksetMatch`, `folderMatch`, and `userMatch` patterns in `page.tsx` each accept an optional trailing slash (`/…\/?$/`). This matters because the app sets `trailingSlash: true`, so a statically-served deep link arrives as `/networkset/{id}/` (or `/folders/{id}/`). Without the optional slash these client-side matchers would miss and fall through to the home page.
 
 **Tests**: none currently — this path isn't covered by a dedicated unit test (unlike Rules 1 & 2).
 

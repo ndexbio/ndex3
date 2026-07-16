@@ -17,7 +17,11 @@ export const getNdexClient = (url: string, accessToken?: string): NDExClient => 
     ndexClient.updateConfig({
       auth: { type: 'oauth', idToken: accessToken }
     })
+  } else {
+    // The client is a shared singleton: without this, a token set by an earlier
+    // authenticated call would leak into requests meant to be anonymous.
+    ndexClient.updateConfig({ auth: undefined })
   }
-  
+
   return ndexClient
 }

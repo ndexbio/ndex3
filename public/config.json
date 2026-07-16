@@ -1,14 +1,14 @@
 {
-  "ndexBaseUrl": "dev3.ndex.ucsd.edu",
+  "ndexBaseUrl": "dev1.ndexbio.org",
   "keycloakConfig": {
-    "url": "https://dev3.ndex.ucsd.edu/auth2",
-    "clientId": "cytoscape-ndex",
-    "realm": "NDEx"
+    "url": "https://dev1.ndexbio.org/auth2",
+    "clientId": "cytoscapendex",
+    "realm": "ndex"
   },
   "urlBaseName": "",
-  "cytoscapeWebUrl": "https://dev3.ndex.ucsd.edu/cytoscape",
+  "cytoscapeWebUrl": "https://dev1.ndexbio.org/cytoscape",
   "uiContent": {
-    "contentRootPath": "https://home.ndexbio.org/landing_page_content/v2_4_2",
+    "contentRootPath": "https://dev1.ndexbio.org/contentrootpath",
     "featuredContent": "featured_content.json",
     "featuredNetwork": "featured_networks.json",
     "mainContent": "main.json",
