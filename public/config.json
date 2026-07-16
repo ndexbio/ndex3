@@ -7,8 +7,8 @@
   },
   "urlBaseName": "",
   "cytoscapeWebUrl": "https://dev1.ndexbio.org/cytoscape",
-  "maxNetworkElementsThreshold": 2600,
-  "maxEdgeCountThreshold": 67,
+  "maxNetworkElementsThreshold": 26000,
+  "maxEdgeCountThreshold": 20000,
   "uiContent": {
     "contentRootPath": "https://dev1.ndexbio.org/contentrootpath",
     "featuredContent": "featured_content.json",
