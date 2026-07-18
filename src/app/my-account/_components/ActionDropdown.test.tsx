@@ -16,7 +16,7 @@ jest.mock('@/lib/contexts/KeycloakContext', () => ({
   useAuth: jest.fn(),
 }))
 // Config is a reconfigurable mock so gate tests can set thresholds per-test.
-// oe default to the original static mock
+// We default to the original static mock.
 jest.mock('@/lib/contexts/ConfigContext', () => ({
   useConfig: jest.fn(),
 }))
