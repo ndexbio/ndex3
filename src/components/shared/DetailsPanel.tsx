@@ -205,9 +205,9 @@ export default function DetailsPanel({
                   Details
                 </h5>
                 <div className="text-sm space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">UUID</span>
-                    <span className="text-xs font-mono truncate max-w-[150px] text-foreground">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">UUID</span>
+                    <span className="text-[12px] font-mono whitespace-nowrap overflow-hidden text-ellipsis text-right text-foreground min-w-0">
                       {selectedItems[0]}
                     </span>
                   </div>
@@ -300,9 +300,9 @@ export default function DetailsPanel({
                   {/* Shortcut Details */}
                   {detailedData.shortcut && (
                     <>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Target</span>
-                        <span className="text-xs font-mono truncate max-w-[150px] text-foreground">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Target</span>
+                        <span className="text-[12px] font-mono whitespace-nowrap overflow-hidden text-ellipsis text-right text-foreground min-w-0">
                           {detailedData.shortcut.target}
                         </span>
                       </div>
