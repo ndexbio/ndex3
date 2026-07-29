@@ -1,14 +1,14 @@
 {
-  "ndexBaseUrl": "dev1.ndexbio.org",
+  "ndexBaseUrl": "www.ndexbio.org",
   "keycloakConfig": {
-    "url": "https://dev1.ndexbio.org/auth2",
+    "url": "https://www.ndexbio.org/auth2",
     "clientId": "cytoscapendex",
     "realm": "ndex"
   },
   "urlBaseName": "",
-  "cytoscapeWebUrl": "https://dev1.ndexbio.org/cytoscape",
+  "cytoscapeWebUrl": "https://www.ndexbio.org/cytoscape",
   "uiContent": {
-    "contentRootPath": "https://dev1.ndexbio.org/contentrootpath",
+    "contentRootPath": "https://home.ndexbio.org/landing_page_content/v2_4_2",
     "featuredContent": "featured_content.json",
     "featuredNetwork": "featured_networks.json",
     "mainContent": "main.json",
