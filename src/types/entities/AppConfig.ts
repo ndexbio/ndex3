@@ -139,9 +139,10 @@ export interface AppConfig {
   /** Base URL for Cytoscape Web (optional, defaults to https://web.cytoscape.org) */
   cytoscapeWebUrl?: string
   /**
-   * Path to the Swagger/OpenAPI UI on the NDEx server, resolved against
+   * Path to the Swagger/OpenAPI UI on the NDEx server, appended to
    * `ndexBaseUrl` (optional, defaults to "/rest/swagger/index.html").
-   * A fully qualified URL may also be supplied to point at another host.
+   * A fully qualified URL may also be supplied — use that form to point at
+   * another host, or when the server itself is hosted under a path.
    */
   swaggerBaseName?: string
 }

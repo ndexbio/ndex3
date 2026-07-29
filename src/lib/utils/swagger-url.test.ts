@@ -35,6 +35,22 @@ describe('getSwaggerUrl', () => {
     )
   })
 
+  // Documents the input contract: ndexBaseUrl is expected to be a host or origin,
+  // so a base URL carrying a path keeps that path and has the swagger path appended.
+  // A path-hosted server should be configured with a fully qualified swaggerBaseName,
+  // since its swagger UI lives under the path rather than at the origin.
+  it('appends to a base URL that carries a path component', () => {
+    expect(getSwaggerUrl('http://localhost:8080/ndexbio-rest')).toBe(
+      'http://localhost:8080/ndexbio-rest/rest/swagger/index.html',
+    )
+    expect(
+      getSwaggerUrl(
+        'http://localhost:8080/ndexbio-rest',
+        'http://localhost:8080/ndexbio-rest/swagger/index.html',
+      ),
+    ).toBe('http://localhost:8080/ndexbio-rest/swagger/index.html')
+  })
+
   it('uses a fully qualified override verbatim', () => {
     expect(
       getSwaggerUrl('www.ndexbio.org', 'https://docs.example.org/swagger/'),
