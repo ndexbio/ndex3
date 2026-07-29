@@ -188,21 +188,34 @@ describe('useCyNDEx.openInCytoscape — network shortcut resolution', () => {
   })
 
   it('does not post and shows an error toast for an inactive shortcut', async () => {
-    const { result } = renderHook(() => useCyNDEx())
+    // This path is SUPPOSED to throw, and the hook logs via console.error before
+    // rethrowing. Stub the log so a passing run isn't cluttered with an expected
+    // stack trace, but still assert it was emitted.
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
 
-    await act(async () => {
-      await expect(
-        result.current.openInCytoscape(SHORTCUT_ID, 'Dead Shortcut', NDExFileType.SHORTCUT, {
-          target: TARGET_ID,
-          target_type: NDExFileType.NETWORK,
-          target_status: 'DELETED',
-        }),
-      ).rejects.toThrow(/no longer valid/i)
-    })
+    try {
+      const { result } = renderHook(() => useCyNDEx())
 
-    expect(mockPostNetwork).not.toHaveBeenCalled()
-    expect(mockAddToast).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'error' }),
-    )
+      await act(async () => {
+        await expect(
+          result.current.openInCytoscape(SHORTCUT_ID, 'Dead Shortcut', NDExFileType.SHORTCUT, {
+            target: TARGET_ID,
+            target_type: NDExFileType.NETWORK,
+            target_status: 'DELETED',
+          }),
+        ).rejects.toThrow(/no longer valid/i)
+      })
+
+      expect(mockPostNetwork).not.toHaveBeenCalled()
+      expect(mockAddToast).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error' }),
+      )
+      expect(consoleError).toHaveBeenCalledWith(
+        'Error opening network in Cytoscape:',
+        expect.objectContaining({ message: expect.stringMatching(/no longer valid/i) }),
+      )
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 })
