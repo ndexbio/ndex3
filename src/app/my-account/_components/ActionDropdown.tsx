@@ -32,6 +32,38 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
 import MenuItemButton from '@/components/shared/MenuItemButton'
 import { withAccessKey } from '@/lib/utils/access-key'
 
+const DEFAULT_MAX_NETWORK_ELEMENTS = 26000
+const DEFAULT_MAX_EDGE_COUNT = 20000
+
+// Coerce an unknown value (number, numeric string, or missing) to a finite,
+// non-negative count. Missing / NaN / negative / non-finite -> 0.
+const toCount = (v: unknown): number => {
+  const n = typeof v === 'number' ? v : Number(v)
+  if (!Number.isFinite(n) || n < 0) return 0
+  return n
+}
+
+// firstDefined: pick the first value that isn't null/undefined so a real 0 is
+// respected and we don't skip past it to a later source.
+const firstDefined = (...vals: unknown[]): unknown =>
+  vals.find((v) => v !== undefined && v !== null)
+
+const getItemElementCounts = (
+  item: FileItemBase | null,
+): { nodeCount: number; edgeCount: number } => {
+  if (!item) return { nodeCount: 0, edgeCount: 0 }
+  const anyItem = item as Record<string, unknown>
+  const attrs = item.attributes as Record<string, unknown> | undefined
+  return {
+    nodeCount: toCount(
+      firstDefined(anyItem.nodes, anyItem.nodeCount, attrs?.nodes, attrs?.nodeCount),
+    ),
+    edgeCount: toCount(
+      firstDefined(anyItem.edges, anyItem.edgeCount, attrs?.edges, attrs?.edgeCount),
+    ),
+  }
+}
+
 /** Tooltip shown on edit actions greyed out for anonymous viewers. */
 const SIGN_IN_TOOLTIP = 'Sign in to use this feature'
 
@@ -282,6 +314,21 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     }
     return undefined
   }
+
+  // "Open in Cytoscape Web" is disabled for networks too large to render in browser based on config values or default
+  const maxNetworkElements = config.maxNetworkElementsThreshold ?? DEFAULT_MAX_NETWORK_ELEMENTS
+  const maxEdgeCount = config.maxEdgeCountThreshold ?? DEFAULT_MAX_EDGE_COUNT
+  const { nodeCount, edgeCount } = getItemElementCounts(item)
+
+  // Disabled when EITHER cap is exceeded (strict >, so exactly at a cap is OK).
+  const exceedsWebElementThreshold =
+    nodeCount + edgeCount > maxNetworkElements || edgeCount > maxEdgeCount
+
+  const openInCytoscapeWebTooltip = exceedsWebElementThreshold
+    ? `This network is too large to open in Cytoscape Web (${(
+        nodeCount + edgeCount
+      ).toLocaleString()} elements, ${edgeCount.toLocaleString()} edges). Please use Cytoscape Desktop instead.`
+    : undefined
 
   // Add an effect to mark the component as mounted for event handling
   useEffect(() => {
@@ -622,6 +669,8 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             icon={ExternalLink}
             label="Open in Cytoscape Web"
             onClick={handleOpenInCytoscapeWeb}
+            disabled={exceedsWebElementThreshold}
+            disabledTooltip={openInCytoscapeWebTooltip}
           />
           {/* Only show "Request DOI" for networks that aren't shortcuts and owned by the viewer */}
           {shouldShowRequestDOI && (
