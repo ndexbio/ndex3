@@ -46,6 +46,37 @@ test.describe('folder view — anonymous visitor', () => {
     await expect(page.getByText('Public Network Two')).toBeVisible()
   })
 
+  test('never renders home-page content while resolving a folder deep link', async ({ page }) => {
+    await mockFolder(page, {
+      folder: { uuid: FOLDER_UUID, name: 'Alice Public Folder', owner: 'alice' },
+      items: PUBLIC_ITEMS,
+    })
+
+    // The static rewrite serves the "/" document for a /folders/{uuid}/ deep
+    // link, so the root router picks the view purely from window.location. This
+    // guards the end-to-end invariant that Home content is *never* committed to
+    // the DOM for a folder URL: observe from document start whether Home's
+    // <main> (uniquely identified by gap-2 + overflow-y-auto) ever appears.
+    // (Observe `document`, not documentElement, which may be null this early.)
+    await page.addInitScript(() => {
+      const w = window as typeof window & { __homeSeen?: boolean }
+      w.__homeSeen = false
+      const check = () => {
+        if (document.querySelector('main.gap-2.overflow-y-auto')) w.__homeSeen = true
+      }
+      new MutationObserver(check).observe(document, { childList: true, subtree: true })
+      check()
+    })
+
+    await page.goto(`/folders/${FOLDER_UUID}/`)
+    await expect(page.getByText('Public Network One')).toBeVisible()
+
+    const homeSeen = await page.evaluate(
+      () => (window as typeof window & { __homeSeen?: boolean }).__homeSeen,
+    )
+    expect(homeSeen).toBe(false)
+  })
+
   test('shows an access-denied message for a private folder', async ({ page }) => {
     await mockFolder(page, { status: 403 })
 
