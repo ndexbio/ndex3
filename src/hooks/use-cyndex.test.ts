@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { useCyNDEx, __resetCyStatusForTests } from '@/hooks/use-cyndex'
 
 /**
@@ -75,6 +75,13 @@ describe('useCyNDEx — Cytoscape Desktop availability', () => {
   })
 
   afterEach(() => {
+    // Unmount BEFORE flushing timers. A test that leaves the probe in-flight
+    // (never-resolving status promise) still has withTimeout's timer pending;
+    // running it rejects the probe, which notifies listeners and sets state.
+    // RTL's auto-cleanup runs after this hook, so without an explicit cleanup()
+    // that update would hit a still-mounted component outside act() and warn.
+    // With no subscribers left, notifyCyStatusListeners() is a no-op.
+    cleanup()
     jest.runOnlyPendingTimers()
     jest.useRealTimers()
   })

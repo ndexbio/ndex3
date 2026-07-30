@@ -149,6 +149,12 @@ export interface AppConfig {
    * "Open in Cytoscape Web" option is disabled. (optional, defaults to 20000)
    */
   maxEdgeCountThreshold?: number
+   * Path to the Swagger/OpenAPI UI on the NDEx server, appended to
+   * `ndexBaseUrl` (optional, defaults to "/rest/swagger/index.html").
+   * A fully qualified URL may also be supplied — use that form to point at
+   * another host, or when the server itself is hosted under a path.
+   */
+  swaggerBaseName?: string
 }
 
 /**
