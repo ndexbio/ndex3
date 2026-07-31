@@ -35,8 +35,19 @@ export default function HomePage() {
     if (basePath && p.startsWith(basePath)) {
       p = p.slice(basePath.length) || '/'
     }
+    // Canonicalize legacy /networkset/{uuid} → /folders/{uuid} here so routing
+    // works off the target path and doesn't depend on router.replace triggering
+    // a re-render (path is a one-time snapshot; this effect won't re-run on
+    // navigation). The folder branch below then renders the view immediately,
+    // while router.replace updates the URL to the canonical /folders form.
+    const networksetMatch = p.match(/^\/networkset\/([^/]+?)\/?$/)
+    if (networksetMatch) {
+      p = `/folders/${networksetMatch[1]}`
+      console.log('Redirecting legacy networkset route to folders:', networksetMatch[1])
+      router.replace(p)
+    }
     setPath(p)
-  }, [basePath])
+  }, [basePath, router])
 
   // Don't render until the real client-side path is known
   if (path === null) {
@@ -71,19 +82,6 @@ export default function HomePage() {
       console.log('Client-side user route for UUID:', uuid)
       return <UserPublicPage uuid={uuid} />
     }
-  }
-
-  // Handle legacy networkset routes
-  const networksetMatch = path.match(/^\/networkset\/([^\/]+?)\/?$/)
-  if (networksetMatch) {
-    const uuid = networksetMatch[1]
-    console.log('Redirecting legacy networkset route to folders:', uuid)
-    router.replace(`/folders/${uuid}`)
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="h-16 w-16 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
-      </div>
-    )
   }
 
   // Default home page

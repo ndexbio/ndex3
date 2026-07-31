@@ -78,11 +78,15 @@ describe('HomePage root client router', () => {
     expect(screen.queryByTestId('home')).not.toBeInTheDocument()
   })
 
-  it('redirects legacy /networkset/{uuid} to /folders/{uuid}', () => {
+  it('canonicalizes legacy /networkset/{uuid} to /folders/{uuid} and renders the folder view', () => {
     setPath('/networkset/legacy-uuid/')
     render(<HomePage />)
 
+    // Redirects the URL to the canonical /folders form...
     expect(mockReplace).toHaveBeenCalledWith('/folders/legacy-uuid')
+    // ...and renders the folder view immediately, without depending on the
+    // redirect re-rendering the component (path is a one-time snapshot).
+    expect(screen.getByTestId('folder-viewer')).toHaveTextContent('legacy-uuid')
     expect(screen.queryByTestId('home')).not.toBeInTheDocument()
   })
 
