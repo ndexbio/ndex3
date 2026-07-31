@@ -35,6 +35,17 @@ Both paths converge on `FolderViewer`, which parses the optional
 `trailingSlash: true`, deep links arrive as `/folders/{uuid}/`; the client-side
 route matchers in `page.tsx` accept an optional trailing slash.
 
+In production the rewrite serves the `/` route's `index.html`, so `page.tsx`
+decides the view from **`window.location.pathname`** (captured once on mount),
+not Next's `usePathname()`. `usePathname()` is seeded from the hydrated route
+(`/`) and can reconcile to the real deep-link URL a render later; reading
+`window.location.pathname` is correct on the first client render, so the folder
+branch is taken immediately and `Home` is never rendered as an intermediate
+(which previously showed as a home-page flash). Any configured `basePath`
+(`urlBaseName`) is stripped before matching so subdirectory deployments still
+resolve. This decision runs after the `ConfigProvider` "Loading configuration…"
+gate, so the first paint is that gate, then the folder view.
+
 ## Access key semantics
 
 An access key is a **READ bypass** for a resource. Format: `?accesskey={key}`.

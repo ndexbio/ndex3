@@ -17,11 +17,14 @@ export const getNdexClient = (url: string, accessToken?: string): NDExClient => 
     ndexClient.updateConfig({
       auth: { type: 'oauth', idToken: accessToken }
     })
-  } else {
-    // The client is a shared singleton: without this, a token set by an earlier
-    // authenticated call would leak into requests meant to be anonymous.
-    ndexClient.updateConfig({ auth: undefined })
   }
+  // A tokenless call intentionally leaves any existing auth in place. This
+  // client is a shared singleton: wiping auth here would let an anonymous data
+  // fetch (e.g. public search / user lookup) strip the token out from under a
+  // concurrent authenticated request that holds the same instance across awaits
+  // (e.g. the breadcrumb parent-walk). Public endpoints accept a valid token and
+  // return the same content, so carrying it is harmless; the token is only
+  // cleared on logout, which is a full page reload that rebuilds the singleton.
 
   return ndexClient
 }
