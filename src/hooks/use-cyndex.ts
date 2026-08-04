@@ -218,7 +218,7 @@ export const useCyNDEx = () => {
       // Step 5: Check if Cytoscape is running
       try {
         await cyNDEx.getCyNDExStatus()
-      } catch (error) {
+      } catch (_error) {
         throw new Error(
           'Unable to connect to Cytoscape Desktop. Please ensure Cytoscape is running and the CyNDEx-2 app is installed.'
         )

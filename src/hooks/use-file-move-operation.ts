@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { mutate as globalMutate } from 'swr'
 import { useFolder } from '@/hooks/use-folder'
 import { useNetworkOperation } from '@/hooks/use-network-operation'
 import { useShortcut } from '@/hooks/use-shortcut'

@@ -366,7 +366,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       const itemData = {
         name: item.name || 'Unnamed item',
         type: item.type,
-        visibility: (item as any).visibility
+        visibility: item.visibility as Visibility,
       }
 
       // Open the move dialog with the current item ID

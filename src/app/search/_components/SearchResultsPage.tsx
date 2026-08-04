@@ -409,7 +409,7 @@ function SearchResultsPageContent() {
         })
         // Refresh so deleted items disappear from the list
         await handleRefreshSearchResults()
-      } catch (error) {
+      } catch {
         addToast({
           title: 'Error',
           description: 'Failed to move item to trash',
@@ -444,7 +444,7 @@ function SearchResultsPageContent() {
         })
         // Refresh so the new shortcut shows up if it lands in this search
         await handleRefreshSearchResults()
-      } catch (error) {
+      } catch {
         addToast({
           title: 'Error',
           description: 'Failed to create shortcut',
@@ -488,7 +488,7 @@ function SearchResultsPageContent() {
             duration: 3000,
           })
           await handleRefreshSearchResults()
-        } catch (error) {
+        } catch {
           addToast({
             title: 'Error',
             description: 'Failed to remove shortcut',

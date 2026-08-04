@@ -148,7 +148,7 @@ export const getNetworkAccessKey = async (
     }
 
     return null
-  } catch (error) {
+  } catch {
     console.log(`No access key found for network ${networkUuid}`)
     return null
   }
@@ -171,7 +171,7 @@ export const getFolderAccessKey = async (
     }
 
     return null
-  } catch (error) {
+  } catch {
     console.log(`No access key found for folder ${folderUuid}`)
     return null
   }

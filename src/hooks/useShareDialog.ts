@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ShareableItem, UserPermission, VisibilityLevel } from '@/types/sharing'
+import { UserPermission, VisibilityLevel } from '@/types/sharing'
 import { Visibility } from '@js4cytoscape/ndex-client'
 
 export const useShareDialog = () => {

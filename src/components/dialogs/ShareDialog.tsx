@@ -41,7 +41,6 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
 
   // First, fetch permissions to get user UUIDs
   const {
-    userPermissions: initialUserPermissions,
     userUuids,
     isLoading: isLoadingPermissions,
     error: permissionsError,
@@ -78,7 +77,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
         inputRef.current.focus()
       }
     }
-  }, [isOpen, items])
+  }, [isOpen, items]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle Escape key to close dialog
   useEffect(() => {
@@ -92,7 +91,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
       document.addEventListener('keydown', handleEscape)
       return () => document.removeEventListener('keydown', handleEscape)
     }
-  }, [isOpen, changedVisibilityItems, onSuccess])
+  }, [isOpen, changedVisibilityItems, onSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle click outside for info popup
   useEffect(() => {
@@ -731,7 +730,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
                       Only the owner and specifically invited users can view the content.
                       This setting provides the highest level of privacy - the item will not appear
                       in any search results (internal or external) and will not be visible on the
-                      owner's public profile. Perfect for sensitive or personal content that should
+                      owner&apos;s public profile. Perfect for sensitive or personal content that should
                       only be accessible to selected collaborators.
                     </p>
                   </div>
@@ -756,7 +755,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
                     <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100 mb-2">Unlisted</h3>
                     <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                       Anyone with the direct link can view the content. This is a middle-ground option -
-                      the item won't appear in search results or on your public profile, but anyone who
+                      the item won&apos;t appear in search results or on your public profile, but anyone who
                       has the specific URL can access it. This is useful for sharing content with a
                       specific group without making it fully public, similar to sharing a private YouTube video.
                     </p>

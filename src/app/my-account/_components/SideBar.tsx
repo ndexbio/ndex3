@@ -16,9 +16,6 @@ import {
   Trash,
   Plus,
   File,
-  Home,
-  Star,
-  Clock,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
@@ -212,7 +209,7 @@ export default function SideBar({
         try {
           const json = JSON.parse(event.target?.result as string)
           resolve(json)
-        } catch (error) {
+        } catch {
           reject(new Error('Invalid JSON file'))
         }
       }

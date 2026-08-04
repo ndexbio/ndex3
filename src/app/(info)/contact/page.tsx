@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { Mail, Bug, MessageSquare } from 'lucide-react'
 
 export default function ContactPage() {

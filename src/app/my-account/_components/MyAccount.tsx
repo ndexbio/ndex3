@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { mutate } from 'swr'
 import SideBar from './SideBar'
 import {
@@ -55,7 +55,7 @@ function MyAccountContent({
   const { addToast } = useToast()
 
   // Add the useShortcut hook
-  const { createShortcut, updateShortcut, deleteShortcut } = useShortcut()
+  const { createShortcut, deleteShortcut } = useShortcut()
 
   // Resizable panel hook
   const { width: panelWidth, isDragging, handleMouseDown } = useResizablePanel({
@@ -65,7 +65,7 @@ function MyAccountContent({
     storageKey: 'detailsPanel.myAccount.width'
   })
 
-  const { moveNetworks, deleteNetwork } = useNetworkOperation()
+  const { deleteNetwork } = useNetworkOperation()
 
   // Always call hooks but conditionally use results based on the active tab
   const trashHookResult = useTrash()
@@ -105,8 +105,8 @@ function MyAccountContent({
   const canEdit = folderId === null ? isAuthenticated : canEditFolder(folder, user, isAuthenticated)
 
   // State for UI controls
-  const [loading, setLoading] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
+  const [, setLoading] = useState(false)
+  const [, setErrorMessage] = useState('')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
@@ -300,7 +300,6 @@ function MyAccountContent({
     items: folderContents,
     isLoading,
     error,
-    isEmpty,
     refresh: refreshFolderContents,
   } = tabState === MyAccountTabType.MYNETWORKS
     ? folderContentsHookResult
@@ -308,7 +307,6 @@ function MyAccountContent({
         items: [],
         isLoading: false,
         error: null,
-        isEmpty: true,
         refresh: async () => {},
       }
 
@@ -318,7 +316,6 @@ function MyAccountContent({
     items: sharedFiles,
     isLoading: isLoadingShared,
     error: sharedError,
-    isEmpty: isSharedEmpty,
     refresh: refreshSharedFiles,
   } = tabState === MyAccountTabType.SHARED
     ? sharedFilesHookResult
@@ -326,7 +323,6 @@ function MyAccountContent({
         items: [],
         isLoading: false,
         error: null,
-        isEmpty: true,
         refresh: async () => {},
       }
 
@@ -339,7 +335,7 @@ function MyAccountContent({
       : folderContents
 
   // Use the shared file move operation hook for drag-and-drop
-  const { moveFiles: moveFilesViaHook, isMoving: isMovingFiles } = useFileMoveOperation(
+  const { moveFiles: moveFilesViaHook } = useFileMoveOperation(
     folderId,
     displayItems,
     async () => {

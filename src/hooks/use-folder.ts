@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'

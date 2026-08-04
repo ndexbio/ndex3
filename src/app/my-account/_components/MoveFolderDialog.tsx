@@ -232,7 +232,7 @@ const MoveFolderDialog: React.FC<MoveFolderDialogProps> = ({
     return true
   }
 
-  const canNavigateInto = (locationId: 'myDrive' | 'shared'): boolean => {
+  const canNavigateInto = (_locationId: 'myDrive' | 'shared'): boolean => {
     // Both My Drive and Shared with me can be navigated into
     return true
   }

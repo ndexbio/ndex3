@@ -34,7 +34,6 @@ const CreateDOIDialog: React.FC<CreateDOIDialogProps> = ({
     contactEmail: '',
   })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [originalNetworkSummary, setOriginalNetworkSummary] = useState<any>(null)
   const [originalValues, setOriginalValues] = useState<Partial<DOIFormData>>({})
   const [modifiedFields, setModifiedFields] = useState<Set<string>>(new Set())
@@ -157,7 +156,6 @@ const CreateDOIDialog: React.FC<CreateDOIDialogProps> = ({
   }, [isOpen, networkId])
 
   // Handle field changes with modification tracking
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFieldChange = (field: keyof DOIFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
 
@@ -331,7 +329,6 @@ const CreateDOIDialog: React.FC<CreateDOIDialogProps> = ({
 
       onSuccess?.()
       onClose()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Failed to create DOI:', error)
       addToast({
