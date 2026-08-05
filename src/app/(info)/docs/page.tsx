@@ -31,6 +31,36 @@ export default function DocsPage() {
           and analyze biological networks.
         </p>
         <p className="text-muted-foreground">
+          Building against the NDEx REST API? See{' '}
+          <Link
+            href="/docs/using-the-ndex-api"
+            className="text-primary hover:underline"
+          >
+            Using the NDEx API
+          </Link>{' '}
+          for developer documentation.
+        </p>
+        <p className="text-muted-foreground leading-relaxed">
+          If you used an earlier version of NDEx, the way content is organized
+          has changed. <strong>Network sets and groups are gone</strong>, and{' '}
+          <strong>folders</strong> are now the single way to collect and
+          organize your networks &mdash; anything you had in a set or a group is
+          already a folder, under the same link. You share a folder itself, with
+          specific people or by link, and each network, folder, and shortcut has
+          its own visibility &mdash; public, unlisted, or private &mdash; that
+          controls who can find and open it. For more detail on what changed,
+          see the{' '}
+          <a
+            href="https://github.com/ndexbio/ndex-rest/blob/master/docs/V3-Migration-Guide.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            NDEx v3 Migration Guide
+          </a>
+          .
+        </p>
+        <p className="text-muted-foreground">
           Need help or want to suggest improvements?{' '}
           <Link href="/contact" className="text-primary hover:underline">
             Contact us

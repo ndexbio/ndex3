@@ -1,8 +1,12 @@
 'use client'
 
 import Link from 'next/link'
+import { useConfig } from '@/lib/contexts/ConfigContext'
+import { getSwaggerUrl } from '@/lib/utils/swagger-url'
 
 export default function DocsFooter() {
+  const config = useConfig()
+
   return (
     <section className="space-y-6">
       <h2 className="text-2xl font-semibold">More Documentation</h2>
@@ -23,7 +27,10 @@ export default function DocsFooter() {
           links={[
             { label: 'Best Practices', href: '/docs/developers-best-practices' },
             { label: 'NDEx API', href: '/docs/using-the-ndex-api' },
-            { label: 'OpenAPI', href: 'https://www.ndexbio.org/rest/swagger/index.html' },
+            {
+              label: 'OpenAPI',
+              href: getSwaggerUrl(config.ndexBaseUrl, config.swaggerBaseName),
+            },
             { label: 'CX Data Model', href: '/docs/data-model' },
           ]}
         />
