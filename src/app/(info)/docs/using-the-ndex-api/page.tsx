@@ -108,10 +108,9 @@ export default function UsingNdexApiPage() {
                     href="https://github.com/ndexbio/ndex-rest/blob/master/docs/V3-Migration-Guide.md"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-3xl bg-ndex px-5 py-2.5 text-sm font-medium text-white hover:bg-[#2c70ac]"
+                    className="inline-block text-sm text-primary hover:underline"
                   >
                     Read the NDEx v3 Migration Guide
-                    <span aria-hidden="true">&rarr;</span>
                   </a>
                 </div>
               ),
@@ -146,10 +145,9 @@ export default function UsingNdexApiPage() {
                     href={swaggerUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-3xl bg-ndex px-5 py-2.5 text-sm font-medium text-white hover:bg-[#2c70ac]"
+                    className="inline-block text-sm text-primary hover:underline"
                   >
                     Open the NDEx API Swagger documentation
-                    <span aria-hidden="true">&rarr;</span>
                   </a>
                   <p className="text-xs text-muted-foreground break-all">
                     {swaggerUrl}
