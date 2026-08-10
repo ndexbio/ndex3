@@ -5,6 +5,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { withBasePath } from '../lib/utils/path-utils'
 import { useBasePath } from '../lib/contexts/ConfigContext'
+import pkg from '../../package.json'
+
+const { version } = pkg
 
 export function Footer() {
   const basePath = useBasePath()
@@ -26,7 +29,7 @@ export function Footer() {
             </Link>
           </p>
           <p className="mt-1 text-muted-foreground text-xs">
-            Copyright © 2013–
+            v{version} · Copyright © 2013–
             {new Date().getFullYear()}, The Regents of the University of
             California, The Cytoscape Consortium. All rights reserved.
           </p>
