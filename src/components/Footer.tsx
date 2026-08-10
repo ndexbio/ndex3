@@ -5,7 +5,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { withBasePath } from '../lib/utils/path-utils'
 import { useBasePath } from '../lib/contexts/ConfigContext'
-import { version } from '../../package.json'
+import pkg from '../../package.json'
+
+const { version } = pkg
 
 export function Footer() {
   const basePath = useBasePath()
