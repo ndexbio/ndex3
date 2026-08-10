@@ -5,6 +5,7 @@ import { MyAccountTabType } from '@/types/ui/myAccount'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
+import { useConfig } from '@/lib/contexts/ConfigContext'
 import { resolveNetworkTarget } from '@/lib/utils/shortcut-resolver'
 
 const mockOpenInCytoscape = jest.fn()
@@ -14,11 +15,10 @@ const mockDownloadNetwork = jest.fn()
 jest.mock('@/lib/contexts/KeycloakContext', () => ({
   useAuth: jest.fn(),
 }))
+// Config is a reconfigurable mock so gate tests can set thresholds per-test.
+// We default to the original static mock.
 jest.mock('@/lib/contexts/ConfigContext', () => ({
-  useConfig: () => ({
-    ndexBaseUrl: 'test.ndexbio.org',
-    cytoscapeWebUrl: 'https://web.cytoscape.org',
-  }),
+  useConfig: jest.fn(),
 }))
 jest.mock('@/lib/contexts/DialogContext', () => ({
   useDialogs: () => ({
@@ -61,7 +61,13 @@ jest.mock('@/lib/utils/shortcut-resolver', () => ({
 }))
 
 const mockUseAuth = useAuth as jest.Mock
+const mockUseConfig = useConfig as jest.Mock
 const mockResolve = resolveNetworkTarget as jest.Mock
+
+const BASE_CONFIG = {
+  ndexBaseUrl: 'test.ndexbio.org',
+  cytoscapeWebUrl: 'https://web.cytoscape.org',
+}
 
 const ITEM_ID = 'item-1'
 
@@ -134,6 +140,8 @@ const buttonFor = (label: string): HTMLButtonElement =>
 beforeEach(() => {
   // Anchor element the dropdown positions itself against
   document.body.innerHTML = `<button data-dropdown-id="${ITEM_ID}"></button>`
+  // Default config: no thresholds set (matches the original static mock).
+  mockUseConfig.mockReturnValue({ ...BASE_CONFIG })
   mockResolve.mockReset()
   mockOpenInCytoscape.mockReset()
   mockCopyFile.mockReset()
@@ -355,5 +363,221 @@ describe('ActionDropdown — page access key propagation', () => {
         'page-key',
       )
     })
+  })
+})
+
+describe('ActionDropdown — Open in Cytoscape Web element-count gate (GI-35)', () => {
+  // Use an authenticated owner so nothing else greys the button; the gate is
+  // the only thing under test here.
+  beforeEach(() => mockUseAuth.mockReturnValue(aliceAuth))
+
+  const withCounts = (
+    counts: { edges?: unknown; nodes?: unknown; edgeCount?: unknown; nodeCount?: unknown },
+    attributes: Record<string, unknown> = {},
+  ): FileItemBase =>
+    ({
+      uuid: ITEM_ID,
+      name: 'Sized Network',
+      type: NDExFileType.NETWORK,
+      modificationTime: 0,
+      owner: 'alice',
+      attributes,
+      ...counts,
+    } as unknown as FileItemBase)
+
+  const setThresholds = (
+    maxNetworkElementsThreshold?: number,
+    maxEdgeCountThreshold?: number,
+  ) =>
+    mockUseConfig.mockReturnValue({
+      ...BASE_CONFIG,
+      ...(maxNetworkElementsThreshold !== undefined ? { maxNetworkElementsThreshold } : {}),
+      ...(maxEdgeCountThreshold !== undefined ? { maxEdgeCountThreshold } : {}),
+    })
+
+  const webButton = () => buttonFor('Open in Cytoscape Web')
+
+  it('small network is enabled under the ticket defaults', () => {
+    setThresholds(26000, 20000)
+    renderDropdown(withCounts({ edges: 68 }, { nodeCount: 55 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeEnabled()
+  })
+
+  it('reads the real payload shape (top-level edges + attributes.nodeCount)', () => {
+    // Regression for the reported bug: edges lived at top level, so an accessor
+    // that only checked edgeCount read edges as 0 and never gated.
+    setThresholds(2000, 67)
+    renderDropdown(withCounts({ edges: 68 }, { nodeCount: 55 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeDisabled()
+  })
+
+  it('element cap alone trips the gate (edges under its own cap)', () => {
+    setThresholds(100, 20000)
+    // 60 + 41 = 101 > 100 elements; edges 41 < 20000.
+    renderDropdown(withCounts({ edges: 41 }, { nodeCount: 60 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeDisabled()
+  })
+
+  it('edge cap alone trips the gate (total under the element cap)', () => {
+    setThresholds(26000, 50)
+    // edges 51 > 50; total 51 << 26000.
+    renderDropdown(withCounts({ edges: 51 }, { nodeCount: 0 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeDisabled()
+  })
+
+  it('exactly at both caps is still enabled (strict >)', () => {
+    setThresholds(600, 600)
+    // 300 + 300 = 600 (not > 600); edges 300 (not > 600).
+    renderDropdown(withCounts({ edges: 300 }, { nodeCount: 300 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeEnabled()
+  })
+
+  it('one element over the element cap disables', () => {
+    setThresholds(600, 100000)
+    // 300 + 301 = 601 > 600.
+    renderDropdown(withCounts({ edges: 301 }, { nodeCount: 300 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeDisabled()
+  })
+
+  it('one edge over the edge cap disables', () => {
+    setThresholds(100000, 600)
+    // edges 601 > 600.
+    renderDropdown(withCounts({ edges: 601 }, { nodeCount: 0 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeDisabled()
+  })
+
+  it('a genuinely empty (0-edge) network stays enabled', () => {
+    setThresholds(600, 600)
+    renderDropdown(withCounts({ edges: 0 }, { nodeCount: 3 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeEnabled()
+  })
+
+  it('a real 0 at a higher-priority location is respected, not skipped', () => {
+    // Top-level edges is 0; must NOT fall through to attributes.edgeCount (999).
+    setThresholds(600, 600)
+    renderDropdown(
+      withCounts({ edges: 0 }, { edgeCount: 999, nodeCount: 3 }),
+      NDExFileType.NETWORK,
+    )
+    expect(webButton()).toBeEnabled()
+  })
+
+  it('coerces string counts', () => {
+    setThresholds(2000, 67)
+    renderDropdown(
+      withCounts({ edges: '68' as unknown as number }, { nodeCount: '55' }),
+      NDExFileType.NETWORK,
+    )
+    expect(webButton()).toBeDisabled()
+  })
+
+  it('falls back to attributes when top-level counts are absent', () => {
+    setThresholds(2000, 67)
+    renderDropdown(withCounts({}, { edges: 68, nodeCount: 55 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeDisabled()
+  })
+
+  it('uses default thresholds when config has none (large network gated)', () => {
+    // No thresholds -> defaults 26000 / 20000. 25000 edges > 20000.
+    mockUseConfig.mockReturnValue({ ...BASE_CONFIG })
+    renderDropdown(withCounts({ edges: 25000 }, { nodeCount: 0 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeDisabled()
+  })
+
+  it('uses default thresholds when config has none (normal network enabled)', () => {
+    mockUseConfig.mockReturnValue({ ...BASE_CONFIG })
+    renderDropdown(withCounts({ edges: 500 }, { nodeCount: 800 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeEnabled()
+  })
+
+  it('respects an explicit 0 threshold rather than applying a default', () => {
+    // maxEdgeCount 0 means any network with >0 edges is gated.
+    setThresholds(0, 0)
+    renderDropdown(withCounts({ edges: 1 }, { nodeCount: 0 }), NDExFileType.NETWORK)
+    expect(webButton()).toBeDisabled()
+  })
+
+  it('a shortcut row WITH denormalized counts is gated (real backend shape)', () => {
+    // The backend copies the target network's counts onto the shortcut row
+    // (top-level `edges`), same as target_status/target_type. So shortcuts to
+    // large networks are gated correctly — no async target resolution needed.
+    setThresholds(26000, 20000)
+    const giantShortcut = {
+      uuid: ITEM_ID,
+      type: NDExFileType.SHORTCUT,
+      name: 'testtest',
+      modificationTime: 0,
+      owner: 'alice',
+      visibility: 'PRIVATE',
+      edges: 1258880,
+      attributes: {
+        target_type: NDExFileType.NETWORK,
+        target_status: 'ACTIVE',
+        target: 'target-uuid',
+      },
+    } as unknown as FileItemBase
+    renderDropdown(giantShortcut, NDExFileType.NETWORK)
+    const button = webButton()
+    expect(button).toBeDisabled()
+    expect(button.parentElement).toHaveAttribute(
+      'title',
+      expect.stringContaining('1,258,880'),
+    )
+  })
+
+  it('a shortcut row with NO counts is not gated (nothing to measure)', () => {
+    // Only relevant if a shortcut somehow arrives without denormalized counts —
+    // then there is nothing to measure and the gate correctly stays off.
+    setThresholds(1, 1)
+    renderDropdown(networkShortcutItem, NDExFileType.NETWORK)
+    expect(webButton()).toBeEnabled()
+  })
+
+  it('disabled button carries the explanatory tooltip with formatted counts', () => {
+    setThresholds(2000, 67)
+    renderDropdown(withCounts({ edges: 21000 }, { nodeCount: 10000 }), NDExFileType.NETWORK)
+    const button = webButton()
+    expect(button).toBeDisabled()
+    // 10000 + 21000 = 31,000 total elements, 21,000 edges (locale-formatted).
+    expect(button.parentElement).toHaveAttribute(
+      'title',
+      expect.stringContaining('31,000'),
+    )
+    expect(button.parentElement).toHaveAttribute(
+      'title',
+      expect.stringContaining('21,000'),
+    )
+    expect(button.parentElement).toHaveAttribute(
+      'title',
+      expect.stringContaining('Cytoscape Desktop'),
+    )
+  })
+
+  it('enabled button has no gate tooltip', () => {
+    setThresholds(26000, 20000)
+    renderDropdown(withCounts({ edges: 10 }, { nodeCount: 10 }), NDExFileType.NETWORK)
+    const button = webButton()
+    expect(button).toBeEnabled()
+    // No large-network tooltip on the wrapper.
+    const title = button.parentElement?.getAttribute('title') ?? ''
+    expect(title).not.toContain('too large')
+  })
+
+  it('a disabled Web button does not open a window when clicked', () => {
+    setThresholds(2000, 67)
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null)
+    renderDropdown(withCounts({ edges: 68 }, { nodeCount: 55 }), NDExFileType.NETWORK)
+
+    fireEvent.click(webButton())
+    expect(openSpy).not.toHaveBeenCalled()
+    expect(mockResolve).not.toHaveBeenCalled()
+    openSpy.mockRestore()
+  })
+
+  it('the gate does not affect Cytoscape Desktop (only the Web action)', () => {
+    setThresholds(2000, 67)
+    renderDropdown(withCounts({ edges: 68 }, { nodeCount: 55 }), NDExFileType.NETWORK)
+    expect(buttonFor('Open in Cytoscape Web')).toBeDisabled()
+    expect(buttonFor('Open in Cytoscape Desktop')).toBeEnabled()
   })
 })
