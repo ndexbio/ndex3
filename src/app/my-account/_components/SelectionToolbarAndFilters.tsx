@@ -31,7 +31,6 @@ import { ShareableItem } from '@/types/sharing'
 const BulkDownloadMenu: React.FC<{
   selectedItems: Array<{ id: string; name: string; type: NDExFileType }>
   accessKey?: string
-  onClose: () => void
 }> = ({ selectedItems, accessKey }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -133,7 +132,6 @@ const BulkDownloadMenu: React.FC<{
 // Add a dropdown menu for bulk readonly operations
 const BulkReadOnlyMenu: React.FC<{
   selectedItems: Array<{ id: string; name: string; type: NDExFileType }>
-  onClose: () => void
   onSuccess?: () => void
 }> = ({ selectedItems, onSuccess }) => {
   const [isOpen, setIsOpen] = useState(false)
@@ -608,7 +606,6 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                       <BulkDownloadMenu
                         selectedItems={getSelectedItemObjects()}
                         accessKey={accessKey}
-                        onClose={() => {}}
                       />
                     </TooltipTrigger>
                     <TooltipContent>Download selected networks</TooltipContent>
@@ -618,7 +615,6 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                 {tabState !== MyAccountTabType.SHARED && canEditFolder && (
                   <BulkReadOnlyMenu
                     selectedItems={getSelectedItemObjects()}
-                    onClose={() => {}}
                     onSuccess={() => {
                       // Refresh will be triggered by parent component
                     }}

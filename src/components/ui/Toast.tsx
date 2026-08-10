@@ -7,10 +7,10 @@ export const ToastProvider = ToastPrimitive.Provider
 export const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitive.Viewport>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitive.Viewport>
->(({ className: _className, ...props }, ref) => (
+>(({ className, ...props }, ref) => (
   <ToastPrimitive.Viewport
     ref={ref}
-    className="fixed bottom-0 right-0 z-50 flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]"
+    className={`fixed bottom-0 right-0 z-50 flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px] ${className ?? ''}`}
     {...props}
   />
 ))
@@ -31,10 +31,10 @@ Toast.displayName = ToastPrimitive.Root.displayName
 export const ToastAction = React.forwardRef<
   React.ElementRef<typeof ToastPrimitive.Action>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitive.Action>
->(({ className: _className, ...props }, ref) => (
+>(({ className, ...props }, ref) => (
   <ToastPrimitive.Action
     ref={ref}
-    className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-transparent px-3 text-sm font-medium transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 group-[.destructive]:border-red-100 group-[.destructive]:hover:border-red-200 group-[.destructive]:hover:bg-red-100 group-[.destructive]:hover:text-red-600 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-50"
+    className={`inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-transparent px-3 text-sm font-medium transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 group-[.destructive]:border-red-100 group-[.destructive]:hover:border-red-200 group-[.destructive]:hover:bg-red-100 group-[.destructive]:hover:text-red-600 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-50 ${className ?? ''}`}
     {...props}
   />
 ))
@@ -43,10 +43,10 @@ ToastAction.displayName = ToastPrimitive.Action.displayName
 export const ToastClose = React.forwardRef<
   React.ElementRef<typeof ToastPrimitive.Close>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitive.Close>
->(({ className: _className, ...props }, ref) => (
+>(({ className, ...props }, ref) => (
   <ToastPrimitive.Close
     ref={ref}
-    className="absolute right-2 top-2 rounded-md p-1 text-gray-500 dark:text-gray-400 opacity-0 transition-opacity hover:text-gray-900 dark:hover:text-gray-100 focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100"
+    className={`absolute right-2 top-2 rounded-md p-1 text-gray-500 dark:text-gray-400 opacity-0 transition-opacity hover:text-gray-900 dark:hover:text-gray-100 focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100 ${className ?? ''}`}
     toast-close=""
     {...props}
   >
@@ -58,10 +58,10 @@ ToastClose.displayName = ToastPrimitive.Close.displayName
 export const ToastTitle = React.forwardRef<
   React.ElementRef<typeof ToastPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitive.Title>
->(({ className: _className, ...props }, ref) => (
+>(({ className, ...props }, ref) => (
   <ToastPrimitive.Title
     ref={ref}
-    className="text-sm font-semibold"
+    className={`text-sm font-semibold ${className ?? ''}`}
     {...props}
   />
 ))
@@ -70,10 +70,10 @@ ToastTitle.displayName = ToastPrimitive.Title.displayName
 export const ToastDescription = React.forwardRef<
   React.ElementRef<typeof ToastPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitive.Description>
->(({ className: _className, ...props }, ref) => (
+>(({ className, ...props }, ref) => (
   <ToastPrimitive.Description
     ref={ref}
-    className="text-sm opacity-90"
+    className={`text-sm opacity-90 ${className ?? ''}`}
     {...props}
   />
 ))
