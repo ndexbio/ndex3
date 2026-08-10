@@ -493,7 +493,7 @@ function SearchResultsPageContent() {
           duration: 3000,
         })
         await handleRefreshSearchResults()
-      } catch (error) {
+      } catch {
         addToast({
           title: 'Error',
           description: 'Failed to remove shortcut',
