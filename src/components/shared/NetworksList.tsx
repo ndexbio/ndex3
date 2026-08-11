@@ -75,7 +75,7 @@ interface NetworksListProps {
 
 
 // Extended network item with additional properties we might have
-interface NetworkItem extends FileItemBase {}
+type NetworkItem = FileItemBase
 
 // Helper function to check if a shortcut's target is unavailable (in trash or deleted)
 const isUnavailableShortcut = (item: FileItemBase): boolean => {
@@ -312,7 +312,7 @@ const GridNetworkItem = ({
 // Single network list item component
 const ListNetworkItem = ({
   network,
-  tabState,
+  tabState: _tabState,
   index,
   selectedItems,
   onSelect,

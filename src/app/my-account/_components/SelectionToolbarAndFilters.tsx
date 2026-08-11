@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react'
 import {
   X,
   UserPlus,
-  Download,
   FolderInput,
   Trash2,
   History,
@@ -22,7 +21,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { MyAccountTabType, FilterOptionType } from '@/types/ui/myAccount'
-import { useTrash } from '@/hooks/use-trash'
 import { useDialogs } from '@/lib/contexts/DialogContext'
 import { useNetworkDownload } from '@/hooks/use-network-download'
 import { useNetworkReadOnly } from '@/hooks/use-network-readonly'
@@ -33,8 +31,7 @@ import { ShareableItem } from '@/types/sharing'
 const BulkDownloadMenu: React.FC<{
   selectedItems: Array<{ id: string; name: string; type: NDExFileType }>
   accessKey?: string
-  onClose: () => void
-}> = ({ selectedItems, accessKey, onClose }) => {
+}> = ({ selectedItems, accessKey }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -135,9 +132,8 @@ const BulkDownloadMenu: React.FC<{
 // Add a dropdown menu for bulk readonly operations
 const BulkReadOnlyMenu: React.FC<{
   selectedItems: Array<{ id: string; name: string; type: NDExFileType }>
-  onClose: () => void
   onSuccess?: () => void
-}> = ({ selectedItems, onClose, onSuccess }) => {
+}> = ({ selectedItems, onSuccess }) => {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { setBulkNetworkReadOnly, isUpdating } = useNetworkReadOnly()
@@ -610,7 +606,6 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                       <BulkDownloadMenu
                         selectedItems={getSelectedItemObjects()}
                         accessKey={accessKey}
-                        onClose={() => {}}
                       />
                     </TooltipTrigger>
                     <TooltipContent>Download selected networks</TooltipContent>
@@ -620,7 +615,6 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
                 {tabState !== MyAccountTabType.SHARED && canEditFolder && (
                   <BulkReadOnlyMenu
                     selectedItems={getSelectedItemObjects()}
-                    onClose={() => {}}
                     onSuccess={() => {
                       // Refresh will be triggered by parent component
                     }}

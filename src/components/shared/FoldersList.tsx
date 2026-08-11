@@ -106,7 +106,7 @@ interface FoldersListProps {
 
 
 // Extended folder item with additional properties we might have
-interface FolderItem extends FileItemBase {}
+type FolderItem = FileItemBase
 
 // Single folder grid item component
 const GridFolderItem = ({
@@ -265,7 +265,7 @@ const GridFolderItem = ({
 // Single folder list item component
 const ListFolderItem = ({
   folder,
-  tabState,
+  tabState: _tabState,
   index,
   selectedItems,
   onSelect,

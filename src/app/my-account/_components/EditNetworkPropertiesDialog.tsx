@@ -16,7 +16,7 @@ interface NetworkProperty {
 // CX2 Property format
 interface CX2Property {
   t: CXDataType  // type
-  v: any         // value
+  v: unknown     // value
 }
 
 
@@ -35,7 +35,6 @@ const EditNetworkPropertiesDialog: React.FC<
   const [description, setDescription] = useState('')
   const [properties, setProperties] = useState<NetworkProperty[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [originalSummary, setOriginalSummary] = useState<any>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   // Original state for change tracking
@@ -123,7 +122,7 @@ const EditNetworkPropertiesDialog: React.FC<
 
           // Handle CX2 format properties: { key: { t: "type", v: value } }
           if (summary.properties && typeof summary.properties === 'object') {
-            Object.entries(summary.properties).forEach(([key, propData]: [string, any]) => {
+            Object.entries(summary.properties).forEach(([key, propData]: [string, unknown]) => {
               console.log(`Processing property "${key}":`, propData)
 
               // Skip version since we handle it separately, but keep other fields
@@ -131,15 +130,16 @@ const EditNetworkPropertiesDialog: React.FC<
 
               // Handle CX2 format with t (type) and v (value)
               if (propData && typeof propData === 'object' && 'v' in propData) {
+                const p = propData as CX2Property
                 // Use the actual CXDataType from the API response
-                let dataType: CXDataType = propData.t || CXDataType.STRING
+                const dataType: CXDataType = p.t || CXDataType.STRING
 
                 // Convert value to string for editing
                 let displayValue = ''
-                if (Array.isArray(propData.v)) {
-                  displayValue = JSON.stringify(propData.v)
+                if (Array.isArray(p.v)) {
+                  displayValue = JSON.stringify(p.v)
                 } else {
-                  displayValue = propData.v?.toString() || ''
+                  displayValue = (p.v as { toString(): string })?.toString() || ''
                 }
 
                 console.log(`Adding property: ${key}, type: ${dataType}, value: ${displayValue}`)
@@ -163,7 +163,7 @@ const EditNetworkPropertiesDialog: React.FC<
                 networkProperties.push({
                   dataType,
                   propertyName: key,
-                  propertyValue: propData?.toString() || '',
+                  propertyValue: (propData as { toString(): string })?.toString() || '',
                 })
               }
             })
@@ -171,9 +171,6 @@ const EditNetworkPropertiesDialog: React.FC<
 
           console.log('Converted network properties:', networkProperties)
           setProperties(networkProperties)
-
-          // Store the original summary for preserving non-editable attributes
-          setOriginalSummary(summary)
 
           // Store original state for change tracking
           setOriginalState({
@@ -205,12 +202,9 @@ const EditNetworkPropertiesDialog: React.FC<
             properties: [...fallbackProperties],
             visibility: ''
           })
-
-          // No original summary in fallback case
-          setOriginalSummary(null)
         })
     }
-  }, [isOpen, network]) // ✅ Removed getNetworkSummary from dependencies
+  }, [isOpen, network]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Focus the name input when the dialog opens
   useEffect(() => {
@@ -277,7 +271,7 @@ const EditNetworkPropertiesDialog: React.FC<
         if (prop.propertyName.trim() === '') return
 
         // Convert property value based on CXDataType
-        let value: any = prop.propertyValue
+        let value: unknown = prop.propertyValue
 
         if (prop.dataType === CXDataType.INTEGER || prop.dataType === CXDataType.LONG) {
           const intValue = parseInt(prop.propertyValue)

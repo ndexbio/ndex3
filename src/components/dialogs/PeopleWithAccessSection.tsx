@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect } from 'react'
 import { ChevronDown, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { UserPermission, PermissionAction } from '@/types/sharing'
 

@@ -1,9 +1,6 @@
 import { useState } from 'react'
-import { useConfig } from '@/lib/contexts/ConfigContext'
-import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { useNetworkOperation } from './use-network-operation'
 import { saveAsFile, formatNetworkFilename } from '@/lib/utils/download-utils'
-import { getNdexClient } from '@/lib/api/ndex-client-manager'
 
 type DownloadFormat = 'CX' | 'CX2'
 
@@ -17,8 +14,6 @@ interface DownloadOptions {
  */
 export const useNetworkDownload = () => {
   const [isDownloading, setIsDownloading] = useState<Record<string, boolean>>({})
-  const config = useConfig()
-  const { token } = useAuth()
   const { downloadRawNetwork, downloadCX2Network } = useNetworkOperation()
 
   /**
