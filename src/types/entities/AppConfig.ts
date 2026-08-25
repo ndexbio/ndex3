@@ -156,6 +156,12 @@ export interface AppConfig {
    * another host, or when the server itself is hosted under a path.
    */
   swaggerBaseName?: string
+  /**
+   * URL to redirect to when the app encounters an unrecognized route.
+   * If not set, unrecognized routes fall back to the home page.
+   * Example: "https://www.ndexbio.org/404.html"
+   */
+  notFoundUrl?: string
 }
 
 /**

@@ -2,10 +2,23 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useBasePath } from '@/lib/contexts/ConfigContext'
+import { useBasePath, useNotFoundUrl } from '@/lib/contexts/ConfigContext'
 import Home from '@/app/_components/Home'
 import FolderViewer from '@/app/folders/_components/FolderViewer'
 import UserPublicPage from '@/app/users/_components/UserPublicPage'
+
+/**
+ * Static routes that the app handles directly via file-system routing.
+ * Any path not matching these or the dynamic UUID patterns is considered unknown.
+ */
+const KNOWN_ROUTES = [
+  /^\/?$/,
+  /^\/search\/?$/,
+  /^\/my-account\/?$/,
+  /^\/shared-with-me\/?$/,
+  /^\/trash\/?$/,
+  /^\/profile\/?$/,
+]
 
 /**
  * Root Page with Static Export Compatibility
@@ -17,6 +30,7 @@ import UserPublicPage from '@/app/users/_components/UserPublicPage'
 export default function HomePage() {
   const router = useRouter()
   const basePath = useBasePath()
+  const notFoundUrl = useNotFoundUrl()
   const [path, setPath] = useState<string | null>(null)
 
   useEffect(() => {
@@ -46,8 +60,20 @@ export default function HomePage() {
       console.log('Redirecting legacy networkset route to folders:', networksetMatch[1])
       router.replace(p)
     }
+
+    // Redirect unrecognized routes to the configured notFoundUrl
+    const isKnownRoute =
+      KNOWN_ROUTES.some((pattern) => pattern.test(p)) ||
+      /^\/folders\/([^\/]+?)\/?$/.test(p) ||
+      /^\/users\/([^\/]+?)\/?$/.test(p) ||
+      /^\/networkset\/([^/]+?)\/?$/.test(p)
+    if (!isKnownRoute && notFoundUrl) {
+      window.location.href = notFoundUrl
+      return
+    }
+
     setPath(p)
-  }, [basePath, router])
+  }, [basePath, notFoundUrl, router])
 
   // Don't render until the real client-side path is known
   if (path === null) {
