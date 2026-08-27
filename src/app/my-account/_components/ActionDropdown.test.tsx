@@ -20,6 +20,10 @@ jest.mock('@/lib/contexts/KeycloakContext', () => ({
 jest.mock('@/lib/contexts/ConfigContext', () => ({
   useConfig: jest.fn(),
 }))
+const mockOpenCreateDOIDialog = jest.fn()
+const mockOpenAddReferenceDialog = jest.fn()
+const mockOpenCancelDOIDialog = jest.fn()
+
 jest.mock('@/lib/contexts/DialogContext', () => ({
   useDialogs: () => ({
     openRenameFolderDialog: jest.fn(),
@@ -27,7 +31,9 @@ jest.mock('@/lib/contexts/DialogContext', () => ({
     openEditNetworkPropertiesDialog: jest.fn(),
     openEditFolderPropertiesDialog: jest.fn(),
     openRenameShortcutDialog: jest.fn(),
-    openCreateDOIDialog: jest.fn(),
+    openCreateDOIDialog: mockOpenCreateDOIDialog,
+    openAddReferenceDialog: mockOpenAddReferenceDialog,
+    openCancelDOIDialog: mockOpenCancelDOIDialog,
     openShareDialog: jest.fn(),
   }),
 }))
@@ -146,6 +152,9 @@ beforeEach(() => {
   mockOpenInCytoscape.mockReset()
   mockCopyFile.mockReset()
   mockDownloadNetwork.mockReset()
+  mockOpenCreateDOIDialog.mockReset()
+  mockOpenAddReferenceDialog.mockReset()
+  mockOpenCancelDOIDialog.mockReset()
 })
 
 describe('ActionDropdown — folder rows never get network actions', () => {
@@ -579,5 +588,237 @@ describe('ActionDropdown — Open in Cytoscape Web element-count gate (GI-35)', 
     renderDropdown(withCounts({ edges: 68 }, { nodeCount: 55 }), NDExFileType.NETWORK)
     expect(buttonFor('Open in Cytoscape Web')).toBeDisabled()
     expect(buttonFor('Open in Cytoscape Desktop')).toBeEnabled()
+  })
+})
+describe('ActionDropdown — Add Reference on pre-certified networks', () => {
+  beforeEach(() => mockUseAuth.mockReturnValue(aliceAuth))
+
+  /** DOI minted, but the reference is still missing. */
+  const preCertifiedNetwork: FileItemBase = {
+    ...networkItem,
+    doi: '10.18119/N9TEST',
+    isCertified: false,
+  }
+
+  /** A network that completed the flow — certified, published, locked. */
+  const certifiedNetwork: FileItemBase = {
+    ...networkItem,
+    doi: '10.18119/N9TEST',
+    isCertified: true,
+  }
+
+  it('offers Add Reference for a pre-certified network the viewer owns', () => {
+    renderDropdown(preCertifiedNetwork, NDExFileType.NETWORK)
+    expect(buttonFor('Add Reference')).toBeEnabled()
+  })
+
+  it('opens the Add Reference dialog for that network when clicked', () => {
+    renderDropdown(preCertifiedNetwork, NDExFileType.NETWORK)
+
+    fireEvent.click(buttonFor('Add Reference'))
+
+    expect(mockOpenAddReferenceDialog).toHaveBeenCalledWith(ITEM_ID, undefined)
+  })
+
+  // The server allows a reference while hasDOI && !isCertified, which includes
+  // an assigned DOI on a network that was never certified.
+  it('offers Add Reference once a DOI is assigned but the network is not certified', () => {
+    renderDropdown(
+      { ...networkItem, doi: '10.18119/N9TEST', isCertified: false },
+      NDExFileType.NETWORK,
+    )
+    expect(buttonFor('Add Reference')).toBeEnabled()
+  })
+
+  it('hides Add Reference once the network is certified', () => {
+    renderDropdown(certifiedNetwork, NDExFileType.NETWORK)
+    expect(screen.queryByText('Add Reference')).not.toBeInTheDocument()
+  })
+
+  it('hides Add Reference for a network with no DOI request', () => {
+    renderDropdown(networkItem, NDExFileType.NETWORK)
+    expect(screen.queryByText('Add Reference')).not.toBeInTheDocument()
+  })
+
+  // The server silently does nothing for a non-admin caller rather than
+  // reporting an error, so a non-owner must never see the action at all.
+  it('hides Add Reference from a non-owner', () => {
+    renderDropdown({ ...preCertifiedNetwork, owner: 'bob' }, NDExFileType.NETWORK)
+    expect(screen.queryByText('Add Reference')).not.toBeInTheDocument()
+  })
+
+  it('hides Add Reference from anonymous viewers', () => {
+    mockUseAuth.mockReturnValue(anonymousAuth)
+    renderDropdown(preCertifiedNetwork, NDExFileType.NETWORK)
+    expect(screen.queryByText('Add Reference')).not.toBeInTheDocument()
+  })
+
+  // DOI is a network-only concept. Even a folder or shortcut carrying stray
+  // doi/isCertified fields must never offer the action.
+  it.each([
+    ['a folder row', { ...folderItem, doi: 'pending', isCertified: false }, NDExFileType.FOLDER],
+    [
+      'a shortcut row',
+      { ...networkShortcutItem, doi: 'pending', isCertified: false },
+      NDExFileType.NETWORK,
+    ],
+  ])('hides Add Reference on %s', (_label, item, type) => {
+    renderDropdown(item as FileItemBase, type)
+    expect(screen.queryByText('Add Reference')).not.toBeInTheDocument()
+  })
+
+  describe('Request DOI stays blocked while a request is pending', () => {
+    it('disables Request DOI for a pending request', () => {
+      renderDropdown(preCertifiedNetwork, NDExFileType.NETWORK)
+      expect(buttonFor('Request DOI')).toBeDisabled()
+    })
+
+    it('does not open the DOI dialog when the disabled item is clicked', () => {
+      renderDropdown(preCertifiedNetwork, NDExFileType.NETWORK)
+
+      fireEvent.click(buttonFor('Request DOI'))
+
+      expect(mockOpenCreateDOIDialog).not.toHaveBeenCalled()
+    })
+
+    it('disables Request DOI for a network whose mint failed', () => {
+      // The server rejects a second request while the DOI reads "Pending".
+      renderDropdown(
+        { ...networkItem, doi: 'Pending', isCertified: false },
+        NDExFileType.NETWORK,
+      )
+      expect(buttonFor('Request DOI')).toBeDisabled()
+    })
+
+    it('still enables Request DOI for a network with no DOI', () => {
+      renderDropdown(networkItem, NDExFileType.NETWORK)
+      expect(buttonFor('Request DOI')).toBeEnabled()
+    })
+  })
+})
+
+/**
+ * A DOI stuck at "Pending" means minting failed and left the network locked.
+ * Cancelling is the only way out, and the server accepts it in no other state.
+ */
+describe('ActionDropdown — Cancel DOI Request after a failed mint', () => {
+  beforeEach(() => mockUseAuth.mockReturnValue(aliceAuth))
+
+  const stuckNetwork: FileItemBase = {
+    ...networkItem,
+    doi: 'Pending',
+    isCertified: false,
+  }
+
+  it('offers Cancel DOI Request on a network whose mint failed', () => {
+    renderDropdown(stuckNetwork, NDExFileType.NETWORK)
+    expect(buttonFor('Cancel DOI Request')).toBeEnabled()
+  })
+
+  it('opens the cancel dialog with the network name when clicked', () => {
+    renderDropdown(stuckNetwork, NDExFileType.NETWORK)
+
+    fireEvent.click(buttonFor('Cancel DOI Request'))
+
+    expect(mockOpenCancelDOIDialog).toHaveBeenCalledWith(ITEM_ID, 'My Network', undefined)
+  })
+
+  it('does not offer Add Reference on a stuck network', () => {
+    // A failed mint is not the same as pre-certified: there is nothing to add a
+    // reference to until the request is cleared and remade.
+    renderDropdown(stuckNetwork, NDExFileType.NETWORK)
+    expect(screen.queryByText('Add Reference')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['a minted DOI', { doi: '10.18119/N9TEST', isCertified: false }],
+    ['a certified network', { doi: '10.18119/N9TEST', isCertified: true }],
+    ['a network with no DOI', {}],
+  ])('hides Cancel DOI Request for %s', (_label, extra) => {
+    renderDropdown({ ...networkItem, ...extra } as FileItemBase, NDExFileType.NETWORK)
+    expect(screen.queryByText('Cancel DOI Request')).not.toBeInTheDocument()
+  })
+
+  it('hides Cancel DOI Request from a non-owner', () => {
+    renderDropdown({ ...stuckNetwork, owner: 'bob' }, NDExFileType.NETWORK)
+    expect(screen.queryByText('Cancel DOI Request')).not.toBeInTheDocument()
+  })
+
+  it('hides Cancel DOI Request from anonymous viewers', () => {
+    mockUseAuth.mockReturnValue(anonymousAuth)
+    renderDropdown(stuckNetwork, NDExFileType.NETWORK)
+    expect(screen.queryByText('Cancel DOI Request')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['a folder row', { ...folderItem, doi: 'Pending' }, NDExFileType.FOLDER],
+    ['a shortcut row', { ...networkShortcutItem, doi: 'Pending' }, NDExFileType.NETWORK],
+  ])('hides Cancel DOI Request on %s', (_label, item, type) => {
+    renderDropdown(item as FileItemBase, type)
+    expect(screen.queryByText('Cancel DOI Request')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * The server locks a network the moment a DOI request is filed — including one
+ * stuck by a failed mint — so the menu must block exactly what the API blocks.
+ */
+describe('ActionDropdown — restrictions on a network with a DOI', () => {
+  beforeEach(() => mockUseAuth.mockReturnValue(aliceAuth))
+
+  const states: [string, Partial<FileItemBase>][] = [
+    ['pre-certified', { doi: '10.18119/N9TEST', isCertified: false, isReadOnly: true }],
+    ['certified', { doi: '10.18119/N9TEST', isCertified: true, isReadOnly: true }],
+    ['a failed mint', { doi: 'Pending', isCertified: false, isReadOnly: true }],
+  ]
+
+  describe.each(states)('%s', (_label, extra) => {
+    const withDOI = () => ({ ...networkItem, ...extra }) as FileItemBase
+
+    it('cannot have its read-only flag removed', () => {
+      renderDropdown(withDOI(), NDExFileType.NETWORK)
+      expect(buttonFor('Remove Read-only')).toBeDisabled()
+    })
+
+    it('blames the DOI rather than read-only', () => {
+      // Blaming read-only invites the user to turn off a flag they are not
+      // permitted to turn off. MenuItemButton puts the tooltip on a wrapper.
+      renderDropdown(withDOI(), NDExFileType.NETWORK)
+
+      const tooltip = buttonFor('Remove Read-only').closest('[title]')
+      expect(tooltip).toHaveAttribute('title', "Networks with a DOI can't be made editable")
+    })
+
+    it('cannot have its properties edited', () => {
+      renderDropdown(withDOI(), NDExFileType.NETWORK)
+      expect(buttonFor('Edit Properties')).toBeDisabled()
+    })
+
+    it('cannot be moved to trash', () => {
+      renderDropdown(withDOI(), NDExFileType.NETWORK)
+      expect(buttonFor('Move to Trash')).toBeDisabled()
+    })
+
+    it('cannot request another DOI', () => {
+      renderDropdown(withDOI(), NDExFileType.NETWORK)
+      expect(buttonFor('Request DOI')).toBeDisabled()
+    })
+  })
+
+  describe('a network without a DOI', () => {
+    it('keeps every action available', () => {
+      renderDropdown(networkItem, NDExFileType.NETWORK)
+
+      expect(buttonFor('Set as Read-only')).toBeEnabled()
+      expect(buttonFor('Edit Properties')).toBeEnabled()
+      expect(buttonFor('Move to Trash')).toBeEnabled()
+      expect(buttonFor('Request DOI')).toBeEnabled()
+    })
+
+    // Read-only by choice is still undoable — only a DOI freezes the flag.
+    it('can still have a self-imposed read-only flag removed', () => {
+      renderDropdown({ ...networkItem, isReadOnly: true }, NDExFileType.NETWORK)
+      expect(buttonFor('Remove Read-only')).toBeEnabled()
+    })
   })
 })

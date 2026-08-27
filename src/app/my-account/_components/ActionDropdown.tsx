@@ -8,6 +8,8 @@ import {
   Trash2,
   ExternalLink,
   BookCopy,
+  BadgeX,
+  BookMarked,
   Copy,
   History,
   Loader2,
@@ -24,7 +26,7 @@ import { useNetworkCopy } from '@/hooks/use-network-copy'
 import { useNetworkReadOnly } from '@/hooks/use-network-readonly'
 import { useCyNDEx } from '@/hooks/use-cyndex'
 import { useToast } from '@/lib/contexts/ToastContext'
-import { hasNetworkError, hasValidDOI as hasValidNetworkDOI, isNetworkReadOnly } from '@/lib/utils/network-status'
+import { hasNetworkError, isDOILocked, isDOIPending, isNetworkReadOnly, isPreCertified } from '@/lib/utils/network-status'
 import { isItemOwner } from '@/lib/utils/permissions'
 import { resolveNetworkTarget, targetsFolder } from '@/lib/utils/shortcut-resolver'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -191,11 +193,6 @@ interface ActionDropdownProps {
 }
 
 // Helper functions using the network status utility
-const hasValidDOI = (item: FileItemBase | null): boolean => {
-  if (!item) return false
-  return hasValidNetworkDOI(item)
-}
-
 const isReadOnlyNetwork = (item: FileItemBase | null): boolean => {
   if (!item) return false
   return isNetworkReadOnly(item)
@@ -246,6 +243,8 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     openEditFolderPropertiesDialog,
     openRenameShortcutDialog,
     openCreateDOIDialog,
+    openAddReferenceDialog,
+    openCancelDOIDialog,
     openShareDialog,
   } = useDialogs()
   const { copyFile, isCopying } = useNetworkCopy()
@@ -254,8 +253,13 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const { addToast } = useToast()
   const config = useConfig()
 
-  // Check DOI, readonly status, and error status for networks
-  const hasDOI = dropdownType === NDExFileType.NETWORK && hasValidDOI(item)
+  // Check DOI, readonly status, and error status for networks.
+  // doiLocked mirrors the server's own `hasDOI`, so the menu blocks exactly what
+  // the API blocks — including a network stuck by a failed mint.
+  const doiLocked = dropdownType === NDExFileType.NETWORK && isDOILocked(item)
+  const doiPending = dropdownType === NDExFileType.NETWORK && isDOIPending(item)
+  // Pre-certified: the DOI request is in, but the reference is still missing.
+  const preCertified = dropdownType === NDExFileType.NETWORK && isPreCertified(item)
   const isReadOnly = dropdownType === NDExFileType.NETWORK && isReadOnlyNetwork(item)
   const hasError = dropdownType === NDExFileType.NETWORK && networkHasError(item)
 
@@ -279,12 +283,31 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     item?.type !== NDExFileType.SHORTCUT &&
     isOwner
 
+  // Determine when to show "Add Reference". DOI applies to networks only — never
+  // folders or shortcuts — so this reuses the same gate as Request DOI, plus the
+  // server's own precondition. Ownership is checked here because the server
+  // silently does nothing for a non-admin caller rather than reporting an error.
+  const shouldShowAddReference =
+    dropdownType === NDExFileType.NETWORK &&
+    item?.type !== NDExFileType.SHORTCUT &&
+    isOwner &&
+    preCertified
+
+  // A DOI stuck at "Pending" means minting failed and left the network locked.
+  // Cancelling is the only way out, so it is offered only in that state — the
+  // server refuses it for a DOI that minted successfully.
+  const shouldShowCancelDOI =
+    dropdownType === NDExFileType.NETWORK &&
+    item?.type !== NDExFileType.SHORTCUT &&
+    isOwner &&
+    doiPending
+
   // Determine which menu items should be disabled
-  const shouldDisableRequestDOI = hasDOI
-  const shouldDisableEditProperties = hasDOI || isReadOnly || !canEdit
+  const shouldDisableRequestDOI = doiLocked
+  const shouldDisableEditProperties = doiLocked || isReadOnly || !canEdit
   const shouldDisableRenameShortcut = !canEdit
   const shouldDisableShare = !canEdit
-  const shouldDisableMoveToTrash = hasDOI || isReadOnly || !isOwner
+  const shouldDisableMoveToTrash = doiLocked || isReadOnly || !isOwner
   const shouldDisableMove = !canEdit
 
   // Hide Move to Trash only for signed-in non-owners (existing behavior);
@@ -292,9 +315,27 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const shouldHideMoveToTrash = isSignedIn && !isOwner
 
   // Tooltip messages for disabled items
+  const getRequestDOITooltip = (): string | undefined => {
+    if (doiPending) return 'This network has a failed DOI request — cancel it first'
+    if (doiLocked) return 'This network already has a DOI'
+    return undefined
+  }
+
+  const getEditPropertiesTooltip = (): string | undefined => {
+    if (anonymous) return SIGN_IN_TOOLTIP
+    if (doiLocked) return "Networks with a DOI can't be modified"
+    if (isReadOnly) return "Read-only networks can't be modified"
+    return undefined
+  }
+
+  // Naming the DOI matters: a locked network is also read-only, and blaming
+  // read-only invites the user to turn off a flag they are not allowed to.
+  const getReadOnlyTooltip = (): string | undefined =>
+    doiLocked ? "Networks with a DOI can't be made editable" : undefined
+
   const getMoveToTrashTooltip = (): string | undefined => {
     if (anonymous) return SIGN_IN_TOOLTIP
-    if (hasDOI) return "Networks with DOI can't be deleted"
+    if (doiLocked) return "Networks with a DOI can't be deleted"
     if (isReadOnly) return "Read-only networks can't be deleted"
     return undefined
   }
@@ -446,6 +487,9 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       type: item.type, // Use the item's type directly
       currentPermissions: [], // TODO: Load existing permissions
       visibility: (item.visibility as Visibility) || Visibility.PRIVATE,
+      // Carried so ShareDialog can freeze visibility on a DOI'd network.
+      doi: item.doi,
+      isCertified: item.isCertified,
     }
 
     openShareDialog([shareableItem], 'single', onShareSuccess)
@@ -455,6 +499,18 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   const handleOpenCreateDOIDialog = () => {
     if (!item || !openDropdownId) return
     openCreateDOIDialog(openDropdownId, onRefreshFolder)
+    onClose()
+  }
+
+  const handleOpenAddReferenceDialog = () => {
+    if (!item || !openDropdownId) return
+    openAddReferenceDialog(openDropdownId, onRefreshFolder)
+    onClose()
+  }
+
+  const handleOpenCancelDOIDialog = () => {
+    if (!item || !openDropdownId) return
+    openCancelDOIDialog(openDropdownId, item.name, onRefreshFolder)
     onClose()
   }
 
@@ -679,6 +735,25 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               label="Request DOI"
               onClick={handleOpenCreateDOIDialog}
               disabled={shouldDisableRequestDOI}
+              disabledTooltip={getRequestDOITooltip()}
+            />
+          )}
+          {/* Pre-certified networks get one chance to supply the reference,
+              which certifies them. Same network-only gate as Request DOI. */}
+          {shouldShowAddReference && (
+            <MenuItemButton
+              icon={BookMarked}
+              label="Add Reference"
+              onClick={handleOpenAddReferenceDialog}
+            />
+          )}
+          {/* Recovery from a failed mint: clears the stuck request and unlocks
+              the network so a DOI can be requested again. */}
+          {shouldShowCancelDOI && (
+            <MenuItemButton
+              icon={BadgeX}
+              label="Cancel DOI Request"
+              onClick={handleOpenCancelDOIDialog}
             />
           )}
           <DownloadMenu
@@ -703,7 +778,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               label="Edit Properties"
               onClick={handleOpenEditPropertiesDialog}
               disabled={shouldDisableEditProperties}
-              disabledTooltip={editTooltip}
+              disabledTooltip={getEditPropertiesTooltip()}
             />
           )}
           {/* Make a Copy writes into the VIEWER's account — any signed-in user may copy */}
@@ -733,6 +808,8 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
               busy={isUpdating[openDropdownId]}
               busyLabel="Updating..."
               onClick={handleToggleReadOnly}
+              disabled={doiLocked}
+              disabledTooltip={getReadOnlyTooltip()}
             />
           )}
           <MenuItemButton

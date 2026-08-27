@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { X, UserPlus, Info, Search, Loader2 } from 'lucide-react'
 import { ShareDialogProps, UserPermission, PermissionAction, VisibilityLevel } from '@/types/sharing'
+import { isDOILocked } from '@/lib/utils/network-status'
+import { FileItemBase } from '@/types/api/ndex/File'
 import { updateMemberPermissions, removeMemberPermissions, updateVisibility, updateBulkVisibility, transferOwnership } from '@/lib/api/sharing'
 import { getNdexClient } from '@/lib/api/ndex-client-manager'
 import { NDExUser, Visibility, NDExFileType } from '@js4cytoscape/ndex-client'
@@ -23,6 +25,15 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
   const config = useConfig()
   const { token, user: currentUser } = useAuth()
   const [localUserPermissions, setLocalUserPermissions] = useState<Map<string, UserPermission>>(new Map())
+  // A DOI's target URL is registered once and never updated, so a certified
+  // network made private would strand a published citation. The server refuses
+  // the change; the dialog should not offer it. Sharing with individual users
+  // stays available — only visibility is frozen.
+  const doiLockedItems = items.filter((item) =>
+    isDOILocked(item as unknown as FileItemBase),
+  )
+  const visibilityLocked = doiLockedItems.length > 0
+
   const [visibility, setVisibility] = useState<VisibilityLevel | 'mixed'>(Visibility.PRIVATE)
   const [originalVisibility, setOriginalVisibility] = useState<VisibilityLevel | 'mixed'>(Visibility.PRIVATE)
   const [isSavingVisibility, setIsSavingVisibility] = useState(false)
@@ -636,7 +647,11 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
             </div>
 
             {/* Horizontal radio button group with rounded rectangle */}
-            <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+            <div
+              className={`border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800 ${
+                visibilityLocked ? 'opacity-60' : ''
+              }`}
+            >
               <div className="flex gap-6">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -645,7 +660,8 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
                     value={Visibility.PRIVATE}
                     checked={visibility === Visibility.PRIVATE}
                     onChange={() => handleVisibilityChange(Visibility.PRIVATE)}
-                    className="text-blue-500"
+                    disabled={visibilityLocked}
+                    className="text-blue-500 disabled:cursor-not-allowed"
                   />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Private</span>
                 </label>
@@ -657,7 +673,8 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
                     value={Visibility.PUBLIC}
                     checked={visibility === Visibility.PUBLIC}
                     onChange={() => handleVisibilityChange(Visibility.PUBLIC)}
-                    className="text-blue-500"
+                    disabled={visibilityLocked}
+                    className="text-blue-500 disabled:cursor-not-allowed"
                   />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Public</span>
                 </label>
@@ -669,13 +686,22 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
                     value={Visibility.UNLISTED}
                     checked={visibility === Visibility.UNLISTED}
                     onChange={() => handleVisibilityChange(Visibility.UNLISTED)}
-                    className="text-blue-500"
+                    disabled={visibilityLocked}
+                    className="text-blue-500 disabled:cursor-not-allowed"
                   />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Unlisted</span>
                 </label>
               </div>
 
-              {visibility === 'mixed' && mode === 'bulk' && (
+              {visibilityLocked && (
+                <div className="text-gray-600 dark:text-gray-300 text-sm mt-2">
+                  {doiLockedItems.length === 1
+                    ? "This network has a DOI, so its visibility can't be changed. You can still share it with people."
+                    : `${doiLockedItems.length} of these have a DOI, so visibility can't be changed. You can still share them with people.`}
+                </div>
+              )}
+
+              {!visibilityLocked && visibility === 'mixed' && mode === 'bulk' && (
                 <div className="text-gray-500 dark:text-gray-400 text-sm mt-2">
                   Mixed visibility - select a setting to apply to all items
                 </div>

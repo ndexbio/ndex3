@@ -1,3 +1,9 @@
+---
+status: historical
+last-verified: 2026-08-27
+note: The Users tab was reverted; this records what was built and why it was removed.
+---
+
 # User Search Feature — Deferred Design
 
 > **Status**: User search is currently **removed** from the NDEx3 search feature. This document preserves the original design for the Users tab so it can be re-implemented in a future version if needed.

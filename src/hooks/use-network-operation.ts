@@ -183,6 +183,123 @@ export const useNetworkOperation = (
   }
 
   /**
+   * Sets or clears a network's read-only flag, without any user-facing toast.
+   *
+   * `useNetworkReadOnly` is the hook for the standalone menu action and reports
+   * its own success. This one exists for flows that toggle read-only as an
+   * internal step — requesting a DOI has to make a read-only network writable
+   * to save its metadata first — where "read-only removed" would be confusing
+   * noise mid-operation and the caller owns the messaging.
+   *
+   * @param networkIdToSet ID of the network to update
+   * @param readOnly Desired state of the flag
+   */
+  const setNetworkReadOnlyQuietly = async (
+    networkIdToSet: string,
+    readOnly: boolean,
+  ): Promise<void> => {
+    if (!isAuthenticated) {
+      throw new Error('Authentication required to change the read-only flag')
+    }
+
+    const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+    await ndexClient.networks.setReadOnly(networkIdToSet, readOnly)
+  }
+
+  /**
+   * Adds the reference to a pre-certified network, completing its DOI request.
+   *
+   * This is a one-way door: on success the server certifies the network, sets
+   * its visibility to PUBLIC, indexes it, and blocks all further modification.
+   * It also clears the network's `iscomplete` flag while it reindexes, so both
+   * the network itself and its parent folder listing are refreshed.
+   *
+   * @param networkIdForReference ID of the pre-certified network
+   * @param reference Reference text (HTML, as produced by the rich text editor)
+   * @returns Promise that resolves when the reference is stored
+   */
+  const updateNetworkReference = async (
+    networkIdForReference: string,
+    reference: string,
+  ): Promise<void> => {
+    if (!isAuthenticated) {
+      throw new Error('Authentication required to add a reference')
+    }
+
+    try {
+      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+
+      await ndexClient.networks.updateNetworkReference(networkIdForReference, reference)
+
+      // Refresh the network data if this is the current network
+      if (networkId === networkIdForReference) {
+        await refresh()
+      }
+
+      // Refresh parent folder contents: the row now reads as certified and public
+      if (data && data.parent) {
+        globalMutate(
+          (key) =>
+            Array.isArray(key) &&
+            key[0] === 'folderContents' &&
+            key[1] === data.parent &&
+            key[2] === token,
+        )
+      }
+    } catch (error) {
+      console.error('Error adding network reference:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Clears a DOI request that failed to mint.
+   *
+   * Minting runs inside the request that starts it. When it fails — the network
+   * has no author property, it is private with no access key, or the DOI
+   * service is unreachable — the network is left read-only with its DOI stuck
+   * at "Pending" rather than rolled back, and no further request is accepted.
+   * Cancelling is the only way out: it clears the DOI, clears certification and
+   * releases the read-only flag, so the problem can be fixed and retried.
+   *
+   * The server refuses this for anything other than a network stuck at
+   * "Pending" — a DOI that minted successfully is permanent.
+   *
+   * @param networkIdToCancel ID of the network whose failed request to clear
+   * @returns Promise that resolves when the request is cleared
+   */
+  const cancelNetworkDOI = async (networkIdToCancel: string): Promise<void> => {
+    if (!isAuthenticated) {
+      throw new Error('Authentication required to cancel a DOI request')
+    }
+
+    try {
+      const ndexClient = getNdexClient(config.ndexBaseUrl, token)
+
+      await ndexClient.networks.cancelNetworkDOI(networkIdToCancel)
+
+      // Refresh the network data if this is the current network
+      if (networkId === networkIdToCancel) {
+        await refresh()
+      }
+
+      // Refresh parent folder contents: the row is no longer locked
+      if (data && data.parent) {
+        globalMutate(
+          (key) =>
+            Array.isArray(key) &&
+            key[0] === 'folderContents' &&
+            key[1] === data.parent &&
+            key[2] === token,
+        )
+      }
+    } catch (error) {
+      console.error('Error cancelling network DOI request:', error)
+      throw error
+    }
+  }
+
+  /**
    * Moves networks to a different folder
    * @param networkIds Array of network IDs to move
    * @param targetFolderId Target folder ID (null for home folder)
@@ -428,6 +545,9 @@ export const useNetworkOperation = (
     getNetworkSummary,
     copyNetwork,
     createNetworkDOI,
+    updateNetworkReference,
+    cancelNetworkDOI,
+    setNetworkReadOnlyQuietly,
     moveNetworks,
     downloadRawNetwork,
     downloadCX2Network,

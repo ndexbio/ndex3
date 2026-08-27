@@ -6,6 +6,10 @@ export interface ShareableItem {
   type: NDExFileType;
   currentPermissions?: UserPermission[];
   visibility?: Visibility;
+  // DOI state, so the dialog can freeze visibility on a network carrying a DOI.
+  // Networks only; absent on folders and shortcuts.
+  doi?: string;
+  isCertified?: boolean;
 }
 
 export interface UserPermission {

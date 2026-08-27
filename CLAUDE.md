@@ -22,6 +22,16 @@ The application uses a **single source of truth** configuration system:
 - Build script: `scripts/generate-config.js` (automatically generates `next.config.ts`)
 - Never edit `next.config.ts` manually - it's generated from `public/config.json`
 
+## Documentation
+
+Feature docs live in `docs/`, indexed by `docs/README.md`. Decisions and their
+rationale live in `docs/decisions/` as ADRs — **read the relevant ADR before
+changing behaviour it covers**, several record traps that look like bugs.
+
+Feature docs explain *why*; they do not restate code. Do not paste code excerpts
+or line numbers into them — `npm run check:docs` warns about line references and
+fails CI on paths that no longer exist.
+
 ## Architecture Overview
 
 ### Routing Strategy (Hybrid Approach)
@@ -123,6 +133,38 @@ To deploy at different URL paths, edit `urlBaseName` in `public/config.json` and
 - Each route has `error.tsx` boundary
 - Loading states with `loading.tsx`
 - Content fallbacks for API failures
+
+### DOI and Certification
+See `docs/doi-certification.md` for the full model and `docs/decisions/` for the
+rationale. The three things most often got wrong:
+- The "add the reference later" checkbox is **inverted** on the wire (ADR-0001).
+- Restrictions key off **any** DOI, not `isCertified` (ADR-0002).
+- `isPreCertified` is **deliberately stricter than the server** (ADR-0003) — do
+  not "simplify" it to match `hasDOI`.
+
+Read DOI state only through `src/lib/utils/network-status.ts`.
+
+### Trash Operations
+The NDEx v3 API rejects `DELETE files/folders/{id}` for a folder that still has
+contents, so folder trashing is a **client-side cascade**:
+- `src/lib/utils/trash-cascade.ts` — empties a folder depth-first, then deletes it
+- `src/hooks/use-trash-items.ts` — batches the cascade, returning per-item
+  success/failure so partial outcomes can be reported honestly
+- Because the cascade puts a folder's contents in the trash as separate, flat
+  entries, **restore must be recursive too**. `src/lib/utils/trash-tree.ts`
+  rebuilds the subtree from each item's parent, and `useTrash().resolveRestoreSelection`
+  expands a selection before calling the restore endpoint.
+- Both flows confirm first via `src/components/shared/ConfirmDialog.tsx` (the
+  shared confirm/cancel modal — reuse it for other destructive actions).
+- Retention wording comes from `TRASH_RETENTION_DAYS` in
+  `src/lib/constants/trash.ts`; never hardcode the number of days.
+
+### Testing Authenticated Flows (Playwright)
+`test/playwright/fixtures/authenticated.ts` plays the part of the Keycloak auth
+server so `check-sso` succeeds and specs run as a signed-in user. Tokens are
+unsigned — keycloak-js does not verify signatures in the browser — but the
+`state`/`nonce` it generated must be echoed back, and the token needs a `name`
+claim (the header renders `tokenParsed.name[0]`).
 
 ### Static Export Considerations
 - Images: `unoptimized: true` in Next.js config

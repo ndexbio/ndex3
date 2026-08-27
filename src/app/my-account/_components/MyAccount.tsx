@@ -27,14 +27,20 @@ import SelectionToolbarAndFilters from './SelectionToolbarAndFilters'
 import { useShortcut } from '@/hooks/use-shortcut'
 import { FilterState } from './SelectionToolbarAndFilters' // Import the FilterState type
 import FileRenderer from './FileRenderer'
-import { useTrash } from '@/hooks/use-trash' // Import the useTrash hook
-import { useNetworkOperation } from '@/hooks/use-network-operation'
+import { useTrash, RestoreSelection } from '@/hooks/use-trash' // Import the useTrash hook
 import ActionDropdown from './ActionDropdown' // Import the new ActionDropdown component
 import { DialogProvider } from '@/lib/contexts/DialogContext' // Import DialogProvider
 import { useFileMoveOperation } from '@/hooks/use-file-move-operation' // Import the new shared move hook
 import { canEditFolder } from '@/lib/utils/permissions'
 import { isAuthError, isNotFoundError } from '@/lib/utils/ndex-errors'
 import FolderErrorState from '@/components/shared/FolderErrorState'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { useTrashItems } from '@/hooks/use-trash-items'
+import {
+  buildTrashConfirmation,
+  buildRestoreConfirmation,
+} from '@/lib/utils/trash-confirmation'
+import { groupIdsByType } from '@/lib/utils/trash-tree'
 import { withAccessKey } from '@/lib/utils/access-key'
 
 // Define the props for MyAccount component
@@ -65,7 +71,7 @@ function MyAccountContent({
     storageKey: 'detailsPanel.myAccount.width'
   })
 
-  const { deleteNetwork } = useNetworkOperation()
+  const { moveItemsToTrash } = useTrashItems()
 
   // Always call hooks but conditionally use results based on the active tab
   const trashHookResult = useTrash()
@@ -77,6 +83,7 @@ function MyAccountContent({
     emptyTrash,
     restoreItems: restoreTrashItems,
     permanentDelete,
+    resolveRestoreSelection,
   } = tabState === MyAccountTabType.TRASH
     ? trashHookResult
     : {
@@ -87,17 +94,18 @@ function MyAccountContent({
         emptyTrash: async () => {},
         restoreItems: async () => {},
         permanentDelete: async () => {},
+        resolveRestoreSelection: async () => ({
+          roots: [],
+          descendants: [],
+          isPartial: false,
+        }),
       }
 
   // Convert UUID string to null for home folder
   const folderId = uuid || null
 
   // Add the useFolder hook to get folder details and operations
-  const {
-    folder,
-    deleteFolder,
-    error: folderError,
-  } = useFolder(folderId, accessKey)
+  const { folder, error: folderError } = useFolder(folderId, accessKey)
 
   // Ownership decides what this page offers: owners get the full management
   // experience, everyone else (anonymous or signed-in non-owner) is read-only.
@@ -115,6 +123,14 @@ function MyAccountContent({
     null,
   )
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+  // Items awaiting move-to-trash confirmation; non-null while the prompt is up.
+  const [pendingTrashItems, setPendingTrashItems] = useState<
+    FileItemBase[] | null
+  >(null)
+  // Resolved folder restore awaiting confirmation; non-null while up.
+  const [pendingRestore, setPendingRestore] = useState<RestoreSelection | null>(
+    null,
+  )
   const [systemPropertiesOpen, setSystemPropertiesOpen] = useState(false)
   const [showSelectionToolbar, setShowSelectionToolbar] = useState(true)
   const [breadcrumbPath, setBreadcrumbPath] = useState<
@@ -363,12 +379,18 @@ function MyAccountContent({
 
   // Create itemDataMap for the selection toolbar
   const itemDataMap = useMemo(() => {
-    const map: Record<string, { name: string; type: NDExFileType; visibility?: string }> = {}
+    const map: Record<
+      string,
+      { name: string; type: NDExFileType; visibility?: string; doi?: string; isCertified?: boolean }
+    > = {}
     displayItems.forEach((item: any) => {
       map[item.uuid] = {
         name: item.name || item.networkName || 'Unnamed item',
         type: item.type,
-        visibility: item.visibility
+        visibility: item.visibility,
+        // Needed by ShareDialog to freeze visibility on a DOI'd network.
+        doi: item.doi,
+        isCertified: item.isCertified
       }
     })
     return map
@@ -822,61 +844,81 @@ function MyAccountContent({
     }
   }, [systemPropertiesOpen])
 
-  // Modify handleRestoreFromTrash to use our hook
+  /**
+   * Restores items from the trash.
+   *
+   * Folders are expanded first: trashing a folder cascades through its
+   * contents, so restoring one has to bring the whole subtree back or the
+   * folder returns empty. Because that pulls in items the user did not select,
+   * folder restores are confirmed; restoring plain networks or shortcuts is
+   * unsurprising and runs straight away.
+   */
   const handleRestoreFromTrash = async (ids: string[]) => {
     if (
-      tabState === MyAccountTabType.TRASH &&
-      ids.length > 0 &&
-      isAuthenticated
+      tabState !== MyAccountTabType.TRASH ||
+      ids.length === 0 ||
+      !isAuthenticated
     ) {
-      try {
-        setLoading(true)
+      return
+    }
 
-        // Group IDs by type
-        const folderIds: string[] = []
-        const networkIds: string[] = []
-        const shortcutIds: string[] = []
+    try {
+      setLoading(true)
+      const selection = await resolveRestoreSelection(ids)
 
-        // Filter items by type and get their IDs
-        ids.forEach((id) => {
-          const item = trashItems.find((item) => item.uuid === id)
-          if (item) {
-            if (item.type === NDExFileType.FOLDER) {
-              folderIds.push(id)
-            } else if (item.type === NDExFileType.NETWORK) {
-              networkIds.push(id)
-            } else if (item.type === NDExFileType.SHORTCUT) {
-              shortcutIds.push(id)
-            }
-          }
-        })
-
-        // Use the hook's restoreItems function
-        await restoreTrashItems(networkIds, folderIds, shortcutIds)
-
-        setSelectedItems([])
-        setLoading(false)
-
-        // Show success toast
-        addToast({
-          title: 'Items restored',
-          description: `${ids.length} item(s) restored from trash`,
-          type: 'success',
-          duration: 4000,
-        })
-      } catch (error) {
-        console.error('Error restoring items from trash:', error)
-        setErrorMessage('Failed to restore items from trash')
-        setLoading(false)
-
-        // Show error toast
-        addToast({
-          title: 'Restore failed',
-          description: 'Failed to restore items from trash',
-          type: 'error',
-          duration: 4000,
-        })
+      const hasFolder = selection.roots.some(
+        (item) => item.type === NDExFileType.FOLDER,
+      )
+      if (hasFolder) {
+        setPendingRestore(selection)
+        return
       }
+
+      await performRestore(selection)
+    } catch (error) {
+      console.error('Error restoring items from trash:', error)
+      setErrorMessage('Failed to restore items from trash')
+      addToast({
+        title: 'Restore failed',
+        description: 'Failed to restore items from trash',
+        type: 'error',
+        duration: 4000,
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** Sends a resolved restore selection (roots plus folder contents) to the API. */
+  const performRestore = async (selection: RestoreSelection) => {
+    const all = [...selection.roots, ...selection.descendants]
+    const { networkIds, folderIds, shortcutIds } = groupIdsByType(all)
+
+    try {
+      setLoading(true)
+      await restoreTrashItems(networkIds, folderIds, shortcutIds)
+      setSelectedItems([])
+
+      addToast({
+        title: 'Items restored',
+        description: selection.isPartial
+          ? `${all.length} item(s) restored; some folder contents could not be checked and may remain in trash`
+          : `${all.length} item(s) restored from trash`,
+        type: selection.isPartial ? 'warning' : 'success',
+        duration: selection.isPartial ? 6000 : 4000,
+      })
+    } catch (error) {
+      console.error('Error restoring items from trash:', error)
+      setErrorMessage('Failed to restore items from trash')
+      addToast({
+        title: 'Restore failed',
+        description: 'Failed to restore items from trash',
+        type: 'error',
+        duration: 4000,
+      })
+    } finally {
+      setLoading(false)
+      setPendingRestore(null)
     }
   }
 
@@ -935,27 +977,73 @@ function MyAccountContent({
     if (tabState === MyAccountTabType.TRASH) {
       await handlePermanentDelete(itemIds)
     } else {
+      // Moving to trash is confirmed first: it cascades through folders, and
+      // the prompt is where the user learns the retention window.
       const items = displayItems.filter((item) => itemIds.includes(item.uuid))
-      setLoading(true)
-      for (const item of items) {
-        if (item.type === NDExFileType.FOLDER) {
-          await deleteFolder(item.uuid)
-        } else if (item.type === NDExFileType.SHORTCUT) {
-          await deleteShortcut(item.uuid)
-        } else if (item.type === NDExFileType.NETWORK) {
-          await deleteNetwork(item.uuid)
-        }
+      if (items.length > 0) {
+        setPendingTrashItems(items)
+      }
+    }
+  }
+
+  /**
+   * Performs the confirmed move-to-trash.
+   *
+   * Reports what actually happened: trashing cascades through a folder's
+   * contents and can fail part-way, so a batch that only partly succeeded is
+   * surfaced as such rather than as a plain success.
+   */
+  const handleConfirmMoveToTrash = async () => {
+    const items = pendingTrashItems
+    if (!items || items.length === 0) return
+
+    setLoading(true)
+    try {
+      const { trashed, failed } = await moveItemsToTrash(items)
+
+      if (failed.length === 0) {
+        addToast({
+          title: 'Moved to trash',
+          description:
+            trashed.length === 1
+              ? `"${trashed[0].name}" moved to trash`
+              : `${trashed.length} items moved to trash`,
+          type: 'success',
+          duration: 4000,
+        })
+      } else if (trashed.length > 0) {
+        addToast({
+          title: 'Move to trash incomplete',
+          description: `Moved ${trashed.length} item(s); ${failed.length} could not be moved`,
+          type: 'warning',
+          duration: 6000,
+        })
+      } else {
+        setErrorMessage('Failed to move item(s) to trash')
+        addToast({
+          title: 'Move to trash failed',
+          description:
+            failed.length === 1
+              ? `"${failed[0].name}" could not be moved to trash`
+              : `${failed.length} items could not be moved to trash`,
+          type: 'error',
+          duration: 6000,
+        })
       }
 
-      // Clear selection after successful deletion
-      setSelectedItems([])
+      // Drop only what actually went to the trash from the selection, so a
+      // failed item stays selected and the user can retry it.
+      const trashedIds = new Set(trashed.map((item) => item.uuid))
+      setSelectedItems((current) => current.filter((id) => !trashedIds.has(id)))
 
       if (tabState === MyAccountTabType.SHARED) {
         await refreshSharedFiles()
       } else {
         await refreshFolderContents()
       }
+    } finally {
       setLoading(false)
+      setPendingTrashItems(null)
     }
   }
 
@@ -1307,6 +1395,38 @@ function MyAccountContent({
             )}
           </DndProvider>
         </div>
+
+        {/* Move-to-trash confirmation */}
+        {pendingTrashItems && (
+          <ConfirmDialog
+            isOpen
+            {...buildTrashConfirmation(pendingTrashItems)}
+            confirmLabel="OK"
+            busyLabel="Moving..."
+            danger
+            onConfirm={handleConfirmMoveToTrash}
+            onCancel={() => setPendingTrashItems(null)}
+          />
+        )}
+
+        {/* Folder restore confirmation — restoring a folder brings its
+            trashed contents back with it, so the user is told the count. */}
+        {pendingRestore && (
+          <ConfirmDialog
+            isOpen
+            {...buildRestoreConfirmation(
+              pendingRestore.roots.filter(
+                (item) => item.type === NDExFileType.FOLDER,
+              ),
+              pendingRestore.descendants.length,
+              pendingRestore.isPartial,
+            )}
+            confirmLabel="Restore"
+            busyLabel="Restoring..."
+            onConfirm={() => performRestore(pendingRestore)}
+            onCancel={() => setPendingRestore(null)}
+          />
+        )}
 
         {/* Details panel */}
         {detailsOpen && (

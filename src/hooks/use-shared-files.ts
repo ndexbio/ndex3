@@ -34,22 +34,19 @@ export const useSharedFiles = (): SharedContents => {
       // Get items shared with the current user
       const items = await ndexClient.files.listShares()
 
-      // Map FileListItem[] to FileItemBase[] to ensure consistent interface
+      // Spread rather than hand-picking. The server's FileItemSummary carries
+      // status fields the row components read at the *top level* — doi,
+      // isCertified, isReadOnly, isValid, warnings, errorMessage, isShared — and
+      // an allowlist silently drops each new one. That is how DOI state went
+      // missing from this tab. Only genuine normalisations are spelled out.
       return (items || []).map((item: any) => ({
-        uuid: item.uuid,
-        name: item.name,
-        type: item.type,
+        ...item,
+        name: item.name ?? '',
         modificationTime: item.modificationTime || item.modifiedTime || item.creationTime,
-        // Top-level attributes (moved from nested in ndex-client v2)
-        owner: item.owner,
         // The listShares endpoint returns the owner's UUID as `owner_id`;
         // other endpoints already use `ownerUUID`. Accept either so OwnerCell
         // can render a profile link consistently.
         ownerUUID: item.ownerUUID ?? item.owner_id,
-        visibility: item.visibility,
-        updatedBy: item.updatedBy,
-        edges: item.edges,
-        permission: item.permission,
         attributes: {
           ...item.attributes,
           // Shortcut-specific attributes mapping
@@ -57,7 +54,7 @@ export const useSharedFiles = (): SharedContents => {
             target: item.attributes?.target || item.target,
             target_type: item.attributes?.target_type || item.targetType,
           }),
-        }
+        },
       }))
     } catch (error) {
       console.error('Error fetching shared items:', error)

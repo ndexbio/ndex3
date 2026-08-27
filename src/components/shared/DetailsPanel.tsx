@@ -3,6 +3,11 @@
 import React, { useEffect, useState } from 'react'
 import { File, Folder, X, Link, Loader2, GripVertical } from 'lucide-react'
 import { FileItemBase } from '@/types/api/ndex/File'
+import {
+  isDOIPending,
+  isNetworkCertified,
+  isPreCertified,
+} from '@/lib/utils/network-status'
 import { formatDate } from './NetworksList'
 import { useConfig } from '@/lib/contexts/ConfigContext'
 import { useAuth } from '@/lib/contexts/KeycloakContext'
@@ -251,9 +256,54 @@ export default function DetailsPanel({
                         <span className="text-muted-foreground">Has Layout</span>
                         <span className="text-foreground">{detailedData.network.hasLayout ? 'Yes' : 'No'}</span>
                       </div>
+                      {/* The DOI is the point of the whole certification flow, so
+                          show the identifier itself and make it resolvable.
+                          A failed mint reads as "Pending" and is not a link. */}
+                      {detailedData.network.doi && (
+                        <div className="flex justify-between gap-2">
+                          <span className="text-muted-foreground">DOI</span>
+                          {/* The predicates are network-only by construction and key
+                              off `type`, which a raw summary does not carry — so
+                              shape it before asking. */}
+                          {isDOIPending({
+                            ...detailedData.network,
+                            type: NDExFileType.NETWORK,
+                          } as unknown as FileItemBase) ? (
+                            <span className="text-destructive text-right">
+                              Request failed — cancel and try again
+                            </span>
+                          ) : (
+                            <a
+                              href={`https://doi.org/${detailedData.network.doi}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline break-all text-right"
+                            >
+                              {detailedData.network.doi}
+                            </a>
+                          )}
+                        </div>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Certified</span>
-                        <span className="text-foreground">{detailedData.network.isCertified ? 'Yes' : 'No'}</span>
+                        <span className="text-foreground">
+                          {(() => {
+                            // Shaped because the predicates key off `type`, which a
+                            // raw summary does not carry.
+                            const asItem = {
+                              ...detailedData.network,
+                              type: NDExFileType.NETWORK,
+                            } as unknown as FileItemBase
+                            if (isNetworkCertified(asItem)) {
+                              return 'Yes — published and permanently locked'
+                            }
+                            if (isDOIPending(asItem)) return 'No — the DOI request failed'
+                            if (isPreCertified(asItem)) {
+                              return 'Not yet — reference still to be added'
+                            }
+                            return 'No'
+                          })()}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Read-only</span>

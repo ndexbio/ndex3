@@ -18,6 +18,9 @@ import { useShortcut } from '@/hooks/use-shortcut'
 import { useToast } from '@/lib/contexts/ToastContext'
 import { DialogProvider } from '@/lib/contexts/DialogContext'
 import ActionDropdown from '@/app/my-account/_components/ActionDropdown'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { useTrashItems } from '@/hooks/use-trash-items'
+import { buildTrashConfirmation } from '@/lib/utils/trash-confirmation'
 import FoldersList from '@/components/shared/FoldersList'
 import NetworksList from '@/components/shared/NetworksList'
 import { SearchEmptyState } from './SearchEmptyState'
@@ -216,8 +219,14 @@ function SearchResultsPageContent() {
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
   const [dropdownType, setDropdownType] = useState<NDExFileType | null>(null)
 
+  // Items awaiting move-to-trash confirmation; non-null while the prompt is up.
+  const [pendingTrashItems, setPendingTrashItems] = useState<
+    FileItemBase[] | null
+  >(null)
+
   // --- Hooks ---
   const { createShortcut } = useShortcut(null)
+  const { moveItemsToTrash } = useTrashItems()
   const { publicResults, privateResults, refetch } = useFileSearch(query)
 
   // "Load more" must advance BOTH cursors — public and private are paginated
@@ -392,40 +401,65 @@ function SearchResultsPageContent() {
   }, [refetch])
 
   // --- Action callbacks ---
+  // Move to trash is confirmed first (see ConfirmDialog below); this only
+  // stages the selection so the prompt has something to describe.
   const handleDeleteItems = useCallback(
     async (itemIds: string[]) => {
-      try {
-        const ndexClient = getNdexClient(config.ndexBaseUrl, token)
-        for (const id of itemIds) {
-          const item = allSearchItems.find((i) => i.uuid === id)
-          if (item?.type === NDExFileType.FOLDER) {
-            await ndexClient.files.deleteFolder(id)
-          } else if (item?.type === NDExFileType.SHORTCUT) {
-            await ndexClient.files.deleteShortcut(id)
-          } else {
-            await ndexClient.networks.deleteNetwork(id)
-          }
-        }
-        addToast({
-          title: 'Moved to trash',
-          description: `${itemIds.length} item${itemIds.length > 1 ? 's' : ''} moved to trash`,
-          type: 'success',
-          duration: 3000,
-        })
-        // Refresh so deleted items disappear from the list
-        await handleRefreshSearchResults()
-      } catch {
-        addToast({
-          title: 'Error',
-          description: 'Failed to move item to trash',
-          type: 'error',
-          duration: 4000,
-        })
+      const items = allSearchItems.filter((item) => itemIds.includes(item.uuid))
+      if (items.length > 0) {
+        setPendingTrashItems(items)
       }
       handleCloseDropdown()
     },
-    [config.ndexBaseUrl, token, allSearchItems, addToast, handleCloseDropdown, handleRefreshSearchResults],
+    [allSearchItems, handleCloseDropdown],
   )
+
+  const handleConfirmMoveToTrash = useCallback(async () => {
+    const items = pendingTrashItems
+    if (!items || items.length === 0) return
+
+    try {
+      const { trashed, failed } = await moveItemsToTrash(items)
+
+      if (failed.length === 0) {
+        addToast({
+          title: 'Moved to trash',
+          description: `${trashed.length} item${trashed.length > 1 ? 's' : ''} moved to trash`,
+          type: 'success',
+          duration: 3000,
+        })
+      } else if (trashed.length > 0) {
+        // Trashing a folder cascades and can stop part-way — say so rather
+        // than reporting the whole batch as a success.
+        addToast({
+          title: 'Move to trash incomplete',
+          description: `Moved ${trashed.length} item(s); ${failed.length} could not be moved`,
+          type: 'warning',
+          duration: 6000,
+        })
+      } else {
+        addToast({
+          title: 'Error',
+          description:
+            failed.length === 1
+              ? `"${failed[0].name}" could not be moved to trash`
+              : 'Failed to move items to trash',
+          type: 'error',
+          duration: 6000,
+        })
+      }
+
+      // Refresh so trashed items disappear from the list
+      await handleRefreshSearchResults()
+    } finally {
+      setPendingTrashItems(null)
+    }
+  }, [
+    pendingTrashItems,
+    moveItemsToTrash,
+    addToast,
+    handleRefreshSearchResults,
+  ])
 
   // Restore is not reachable from search results (tabState is SEARCH, not TRASH),
   // but wired to refetch defensively in case that changes.
@@ -733,6 +767,19 @@ function SearchResultsPageContent() {
           onMoveItems={handleMoveItems}
           onShareSuccess={handleShareSuccess}
           onRefreshFolder={handleRefreshSearchResults}
+        />
+      )}
+
+      {/* Move-to-trash confirmation */}
+      {pendingTrashItems && (
+        <ConfirmDialog
+          isOpen
+          {...buildTrashConfirmation(pendingTrashItems)}
+          confirmLabel="OK"
+          busyLabel="Moving..."
+          danger
+          onConfirm={handleConfirmMoveToTrash}
+          onCancel={() => setPendingTrashItems(null)}
         />
       )}
     </div>

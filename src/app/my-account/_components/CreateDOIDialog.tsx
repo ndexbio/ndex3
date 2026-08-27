@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNetworkOperation } from '@/hooks/use-network-operation'
 import { useToast } from '@/lib/contexts/ToastContext'
 import RichTextEditor from '@/components/ui/rich-text-editor'
+import DialogShell from '@/components/shared/DialogShell'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { LICENSE_OPTIONS } from '@/lib/utils/doi-licenses'
 import type { DOIFormData } from '@/types/doi'
 
@@ -40,10 +42,12 @@ const CreateDOIDialog: React.FC<CreateDOIDialogProps> = ({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
 
   const titleInputRef = useRef<HTMLInputElement>(null)
 
-  const { getNetworkSummary, updateNetworkSummary, createNetworkDOI } = useNetworkOperation()
+  const { getNetworkSummary, updateNetworkSummary, createNetworkDOI, setNetworkReadOnlyQuietly } =
+    useNetworkOperation()
   const { addToast } = useToast()
 
   // Fields to track for modifications (exclude checkbox and email)
@@ -214,6 +218,12 @@ const CreateDOIDialog: React.FC<CreateDOIDialogProps> = ({
       errors.rights = 'Please select a license'
     }
 
+    // Required alongside author: the server's minting step reads both, and the
+    // legacy app enforced it too.
+    if (!formData.rightsHolder.trim()) {
+      errors.rightsHolder = 'Rights holder is required'
+    }
+
     // Conditional validation for "Other" license
     if (formData.rights === 'Other') {
       if (!formData.licenseTitle?.trim()) {
@@ -292,13 +302,25 @@ const CreateDOIDialog: React.FC<CreateDOIDialogProps> = ({
     }
   }
 
-  // Handle form submission
-  const handleSubmit = async () => {
+  // Requesting a DOI locks the network — permanently, when the checkbox is
+  // unchecked — so the form only opens the confirmation. The request itself is
+  // sent by performSubmit once the user has agreed to the consequences.
+  const handleSubmit = () => {
     if (!validateForm()) {
       return
     }
+    setIsConfirming(true)
+  }
 
+  const performSubmit = async () => {
     setIsSubmitting(true)
+
+    // The server refuses metadata updates on a read-only network. When there is
+    // something to save, make it writable first and put the flag back if the
+    // request never lands — a failed attempt must not quietly leave a network
+    // editable that the user had deliberately locked. A successful request
+    // re-applies read-only server-side anyway.
+    let readOnlyWasCleared = false
 
     try {
       // Step 1: Update network if any tracked fields modified
@@ -307,6 +329,10 @@ const CreateDOIDialog: React.FC<CreateDOIDialogProps> = ({
       )
 
       if (hasModifications && originalNetworkSummary) {
+        if (originalNetworkSummary.isReadOnly) {
+          await setNetworkReadOnlyQuietly(networkId, false)
+          readOnlyWasCleared = true
+        }
         const updatedSummary = buildUpdatedSummary()
         await updateNetworkSummary(networkId, updatedSummary)
       }
@@ -327,16 +353,27 @@ const CreateDOIDialog: React.FC<CreateDOIDialogProps> = ({
         duration: 7000,
       })
 
+      setIsConfirming(false)
       onSuccess?.()
       onClose()
     } catch (error: any) {
       console.error('Failed to create DOI:', error)
+
+      if (readOnlyWasCleared) {
+        try {
+          await setNetworkReadOnlyQuietly(networkId, true)
+        } catch (restoreError) {
+          console.error('Failed to restore the read-only flag:', restoreError)
+        }
+      }
+
       addToast({
         title: 'DOI Request Failed',
         description: error.message || 'Failed to submit DOI request. Please try again.',
         type: 'error',
         duration: 7000,
       })
+      setIsConfirming(false)
     } finally {
       setIsSubmitting(false)
     }
@@ -350,317 +387,333 @@ const CreateDOIDialog: React.FC<CreateDOIDialogProps> = ({
     formData.description.trim() &&
     formData.authors.trim() &&
     formData.rights &&
+    formData.rightsHolder.trim() &&
     formData.contactEmail.trim() &&
     (formData.rights !== 'Other' || formData.licenseTitle?.trim()) &&
     Object.keys(validationErrors).length === 0
 
+  const willCertifyNow = !formData.allowFutureModifications
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Background overlay */}
-      <div className="fixed inset-0 bg-gray-300 opacity-50" onClick={onClose}></div>
-
-      {/* Dialog box */}
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-[800px] max-w-full z-10 max-h-[90vh] overflow-auto">
-        <div className="px-6 py-5">
-          {/* Header */}
-          <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-gray-100">
-            Request DOI
-          </h2>
-
-          {isLoadingData ? (
-            <div className="space-y-4">
-              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-            </div>
-          ) : (
-            <>
-              {/* Title and Version */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div className="md:col-span-2">
-                  <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
-                    Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    ref={titleInputRef}
-                    value={formData.title}
-                    onChange={(e) => handleFieldChange('title', e.target.value)}
-                    className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                      validationErrors.title
-                        ? 'border-red-500'
-                        : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    disabled={isSubmitting}
-                    placeholder="Network title"
-                  />
-                  {validationErrors.title && (
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                      {validationErrors.title}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
-                    Version <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.version}
-                    onChange={(e) => handleFieldChange('version', e.target.value)}
-                    className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                      validationErrors.version
-                        ? 'border-red-500'
-                        : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    disabled={isSubmitting}
-                    placeholder="Version"
-                  />
-                  {validationErrors.version && (
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                      {validationErrors.version}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="mb-4">
-                <label className="block text-sm mb-2 text-gray-600 dark:text-gray-300">
-                  Description <span className="text-red-500">*</span>
-                </label>
-                <RichTextEditor
-                  content={formData.description}
-                  onChange={(value) => handleFieldChange('description', value)}
-                  placeholder="Enter description here..."
-                  disabled={isSubmitting}
-                />
-                {validationErrors.description && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    {validationErrors.description}
-                  </p>
-                )}
-              </div>
-
-              {/* Authors */}
-              <div className="mb-4">
-                <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
-                  Authors <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={formData.authors}
-                  onChange={(e) => handleFieldChange('authors', e.target.value)}
-                  className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                    validationErrors.authors
-                      ? 'border-red-500'
-                      : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                  disabled={isSubmitting}
-                  placeholder="One author per line"
-                  rows={3}
-                />
-                {validationErrors.authors && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    {validationErrors.authors}
-                  </p>
-                )}
-              </div>
-
-              {/* Contact Email */}
-              <div className="mb-4">
-                <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
-                  Contact Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  value={formData.contactEmail}
-                  onChange={(e) => handleFieldChange('contactEmail', e.target.value)}
-                  className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                    validationErrors.contactEmail
-                      ? 'border-red-500'
-                      : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                  disabled={isSubmitting}
-                  placeholder="your.email@example.com"
-                />
-                {validationErrors.contactEmail && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    {validationErrors.contactEmail}
-                  </p>
-                )}
-              </div>
-
-              {/* Rights */}
-              <div className="mb-4">
-                <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
-                  Rights <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={formData.rights}
-                    onChange={(e) => handleFieldChange('rights', e.target.value)}
-                    className={`appearance-none w-full bg-white dark:bg-gray-800 border text-gray-700 dark:text-gray-300 px-2 py-1 pr-8 rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 ${
-                      validationErrors.rights
-                        ? 'border-red-500'
-                        : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    disabled={isSubmitting}
-                  >
-                    {LICENSE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-                    <svg
-                      className="fill-current h-4 w-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                    </svg>
-                  </div>
-                </div>
-                {validationErrors.rights && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    {validationErrors.rights}
-                  </p>
-                )}
-              </div>
-
-              {/* Conditional fields for "Other" license */}
-              {formData.rights === 'Other' && (
-                <div className="ml-10 space-y-4 mb-4">
-                  {/* License Title */}
-                  <div>
-                    <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
-                      License Title <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.licenseTitle}
-                      onChange={(e) => handleFieldChange('licenseTitle', e.target.value)}
-                      className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                        validationErrors.licenseTitle
-                          ? 'border-red-500'
-                          : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                      disabled={isSubmitting}
-                      placeholder="e.g., Creative Commons Custom License"
-                    />
-                    {validationErrors.licenseTitle && (
-                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                        {validationErrors.licenseTitle}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* License URL */}
-                  <div>
-                    <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
-                      License URL{' '}
-                      <span className="text-gray-500 text-xs">(optional)</span>
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.licenseURL}
-                      onChange={(e) => handleFieldChange('licenseURL', e.target.value)}
-                      className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
-                        validationErrors.licenseURL
-                          ? 'border-red-500'
-                          : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                      disabled={isSubmitting}
-                      placeholder="e.g., example.com/license or https://example.com/license"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      You can omit http:// - it will be added automatically
-                    </p>
-                    {validationErrors.licenseURL && (
-                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                        {validationErrors.licenseURL}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Rights Holder */}
-              <div className="mb-4">
-                <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
-                  Rights Holder
-                </label>
-                <input
-                  type="text"
-                  value={formData.rightsHolder}
-                  onChange={(e) => handleFieldChange('rightsHolder', e.target.value)}
-                  className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  disabled={isSubmitting}
-                  placeholder="Rights holder"
-                />
-              </div>
-
-              {/* Checkbox - Let me add/modify reference later */}
-              <div className="mb-2">
-                <label className="flex items-center text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.allowFutureModifications}
-                    onChange={(e) =>
-                      handleFieldChange('allowFutureModifications', e.target.checked)
-                    }
-                    className="mr-2"
-                    disabled={isSubmitting}
-                  />
-                  Let me add/modify the reference later.
-                </label>
-                {!formData.allowFutureModifications && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 ml-6">
-                    ⚠️ Network will be permanently locked and made public after DOI creation
-                  </p>
-                )}
-              </div>
-
-              {/* Reference */}
-              <div className="mb-4">
-                <label className="block text-sm mb-2 text-gray-600 dark:text-gray-300">
-                  Reference
-                </label>
-                <RichTextEditor
-                  content={formData.reference}
-                  onChange={(value) => handleFieldChange('reference', value)}
-                  placeholder="Enter reference here..."
-                  disabled={isSubmitting}
-                />
-              </div>
-            </>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-4 mt-8">
-            <button
-              onClick={onClose}
-              className="px-5 py-2 text-sky-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium rounded border border-gray-200 dark:border-gray-700"
-              disabled={isSubmitting}
-            >
-              CANCEL
-            </button>
-            <button
-              onClick={handleSubmit}
-              className={`px-5 py-2 text-sm font-medium rounded transition-colors ${
-                isFormValid && !isSubmitting && !isLoadingData
-                  ? 'bg-sky-600 text-white hover:bg-sky-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+    <>
+    <DialogShell
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Request DOI"
+      widthClass="w-[800px]"
+      isLoading={isLoadingData}
+      confirmLabel="SAVE AND REQUEST DOI"
+      busyLabel="SUBMITTING..."
+      isBusy={isSubmitting}
+      canConfirm={Boolean(isFormValid)}
+      onConfirm={handleSubmit}
+    >
+      <>
+        {/* Title and Version */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="md:col-span-2">
+            <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
+              Title <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              ref={titleInputRef}
+              value={formData.title}
+              onChange={(e) => handleFieldChange('title', e.target.value)}
+              className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
+                validationErrors.title
+                  ? 'border-red-500'
+                  : 'border-gray-300 dark:border-gray-600'
               }`}
-              disabled={!isFormValid || isSubmitting || isLoadingData}
-            >
-              {isSubmitting ? 'SUBMITTING...' : 'SAVE AND REQUEST DOI'}
-            </button>
+              disabled={isSubmitting}
+              placeholder="Network title"
+            />
+            {validationErrors.title && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                {validationErrors.title}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
+              Version <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.version}
+              onChange={(e) => handleFieldChange('version', e.target.value)}
+              className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
+                validationErrors.version
+                  ? 'border-red-500'
+                  : 'border-gray-300 dark:border-gray-600'
+              }`}
+              disabled={isSubmitting}
+              placeholder="Version"
+            />
+            {validationErrors.version && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                {validationErrors.version}
+              </p>
+            )}
           </div>
         </div>
-      </div>
-    </div>
+
+        {/* Description */}
+        <div className="mb-4">
+          <label className="block text-sm mb-2 text-gray-600 dark:text-gray-300">
+            Description <span className="text-red-500">*</span>
+          </label>
+          <RichTextEditor
+            content={formData.description}
+            onChange={(value) => handleFieldChange('description', value)}
+            placeholder="Enter description here..."
+            disabled={isSubmitting}
+          />
+          {validationErrors.description && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              {validationErrors.description}
+            </p>
+          )}
+        </div>
+
+        {/* Authors */}
+        <div className="mb-4">
+          <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
+            Authors <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={formData.authors}
+            onChange={(e) => handleFieldChange('authors', e.target.value)}
+            className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
+              validationErrors.authors
+                ? 'border-red-500'
+                : 'border-gray-300 dark:border-gray-600'
+            }`}
+            disabled={isSubmitting}
+            placeholder="One author per line"
+            rows={3}
+          />
+          {validationErrors.authors && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              {validationErrors.authors}
+            </p>
+          )}
+        </div>
+
+        {/* Contact Email */}
+        <div className="mb-4">
+          <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
+            Contact Email <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="email"
+            value={formData.contactEmail}
+            onChange={(e) => handleFieldChange('contactEmail', e.target.value)}
+            className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
+              validationErrors.contactEmail
+                ? 'border-red-500'
+                : 'border-gray-300 dark:border-gray-600'
+            }`}
+            disabled={isSubmitting}
+            placeholder="your.email@example.com"
+          />
+          {validationErrors.contactEmail && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              {validationErrors.contactEmail}
+            </p>
+          )}
+        </div>
+
+        {/* Rights */}
+        <div className="mb-4">
+          <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
+            Rights <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <select
+              value={formData.rights}
+              onChange={(e) => handleFieldChange('rights', e.target.value)}
+              className={`appearance-none w-full bg-white dark:bg-gray-800 border text-gray-700 dark:text-gray-300 px-2 py-1 pr-8 rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 ${
+                validationErrors.rights
+                  ? 'border-red-500'
+                  : 'border-gray-300 dark:border-gray-600'
+              }`}
+              disabled={isSubmitting}
+            >
+              {LICENSE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
+              <svg
+                className="fill-current h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+              >
+                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+              </svg>
+            </div>
+          </div>
+          {validationErrors.rights && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              {validationErrors.rights}
+            </p>
+          )}
+        </div>
+
+        {/* Conditional fields for "Other" license */}
+        {formData.rights === 'Other' && (
+          <div className="ml-10 space-y-4 mb-4">
+            {/* License Title */}
+            <div>
+              <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
+                License Title <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.licenseTitle}
+                onChange={(e) => handleFieldChange('licenseTitle', e.target.value)}
+                className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
+                  validationErrors.licenseTitle
+                    ? 'border-red-500'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}
+                disabled={isSubmitting}
+                placeholder="e.g., Creative Commons Custom License"
+              />
+              {validationErrors.licenseTitle && (
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                  {validationErrors.licenseTitle}
+                </p>
+              )}
+            </div>
+
+            {/* License URL */}
+            <div>
+              <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
+                License URL{' '}
+                <span className="text-gray-500 text-xs">(optional)</span>
+              </label>
+              <input
+                type="url"
+                value={formData.licenseURL}
+                onChange={(e) => handleFieldChange('licenseURL', e.target.value)}
+                className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
+                  validationErrors.licenseURL
+                    ? 'border-red-500'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}
+                disabled={isSubmitting}
+                placeholder="e.g., example.com/license or https://example.com/license"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                You can omit http:// - it will be added automatically
+              </p>
+              {validationErrors.licenseURL && (
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                  {validationErrors.licenseURL}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Rights Holder */}
+        <div className="mb-4">
+          <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">
+            Rights Holder <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={formData.rightsHolder}
+            onChange={(e) => handleFieldChange('rightsHolder', e.target.value)}
+            className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${
+              validationErrors.rightsHolder
+                ? 'border-red-500'
+                : 'border-gray-300 dark:border-gray-600'
+            }`}
+            disabled={isSubmitting}
+            placeholder="Rights holder"
+          />
+          {validationErrors.rightsHolder && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              {validationErrors.rightsHolder}
+            </p>
+          )}
+        </div>
+
+        {/* Checkbox - Let me add/modify reference later */}
+        <div className="mb-2">
+          <label className="flex items-center text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.allowFutureModifications}
+              onChange={(e) =>
+                handleFieldChange('allowFutureModifications', e.target.checked)
+              }
+              className="mr-2"
+              disabled={isSubmitting}
+            />
+            Let me add/modify the reference later.
+          </label>
+          {!formData.allowFutureModifications && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 ml-6">
+              ⚠️ Network will be permanently locked and made public after DOI creation
+            </p>
+          )}
+        </div>
+
+        {/* Reference */}
+        <div className="mb-4">
+          <label className="block text-sm mb-2 text-gray-600 dark:text-gray-300">
+            Reference
+          </label>
+          <RichTextEditor
+            content={formData.reference}
+            onChange={(value) => handleFieldChange('reference', value)}
+            placeholder="Enter reference here..."
+            disabled={isSubmitting}
+          />
+        </div>
+      </>
+    </DialogShell>
+
+    {/* The two outcomes differ enough that one message cannot describe both:
+        one is reversible-ish and keeps the network private, the other
+        publishes and locks it forever. */}
+    <ConfirmDialog
+      isOpen={isConfirming}
+      title={willCertifyNow ? 'Publish and lock this network?' : 'Request a DOI?'}
+      message={
+        willCertifyNow ? (
+          <>
+            Requesting a DOI for <strong>{formData.title || 'this network'}</strong> will:
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li>make it <strong>publicly visible</strong> and indexed for search</li>
+              <li>lock it <strong>permanently</strong> — no further changes will be possible</li>
+            </ul>
+            <p className="mt-2">Please make sure the information is correct before continuing.</p>
+          </>
+        ) : (
+          <>
+            Requesting a DOI for <strong>{formData.title || 'this network'}</strong> will:
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li>lock the network, keeping its current visibility</li>
+              <li>give you <strong>one</strong> further chance to add the reference, which then publishes and permanently locks it</li>
+            </ul>
+          </>
+        )
+      }
+      confirmLabel={willCertifyNow ? 'Publish and Lock' : 'Request DOI'}
+      cancelLabel="Go Back"
+      busyLabel="Submitting..."
+      danger={willCertifyNow}
+      onConfirm={performSubmit}
+      onCancel={() => setIsConfirming(false)}
+    />
+    </>
   )
 }
 

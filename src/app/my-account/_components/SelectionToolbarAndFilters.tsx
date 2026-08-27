@@ -26,6 +26,7 @@ import { useNetworkDownload } from '@/hooks/use-network-download'
 import { useNetworkReadOnly } from '@/hooks/use-network-readonly'
 import { NDExFileType, Visibility } from '@js4cytoscape/ndex-client'
 import { ShareableItem } from '@/types/sharing'
+import { TRASH_RETENTION_DAYS } from '@/lib/constants/trash'
 
 // Add a dropdown menu for bulk network downloads
 const BulkDownloadMenu: React.FC<{
@@ -279,7 +280,12 @@ export interface FilterState {
 // Simplified props interface without filter state and handlers
 interface SelectionToolbarAndFiltersProps {
   selectedItems: string[]
-  itemDataMap?: Record<string, { name: string; type: NDExFileType; visibility?: string }>
+  // doi/isCertified travel with the item so a bulk share can tell which
+  // selected networks have their visibility frozen by a DOI.
+  itemDataMap?: Record<
+    string,
+    { name: string; type: NDExFileType; visibility?: string; doi?: string; isCertified?: boolean }
+  >
   showSelectionToolbar: boolean
   tabState: MyAccountTabType
   /** False for read-only viewers (anonymous / non-owners): bulk edit actions
@@ -488,6 +494,9 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
         type: item?.type || NDExFileType.NETWORK, // Use item's type directly with fallback
         currentPermissions: [], // TODO: Load existing permissions
         visibility: (item?.visibility as Visibility) || Visibility.PRIVATE,
+        // Carried so ShareDialog can freeze visibility on a DOI'd network.
+        doi: item?.doi,
+        isCertified: item?.isCertified,
       }
 
       openShareDialog([shareableItem], 'single', onShareSuccess)
@@ -500,6 +509,8 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
           name: item?.name || `item_${id}`,
           type: item?.type || NDExFileType.NETWORK, // Use item's type directly with fallback
           visibility: (item?.visibility as Visibility) || Visibility.PRIVATE,
+          doi: item?.doi,
+          isCertified: item?.isCertified,
         }
       })
 
@@ -1112,7 +1123,10 @@ const SelectionToolbarAndFilters: React.FC<SelectionToolbarAndFiltersProps> = ({
           {/* Show trash info message when in trash view */}
           {tabState === MyAccountTabType.TRASH && (
             <div className="w-full flex items-center justify-between px-6 py-1 rounded-lg bg-gray-100 text-gray-700 border-b border-gray-200 h-12">
-              <div>Items in trash will be deleted forever after 30 days</div>
+              <div>
+                Items in trash will be deleted forever after{' '}
+                {TRASH_RETENTION_DAYS} days
+              </div>
               <button
                 className="text-gray-600 hover:text-gray-900 font-medium"
                 onClick={() => {

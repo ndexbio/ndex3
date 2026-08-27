@@ -32,6 +32,22 @@ jobs:
       - name: Run lint
         run: npm run lint
 
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No dependencies needed — the checker uses only Node built-ins, so this
+      # stays fast enough to run on every push.
+      - name: Check documentation links
+        run: npm run check:docs
+
   build:
     name: Build
     runs-on: ubuntu-latest
