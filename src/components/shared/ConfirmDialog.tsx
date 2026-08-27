@@ -74,7 +74,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       e.stopPropagation()
       handleCancel()
     }
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !(e.target as HTMLElement).closest('button')) {
+      e.preventDefault()
       e.stopPropagation()
       void handleConfirm()
     }
