@@ -5,6 +5,7 @@ import NetworksList from '@/components/shared/NetworksList'
 import { FileItemBase } from '@/types/api/ndex/File'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { MyAccountTabType } from '@/types/ui/myAccount'
+import { TRASH_RETENTION_DAYS } from '@/lib/constants/trash'
 
 interface ContentRendererProps {
   tabState: MyAccountTabType
@@ -65,7 +66,8 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
             <Trash className="h-16 w-16 text-gray-400 mb-4" />
             <p className="text-lg text-gray-500 font-medium">Trash is empty</p>
             <p className="text-sm text-gray-400">
-              Items in trash will be automatically deleted after 30 days
+              Items in trash will be automatically deleted after{' '}
+              {TRASH_RETENTION_DAYS} days
             </p>
           </div>
         ) : (

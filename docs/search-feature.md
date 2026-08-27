@@ -1,3 +1,9 @@
+---
+status: partial
+last-verified: 2026-08-27
+note: Describes shipped behaviour alongside proposed Phase 2/3 components that do not exist yet.
+---
+
 # NDEx3 Search Feature Specification
 
 ## Table of Contents

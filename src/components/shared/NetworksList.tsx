@@ -8,6 +8,7 @@ import {
   ArrowUpDown,
   Trophy,
   Lock,
+  BadgeAlert,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -26,7 +27,13 @@ import { useAuth } from '@/lib/contexts/KeycloakContext'
 import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClasses } from '@/components/shared/table-styles'
 import { formatDate, formatCount, getDisplayName } from '@/components/shared/table-utils'
 import { NetworkStatusDialog } from '@/components/dialogs/NetworkStatusDialog'
-import { hasNetworkError } from '@/lib/utils/network-status'
+import {
+  hasNetworkError,
+  isDOILocked,
+  isDOIPending,
+  isNetworkCertified,
+  isPreCertified,
+} from '@/lib/utils/network-status'
 import { OwnerCell } from '@/components/shared/OwnerCell'
 import { withAccessKey } from '@/lib/utils/access-key'
 
@@ -106,12 +113,6 @@ const getUnavailableTextClass = (isUnavailable: boolean) =>
 const isOwner = (item: FileItemBase, currentUserName: string | null): boolean => {
   if (!currentUserName) return false
   return item.owner === currentUserName
-}
-
-// Helper function to check if network has DOI (and it's not pending)
-const hasValidDOI = (network: FileItemBase): boolean => {
-  const doi = (network as any).doi
-  return doi && typeof doi === 'string' && !doi.toLowerCase().startsWith('pending')
 }
 
 // Helper function to check if network is read-only
@@ -283,14 +284,26 @@ const GridNetworkItem = ({
             <TooltipTrigger asChild>
               <h3 className={`${tableStyles.text.name} ${getUnavailableTextClass(isUnavailable)} flex items-center gap-2`}>
                 <span className="truncate">{getDisplayName(network, 'Untitled Network')}</span>
-                {/* Show Trophy icon for networks with valid DOI */}
-                {network.type === NDExFileType.NETWORK && hasValidDOI(network) && (
+                {/* Amber marks anything DOI-related; the shape carries the state.
+                    The two locks differ only in colour, which is why every icon here
+                    needs its title — see docs/decisions/0006. */}
+                {network.type === NDExFileType.NETWORK && isNetworkCertified(network) && (
                   <div title="Published network with DOI">
                     <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
                   </div>
                 )}
-                {/* Show Lock icon for read-only networks (without DOI) */}
-                {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !hasValidDOI(network) && (
+                {network.type === NDExFileType.NETWORK && isPreCertified(network) && (
+                  <div title="Locked — DOI requested, reference not yet added">
+                    <Lock className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                  </div>
+                )}
+                {network.type === NDExFileType.NETWORK && isDOIPending(network) && (
+                  <div title="DOI request failed — cancel the request and try again">
+                    <BadgeAlert className="h-4 w-4 text-destructive flex-shrink-0" />
+                  </div>
+                )}
+                {/* Plain read-only: locked by choice, not by a DOI. */}
+                {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !isDOILocked(network) && (
                   <div title="Read-only network">
                     <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   </div>
@@ -419,14 +432,26 @@ const ListNetworkItem = ({
                 <TooltipTrigger asChild>
                   <div className={`text-sm font-medium truncate ${getUnavailableTextClass(isUnavailable)} flex items-center gap-2`}>
                     <span className="truncate">{getDisplayName(network, 'Untitled Network')}</span>
-                    {/* Show Trophy icon for networks with valid DOI */}
-                    {network.type === NDExFileType.NETWORK && hasValidDOI(network) && (
+                    {/* Amber marks anything DOI-related; the shape carries the state.
+                        The two locks differ only in colour, which is why every icon here
+                        needs its title — see docs/decisions/0006. */}
+                    {network.type === NDExFileType.NETWORK && isNetworkCertified(network) && (
                       <div title="Published network with DOI">
                         <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
                       </div>
                     )}
-                    {/* Show Lock icon for read-only networks (without DOI) */}
-                    {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !hasValidDOI(network) && (
+                    {network.type === NDExFileType.NETWORK && isPreCertified(network) && (
+                      <div title="Locked — DOI requested, reference not yet added">
+                        <Lock className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                      </div>
+                    )}
+                    {network.type === NDExFileType.NETWORK && isDOIPending(network) && (
+                      <div title="DOI request failed — cancel the request and try again">
+                        <BadgeAlert className="h-4 w-4 text-destructive flex-shrink-0" />
+                      </div>
+                    )}
+                    {/* Plain read-only: locked by choice, not by a DOI. */}
+                    {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !isDOILocked(network) && (
                       <div title="Read-only network">
                         <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       </div>

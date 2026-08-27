@@ -7,6 +7,8 @@ import EditNetworkPropertiesDialog from '@/app/my-account/_components/EditNetwor
 import EditFolderPropertiesDialog from '@/app/my-account/_components/EditFolderPropertiesDialog'
 import RenameShortcutDialog from '@/app/my-account/_components/RenameShortcutDialog'
 import CreateDOIDialog from '@/app/my-account/_components/CreateDOIDialog'
+import AddReferenceDialog from '@/app/my-account/_components/AddReferenceDialog'
+import CancelDOIDialog from '@/app/my-account/_components/CancelDOIDialog'
 import ShareDialog from '@/components/dialogs/ShareDialog'
 import { NDExFileType } from '@js4cytoscape/ndex-client'
 import { useNetworkOperation } from '@/hooks/use-network-operation'
@@ -31,6 +33,8 @@ interface DialogContextType {
   openEditFolderPropertiesDialog: (folderId: string, onSuccess?: () => void) => void
   openRenameShortcutDialog: (shortcutId: string, onSuccess?: () => void) => void
   openCreateDOIDialog: (networkId: string, onSuccess?: () => void) => void
+  openAddReferenceDialog: (networkId: string, onSuccess?: () => void) => void
+  openCancelDOIDialog: (networkId: string, networkName?: string, onSuccess?: () => void) => void
   openShareDialog: (items: ShareableItem[], mode: 'single' | 'bulk', onSuccess?: (updatedItems: { uuid: string; visibility: Visibility }[]) => void) => void
 }
 
@@ -127,6 +131,27 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
   const [createDOIDialogProps, setCreateDOIDialogProps] = useState<{
     isOpen: boolean
     networkId: string
+    onSuccess?: () => void
+  }>({
+    isOpen: false,
+    networkId: '',
+  })
+
+  // Add Reference dialog state (pre-certified networks completing a DOI request)
+  const [addReferenceDialogProps, setAddReferenceDialogProps] = useState<{
+    isOpen: boolean
+    networkId: string
+    onSuccess?: () => void
+  }>({
+    isOpen: false,
+    networkId: '',
+  })
+
+  // Cancel DOI dialog state (clearing a request that failed to mint)
+  const [cancelDOIDialogProps, setCancelDOIDialogProps] = useState<{
+    isOpen: boolean
+    networkId: string
+    networkName?: string
     onSuccess?: () => void
   }>({
     isOpen: false,
@@ -232,6 +257,26 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
     setCreateDOIDialogProps((prev) => ({ ...prev, isOpen: false }))
   }
 
+  const openAddReferenceDialog = (networkId: string, onSuccess?: () => void) => {
+    setAddReferenceDialogProps({ isOpen: true, networkId, onSuccess })
+  }
+
+  const closeAddReferenceDialog = () => {
+    setAddReferenceDialogProps((prev) => ({ ...prev, isOpen: false }))
+  }
+
+  const openCancelDOIDialog = (
+    networkId: string,
+    networkName?: string,
+    onSuccess?: () => void,
+  ) => {
+    setCancelDOIDialogProps({ isOpen: true, networkId, networkName, onSuccess })
+  }
+
+  const closeCancelDOIDialog = () => {
+    setCancelDOIDialogProps((prev) => ({ ...prev, isOpen: false }))
+  }
+
   return (
     <DialogContext.Provider
       value={{
@@ -241,6 +286,8 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         openEditFolderPropertiesDialog,
         openRenameShortcutDialog,
         openCreateDOIDialog,
+        openAddReferenceDialog,
+        openCancelDOIDialog,
         openShareDialog,
       }}
     >
@@ -299,6 +346,21 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({
         onClose={closeCreateDOIDialog}
         networkId={createDOIDialogProps.networkId}
         onSuccess={createDOIDialogProps.onSuccess}
+      />
+
+      <AddReferenceDialog
+        isOpen={addReferenceDialogProps.isOpen}
+        onClose={closeAddReferenceDialog}
+        networkId={addReferenceDialogProps.networkId}
+        onSuccess={addReferenceDialogProps.onSuccess}
+      />
+
+      <CancelDOIDialog
+        isOpen={cancelDOIDialogProps.isOpen}
+        onClose={closeCancelDOIDialog}
+        networkId={cancelDOIDialogProps.networkId}
+        networkName={cancelDOIDialogProps.networkName}
+        onSuccess={cancelDOIDialogProps.onSuccess}
       />
     </DialogContext.Provider>
   )

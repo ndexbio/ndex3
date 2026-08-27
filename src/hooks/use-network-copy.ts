@@ -79,6 +79,9 @@ export const useNetworkCopy = () => {
         name: copiedFileSummary.name || 'Unnamed copy',
         type: fileType,
         modificationTime: result.modificationTime,
+        // DOI state lives at the top level, where network-status.ts reads it.
+        doi: copiedFileSummary.doi || undefined,
+        isCertified: copiedFileSummary.isCertified,
         attributes: {
           edges: copiedFileSummary.edgeCount || 0,
           nodes: copiedFileSummary.nodeCount || 0,
@@ -90,7 +93,6 @@ export const useNetworkCopy = () => {
           // Add other relevant attributes from the summary
           description: copiedFileSummary.description || '',
           version: copiedFileSummary.version || '',
-          doi: copiedFileSummary.doi || '',
           organism: copiedFileSummary.organism || '',
           disease: copiedFileSummary.disease || '',
           tissue: copiedFileSummary.tissue || '',
