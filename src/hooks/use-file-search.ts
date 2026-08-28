@@ -176,7 +176,7 @@ export function useFileSearch(query: string): UseFileSearchResult {
 
   const publicFetcher = async (key: any[]) => {
     const pageIndex = key[3] as number
-    const ndexClient = getNdexClient(config.ndexBaseUrl)
+    const ndexClient = getNdexClient(config.ndexBaseUrl, token ?? undefined)
     return ndexClient.files.searchFiles({
       searchString: query,
       visibility: 'PUBLIC',
