@@ -156,3 +156,9 @@ export const useBasePath = () => {
   const config = useConfig()
   return config.urlBaseName || ''
 }
+
+// Custom hook to get the not-found redirect URL from config
+export const useNotFoundUrl = () => {
+  const config = useConfig()
+  return config.notFoundUrl || null
+}
