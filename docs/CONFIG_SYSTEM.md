@@ -16,6 +16,19 @@ This file is the master configuration for the application. It defines all runtim
 }
 ```
 
+#### Optional fields
+
+Every key beyond `urlBaseName` is passed through to the runtime untouched — the
+build script only reads `urlBaseName`. The authoritative, per-field reference is
+the TSDoc on the `AppConfig` interface in `src/types/entities/AppConfig.ts`;
+each optional field documents its own default next to its declaration.
+
+One field is worth calling out here because it pairs with server configuration:
+`metricsUrl` names a base URL the app posts client-side events to, and the web
+server is expected to answer it with 204 and log it. Omitting the key takes the
+default (`/metrics`); setting it to an empty string turns tracking off. See [not-found-routing.md](./not-found-routing.md) and
+[APACHE_STATIC_DEPLOYMENT.md](./APACHE_STATIC_DEPLOYMENT.md).
+
 ### 2. `scripts/generate-config.js` (Build-Time Script)
 This script is a critical part of the build process. It reads `public/config.json` and performs two key actions:
 

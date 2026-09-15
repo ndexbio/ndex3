@@ -156,6 +156,19 @@ export interface AppConfig {
    * another host, or when the server itself is hosted under a path.
    */
   swaggerBaseName?: string
+  /**
+   * Base URL for client-side metrics events (optional). The app appends an
+   * event segment and query parameters — e.g. `<metricsUrl>/not-found?url=…` —
+   * and sends a fire-and-forget request. Nothing in the UI depends on the
+   * response. Defaults to "/metrics" when absent; set it to an empty string to
+   * turn tracking off.
+   * An app-relative path is prefixed with `urlBaseName`; a fully qualified URL
+   * is used as-is. Intended to point at a resource-less endpoint the web server
+   * answers with 204 and writes to a dedicated log. The full request grammar
+   * is specified in `docs/metrics-tracking.md`; `docs/not-found-routing.md`
+   * covers the one event that exists today.
+   */
+  metricsUrl?: string
 }
 
 /**

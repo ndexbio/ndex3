@@ -31,6 +31,8 @@ anything. Link to a file or a symbol name instead.
 | [user-public-page-design.md](./user-public-page-design.md) | Public user profile pages |
 | [open-in-cytoscape-desktop.md](./open-in-cytoscape-desktop.md) | Handing a network to Cytoscape Desktop via CyNDEx-2 |
 | [legacy-redirects.md](./legacy-redirects.md) | Redirecting NDEx2 URL shapes to their NDEx3 equivalents |
+| [not-found-routing.md](./not-found-routing.md) | What happens when a URL matches no route, and the metrics tracking request that reports it |
+| [metrics-tracking.md](./metrics-tracking.md) | The wire format for client-side metrics events: URL shape, parameters, encoding |
 
 ## Configuration and deployment
 

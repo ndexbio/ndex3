@@ -18,7 +18,7 @@
  *
  * Fenced code blocks are skipped: directory trees are illustrative, not claims.
  *
- * Usage: node scripts/check-docs-links.js [dir ...]   (default: docs)
+ * Usage: node scripts/check-docs-links.js [dir|file ...]   (default: docs)
  */
 
 import fs from 'fs'
@@ -29,8 +29,16 @@ const roots = process.argv.slice(2)
 const searchDirs = roots.length > 0 ? roots : ['docs']
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-/** Every markdown file under the given directories. */
-const markdownFiles = (dir) => {
+/**
+ * Every markdown file under the given path. A path may be a directory, which is
+ * walked recursively, or a single `.md` file — the latter so that top-level
+ * documents such as README.md can be checked without walking the repo root,
+ * which would descend into node_modules.
+ */
+const markdownFiles = (target) => {
+  if (fs.statSync(target).isFile()) {
+    return target.endsWith('.md') ? [target] : []
+  }
   const out = []
   const walk = (d) => {
     for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
@@ -39,7 +47,7 @@ const markdownFiles = (dir) => {
       else if (entry.name.endsWith('.md')) out.push(full)
     }
   }
-  walk(dir)
+  walk(target)
   return out
 }
 
