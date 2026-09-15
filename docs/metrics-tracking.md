@@ -36,16 +36,52 @@ identically whether or not a request is sent.
 
 - An **app-relative** `metricsUrl` (`/metrics`) is prefixed with `urlBaseName`,
   so a subdirectory deployment sends `/ndex3/metrics/...`.
-- A **fully qualified** `metricsUrl` (`https://metrics.example.org/e`) is used
-  verbatim, and `urlBaseName` is ignored. Note that a cross-origin target must
-  send CORS headers or every request fails — see "Failure" below.
+- A **fully qualified** `metricsUrl` (`https://www.ndexbio.org/metrics`) is used
+  verbatim, and `urlBaseName` is ignored.
 - A trailing slash on `metricsUrl` is trimmed, so `/metrics` and `/metrics/`
   behave identically.
 - When an event has no parameters, no `?` is emitted.
 
 The request is `GET` with `keepalive: true` (so it survives the user navigating
-away) and `cache: 'no-store'`. **The response body is never read.** The server
-should answer `204 No Content`; any 2xx is treated as success.
+away), `cache: 'no-store'`, and `referrerPolicy: 'no-referrer'`. **The response
+body is never read.**
+
+### The endpoint must be same-origin
+
+`metricsUrl` must resolve to the origin the app is served from. A cross-origin
+response cannot be read by the browser, so the status rule below could never be
+checked and every request would be indistinguishable from a failure.
+
+A cross-origin `metricsUrl` is therefore treated as a **configuration error**:
+the app reports it once to the console and sends nothing.
+
+This is an origin comparison, not a ban on absolute URLs — a fully qualified
+`metricsUrl` pointing at the app's own origin is valid and works normally.
+
+### The endpoint must answer 204
+
+`204 No Content` is the only response that counts as delivered. **Any other
+status, including `200`, is reported to the console as unexpected.**
+
+That is deliberate rather than strict for its own sake. The likeliest
+misconfiguration is that the server has no rule for `metricsUrl` at all, in
+which case the request falls through the SPA fallback and comes back as `200`
+with the app's own HTML. With one success code, that is visible instead of
+silent.
+
+Because no automated test can confirm the server really emits 204, the warning
+names the status it got, the status it wanted, and the rule to go and look at.
+
+### No referrer is sent
+
+The page URL can carry `?accesskey=<secret>` (see the `url` rule below), and the
+`Referer` header would otherwise put it in the server's access log — the exact
+thing stripping the query string from the event parameters prevents. The request
+is sent with `referrerPolicy: 'no-referrer'` so that **access keys are not
+propagated in metrics logs**.
+
+Note the narrow scope of that claim: it is about this request only. It says
+nothing about access keys reaching other logs by other routes.
 
 `GET` rather than the `navigator.sendBeacon` API, which would POST: a GET with query
 parameters is what appears readably in an access log, which is the entire point
@@ -97,16 +133,43 @@ a plain percent-decoder, or spaces will come back as literal `+`.
 ## Failure
 
 Nothing in the UI depends on delivery. The sender returns `void` so no caller
-can await it, and a failure is warned once to the console with the prefix
-`[ndex3:metrics]` — `console.warn`, never `console.error`.
+can await it, and failures go to the console with the prefix `[ndex3:metrics]` —
+`console.warn`, never `console.error`.
 
-Two failure shapes are both handled: a network, CORS or ad-blocked request
-*rejects*, while an HTTP error status *resolves* with `ok: false`. A third is
-undetectable by design — if the server has no rule for `metricsUrl`, the request
-falls through the SPA catch-all and returns 200 with the app's own HTML, which
-is indistinguishable from success without coupling the client to a response
-contract. See "Reading the metrics log honestly" in
-[not-found-routing.md](./not-found-routing.md).
+Delivery failures are reported **every time they happen**, because each one is a
+separate event that may or may not recur. The single exception is a cross-origin
+`metricsUrl`: that is a static configuration mistake with the same outcome on
+every request, so it is reported once per page load and then suppressed.
+
+### Is a request sent at all?
+
+Two configurations are refused before anything leaves the browser, so "no
+console output" and "no request" are not the same thing:
+
+| `metricsUrl` | Request sent | Console |
+| --- | --- | --- |
+| absent — defaults to `/metrics` | yes | see the next table |
+| app-relative, e.g. `/metrics` | yes | see the next table |
+| fully qualified on the app's own origin | yes | see the next table |
+| fully qualified cross-origin | **no** | `invalid metricsUrl`, once per page load |
+| `""` or whitespace | **no** | nothing — tracking is off on purpose |
+
+### What the console reports for a sent request
+
+| Response | Console |
+| --- | --- |
+| `204` | nothing — delivered |
+| Any other status, including `200` | `unexpected metrics response (HTTP n, expected 204)`, naming the rule to check — **every time** |
+| Request rejects | `tracking request could not be sent` — a separate message, because no status exists — **every time** |
+
+A request rejects for routine reasons — no such host, or an ad blocker dropping
+a URL with `metrics` in the path. Those are expected, not defects.
+
+What used to be a fourth, undetectable case — a request falling through to the
+SPA fallback and returning `200` with the app's own HTML — is now the second row
+above. See "Reading the metrics log honestly" in
+[not-found-routing.md](./not-found-routing.md) for what the resulting log can
+and cannot tell you.
 
 ## Server side
 

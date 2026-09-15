@@ -99,11 +99,12 @@ log is the always-on, server-side record. They answer different questions.
 
 This is the part that will be misread six months from now, so:
 
-- **A misrouted tracking request looks like a success.** If the server has no rule for
-  `metricsUrl`, the request falls through the SPA fallback and comes back 200
-  with the app's own HTML. Nothing warns, because detecting it would mean
-  coupling the client to a response contract it should not know about. The
-  server's log, not the browser console, is the proof the sink is wired up.
+- **A misrouted tracking request is detectable, but only in the console.** `204`
+  is the only response that counts as delivered. If the server has no rule for
+  `metricsUrl`, the request falls through the SPA fallback and comes back `200`
+  with the app's own HTML, which the app reports as an unexpected response
+  naming the rule to check. That warning reaches whoever has DevTools open — it
+  does not reach the log, which simply stays empty.
 - **Ad blockers drop it.** Blocking URL paths containing `metrics` is routine.
   Those requests reject and warn, and the event is lost. Expected, not a defect.
 - **Only full page loads are reported.** The request is sent from the root page

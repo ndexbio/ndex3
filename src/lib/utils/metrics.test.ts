@@ -98,9 +98,13 @@ describe('sendMetricsEvent', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('/metrics/not-found?url=%2Fnope')
   })
 
-  it('sends nothing when metricsUrl is explicitly blank', () => {
+  // Blank and cross-origin both send nothing, but only blank is silent: one is
+  // a deliberate opt-out, the other a misconfiguration the operator must see.
+  it('sends nothing and says nothing when metricsUrl is explicitly blank', () => {
     sendMetricsEvent('', 'not-found', { url: '/nope' })
+
     expect(fetchMock).not.toHaveBeenCalled()
+    expect(warnSpy).not.toHaveBeenCalled()
   })
 
   it('issues one keepalive GET to the event URL', async () => {
@@ -110,7 +114,14 @@ describe('sendMetricsEvent', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/metrics/not-found?url=%2Fnope')
-    expect(init).toMatchObject({ method: 'GET', keepalive: true, cache: 'no-store' })
+    // no-referrer is load-bearing: the page URL can carry ?accesskey=<secret>,
+    // and the Referer header would write it into the server's access log.
+    expect(init).toMatchObject({
+      method: 'GET',
+      keepalive: true,
+      cache: 'no-store',
+      referrerPolicy: 'no-referrer',
+    })
   })
 
   it('warns nothing on success', async () => {
@@ -134,7 +145,7 @@ describe('sendMetricsEvent', () => {
     expect(warnSpy.mock.calls[0][0]).toContain('[ndex3:metrics]')
   })
 
-  it('warns once when the server answers with a non-ok status', async () => {
+  it('warns once when the server answers with an error status', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 404 })
     sendMetricsEvent('/metrics', 'not-found')
     await Promise.resolve()
@@ -142,6 +153,55 @@ describe('sendMetricsEvent', () => {
 
     expect(warnSpy).toHaveBeenCalledTimes(1)
     expect(warnSpy.mock.calls[0][0]).toContain('404')
+  })
+
+  // 204 is the protocol. A 200 means the request was not handled by the
+  // metrics rule — most likely it fell through to the SPA fallback and came
+  // back as the app's own HTML, which used to count as success.
+  it('warns on a 200, because only 204 means the endpoint handled it', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200 })
+    sendMetricsEvent('/metrics', 'not-found')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    const message = warnSpy.mock.calls[0][0]
+    expect(message).toContain('unexpected metrics response')
+    expect(message).toContain('HTTP 200')
+    // The message has to diagnose itself: nothing in CI can confirm the
+    // server's rewrite rule really emits 204.
+    expect(message).toContain('expected 204')
+    expect(message).toContain('rewrite rule')
+  })
+
+  // The endpoint must be same-origin or its response cannot be read, which
+  // would make the 204 check meaningless. jsdom serves these tests from
+  // http://localhost.
+  //
+  // NOTE: the module warns about a bad origin only once per page load, and that
+  // flag is module-level state which survives jest.restoreAllMocks(). A second
+  // cross-origin test in this file would see no warning. If you need one, reset
+  // the module registry for it rather than asserting on the warn count.
+  it('refuses a cross-origin metricsUrl and reports it as invalid', () => {
+    sendMetricsEvent('https://metrics.example.org/e', 'not-found', { url: '/nope' })
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    const message = warnSpy.mock.calls[0][0]
+    expect(message).toContain('invalid metricsUrl')
+    expect(message).toContain('same-origin')
+  })
+
+  // An origin comparison, not a "looks absolute" test — a fully qualified URL
+  // pointing at the app's own origin is a valid configuration.
+  it('accepts a fully qualified metricsUrl on the app\'s own origin', () => {
+    sendMetricsEvent(`${window.location.origin}/metrics`, 'not-found', { url: '/nope' })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `${window.location.origin}/metrics/not-found?url=%2Fnope`,
+    )
+    expect(warnSpy).not.toHaveBeenCalled()
   })
 
   // A dropped tracking request is not an application error and must not reach error

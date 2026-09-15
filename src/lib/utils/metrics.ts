@@ -28,17 +28,54 @@ const LOG_PREFIX = '[ndex3:metrics]'
 export const DEFAULT_METRICS_URL = '/metrics'
 
 /**
+ * The only response the endpoint may answer with. Anything else — including a
+ * 200 — means the request was not handled by the metrics rule: the likeliest
+ * cause is that it fell through to the SPA fallback and came back as the app's
+ * own HTML. One success code is what makes that detectable.
+ */
+export const METRICS_SUCCESS_STATUS = 204
+
+/**
  * Event names this app emits. Adding an event is a code change only — the
  * server matches the whole `metricsUrl` subtree, not individual events.
  */
 export type MetricsEvent = 'not-found'
 
 /**
+ * Set once a cross-origin `metricsUrl` has been reported, so a misconfigured
+ * deployment warns a single time rather than on every event.
+ */
+let warnedAboutOrigin = false
+
+/**
+ * True when `url` resolves to the origin the app is served from.
+ *
+ * Deliberately an origin comparison rather than a check for an absolute URL:
+ * `https://www.ndexbio.org/metrics` served from that host is same-origin and
+ * valid. Relative URLs resolve against the current origin and always pass.
+ *
+ * @param url - Absolute or app-relative URL
+ * @returns `false` only for a genuine origin mismatch (or an unparseable URL)
+ */
+const isSameOrigin = (url: string): boolean => {
+  if (typeof window === 'undefined') {
+    return false
+  }
+  try {
+    return new URL(url, window.location.href).origin === window.location.origin
+  } catch {
+    return false
+  }
+}
+
+/**
  * Builds the absolute URL for a metrics event.
  *
  * @param metricsUrl - `metricsUrl` from config. An app-relative path is
  *                     prefixed with `basePath`; a fully qualified URL is used
- *                     as-is. When absent, {@link DEFAULT_METRICS_URL} applies.
+ *                     as-is, and must point at the app's own origin (enforced
+ *                     by {@link sendMetricsEvent}). When absent,
+ *                     {@link DEFAULT_METRICS_URL} applies.
  * @param event - Event name, appended as a path segment
  * @param params - Query parameters describing the event
  * @param basePath - `urlBaseName` from config, for app-relative values
@@ -71,18 +108,25 @@ export const buildMetricsEventUrl = (
  * Sends a metrics event. Never throws, never reports to the user, and never
  * affects what renders.
  *
- * Failures are warned to the console exactly once per call — `console.warn`,
- * not `console.error`, because a dropped tracking request is not an application failure
- * and does not belong in error reporting. Both failure shapes are covered: a
- * network, CORS or ad-blocked request rejects, while an HTTP 404 or 500 —
- * the likelier symptom of a server misconfiguration — resolves with
- * `ok: false`.
+ * Two requirements make the outcome deterministic, and both are enforced here:
  *
- * Note that a *misrouted* tracking request cannot be detected here. If the server has no
- * rule for `metricsUrl`, the request falls through the SPA fallback and returns
- * 200 with `index.html`, which is indistinguishable from success without
- * coupling this module to a response contract. The server's log, not the
- * browser console, is the source of truth for whether the sink is wired up.
+ *  - **The endpoint must be same-origin.** A cross-origin response cannot be
+ *    read by the browser, so the status below could never be checked. A
+ *    cross-origin `metricsUrl` is a configuration error, reported once and not
+ *    sent. Note this is an origin comparison, not a "looks absolute" test: a
+ *    fully qualified URL pointing at the app's own origin is perfectly valid.
+ *  - **The endpoint must answer {@link METRICS_SUCCESS_STATUS}.** Anything else
+ *    means the request was not handled by the server's metrics rule.
+ *
+ * Together these close what used to be a blind spot: a request falling through
+ * to the SPA fallback returns 200 with the app's own HTML, which previously
+ * counted as success.
+ *
+ * Failures are warned to the console — `console.warn`, not `console.error`,
+ * because a dropped tracking request is not an application failure and does not
+ * belong in error reporting. Two shapes are distinguished, since a rejected
+ * request has no status at all: a network or ad-blocked request rejects, while
+ * a response with the wrong status resolves.
  *
  * @param metricsUrl - `metricsUrl` from config; when absent the default
  *                     endpoint is used, when blank nothing is sent
@@ -101,19 +145,45 @@ export const sendMetricsEvent = (
     return
   }
 
+  if (!isSameOrigin(url)) {
+    // Once per page load: a misconfigured endpoint would otherwise warn on
+    // every event, and the operator can only act on the message once anyway.
+    if (!warnedAboutOrigin) {
+      warnedAboutOrigin = true
+      console.warn(
+        `${LOG_PREFIX} invalid metricsUrl: must be same-origin as the app, ` +
+          `so its response can be read. Not sending: ${url}`,
+      )
+    }
+    return
+  }
+
   // keepalive so the request still goes out if the user navigates away
-  // immediately; no-store so an intermediary cache cannot swallow repeats.
-  void fetch(url, { method: 'GET', keepalive: true, cache: 'no-store' })
+  // immediately; no-store so an intermediary cache cannot swallow repeats;
+  // no-referrer because the page URL can carry ?accesskey=<secret> and the
+  // Referer header would otherwise write it into the server's access log —
+  // the very thing stripping the query string from `params` prevents.
+  void fetch(url, {
+    method: 'GET',
+    keepalive: true,
+    cache: 'no-store',
+    referrerPolicy: 'no-referrer',
+  })
     .then((response) => {
-      if (!response.ok) {
+      if (response.status !== METRICS_SUCCESS_STATUS) {
         console.warn(
-          `${LOG_PREFIX} ${event} tracking request rejected by the server (HTTP ${response.status}): ${url}`,
+          `${LOG_PREFIX} ${event}: unexpected metrics response ` +
+            `(HTTP ${response.status}, expected ${METRICS_SUCCESS_STATUS}) — ` +
+            `check the server's metrics rewrite rule: ${url}`,
         )
       }
     })
     .catch((error) => {
-      // Routine causes: no such host, CORS, or an ad blocker dropping a URL
-      // with "metrics" in the path. Expected, not a defect.
-      console.warn(`${LOG_PREFIX} ${event} tracking request could not be sent: ${url}`, error)
+      // Routine causes: no such host, or an ad blocker dropping a URL with
+      // "metrics" in the path. Expected, not a defect.
+      console.warn(
+        `${LOG_PREFIX} ${event} tracking request could not be sent: ${url}`,
+        error,
+      )
     })
 }

@@ -17,6 +17,14 @@ describe('stripBasePath', () => {
   it('leaves a path that does not start with the base path alone', () => {
     expect(stripBasePath('/folders/abc', '/ndex3')).toBe('/folders/abc')
   })
+
+  // Stripping on a bare prefix match would mangle a sibling that merely shares
+  // the first characters — "/ndex30/missing" would become "0/missing", and that
+  // corrupted value is what gets reported to the metrics endpoint.
+  it('leaves a lookalike sibling path intact', () => {
+    expect(stripBasePath('/ndex30/missing', '/ndex3')).toBe('/ndex30/missing')
+    expect(stripBasePath('/ndex3-other/x', '/ndex3')).toBe('/ndex3-other/x')
+  })
 })
 
 describe('classifyClientRoute', () => {

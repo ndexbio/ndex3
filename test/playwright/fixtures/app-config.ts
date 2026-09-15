@@ -55,4 +55,23 @@ export const test = configFixture({ metricsUrl: TEST_METRICS_URL })
  */
 export const testWithoutMetrics = configFixture({ metricsUrl: '' })
 
+/** Base path used by the subdirectory-deployment fixture below. */
+export const TEST_BASE_PATH = '/test'
+
+/**
+ * App config declaring a subdirectory deployment.
+ *
+ * Scope, so this is not mistaken for more than it is: the app is still *served*
+ * from the root here, because `basePath` is baked into the build and testing a
+ * real subdirectory deployment would need a second `npm run build`. What this
+ * does cover is that `urlBaseName` flows from the fetched config through
+ * `ConfigContext` into the metrics URL builder in a real browser — i.e. that a
+ * subdirectory deployment addresses its endpoint correctly. It does **not**
+ * cover serving under a prefix, nor any Apache rewrite behaviour.
+ */
+export const testWithBasePath = configFixture({
+  metricsUrl: TEST_METRICS_URL,
+  urlBaseName: TEST_BASE_PATH,
+})
+
 export { expect }

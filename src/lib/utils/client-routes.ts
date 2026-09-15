@@ -50,7 +50,13 @@ const NETWORKSET_ROUTE = /^\/networkset\/([^/]+?)\/?$/
  * @returns The app-relative path, always beginning with "/"
  */
 export const stripBasePath = (pathname: string, basePath?: string): string => {
-  if (!basePath || !pathname.startsWith(basePath)) {
+  // A bare startsWith would also match a lookalike sibling: under basePath
+  // "/ndex3", "/ndex30/missing" would be mangled into "0/missing". The path
+  // must either be the base itself or sit beneath it.
+  const isUnderBasePath =
+    !!basePath &&
+    (pathname === basePath || pathname.startsWith(`${basePath}/`))
+  if (!isUnderBasePath) {
     return pathname
   }
   return pathname.slice(basePath.length) || '/'

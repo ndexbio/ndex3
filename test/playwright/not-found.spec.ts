@@ -1,4 +1,11 @@
-import { test, testWithoutMetrics, expect, TEST_METRICS_URL } from './fixtures/app-config'
+import {
+  test,
+  testWithoutMetrics,
+  testWithBasePath,
+  expect,
+  TEST_METRICS_URL,
+  TEST_BASE_PATH,
+} from './fixtures/app-config'
 
 /**
  * Matches a metrics tracking request and nothing else.
@@ -92,6 +99,25 @@ testWithoutMetrics.describe('unrecognized URLs with tracking turned off', () => 
 
       await expect(page.getByTestId('page-not-found')).toBeVisible()
       expect(trackingRequests).toEqual([])
+    },
+  )
+})
+
+testWithBasePath.describe('subdirectory deployment', () => {
+  testWithBasePath(
+    'addresses the metrics endpoint under the configured base path',
+    async ({ page }) => {
+      const tracking = page.waitForRequest((request) =>
+        isTrackingRequest(request.url()),
+      )
+
+      await page.goto('/doesnotexist/')
+
+      const url = new URL((await tracking).url())
+      expect(url.pathname).toBe(`${TEST_BASE_PATH}${TEST_METRICS_URL}/not-found`)
+      // The app is still served from the root, so the path it reports is the
+      // one it actually saw — base-path stripping is covered by unit tests.
+      expect(url.searchParams.get('url')).toBe('/doesnotexist/')
     },
   )
 })

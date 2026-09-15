@@ -77,7 +77,10 @@ section. Everything else is the existing static-file setup.
         #     vhost scope.
         SetEnvIf Request_URI "^/metrics(/|$)" ndex_metrics
 
-        LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" ndexmetrics
+        # No %{Referer}i: the referring page URL can carry ?accesskey=<secret>.
+        # The client also sends these with referrerPolicy "no-referrer", so this
+        # is belt and braces.
+        LogFormat "%h %l %u %t \"%r\" %>s %b \"%{User-Agent}i\"" ndexmetrics
         CustomLog /var/log/httpd/ndex_443_metrics_log ndexmetrics env=ndex_metrics
 </VirtualHost>
 ```
@@ -107,21 +110,31 @@ with the bare `^metrics` pattern.
 To keep tracking requests out of the main access log too, add `env=!ndex_metrics` to the
 existing `CustomLog` line. Add the new file to logrotate.
 
+**The `[R=204,L]` status is protocol, not style.** `204 No Content` is the only
+response the app accepts as delivered; anything else, including a `200`, is
+reported to the browser console as unexpected. Do not replace it with a rule
+that serves a file or returns 200.
+
 The `/metrics` prefix must match `metricsUrl` in `public/config.json`. Getting
-it wrong is harmless rather than breaking: the tracking request falls through to
-`index.html`, the client discards it, and visitors still see the correct
-not-found view — you simply lose the log line. That also means a **misconfigured
-sink looks identical to a working one from the browser**; this log is the only
-proof it is wired up.
+it wrong breaks nothing for visitors — the request falls through to
+`index.html`, the client discards it, and the not-found view still renders
+correctly — but you lose the log line. Unlike before, that misconfiguration is
+no longer invisible: the `200` from the fallback is exactly what the client now
+flags in the console.
 
 ### What lands in the log
 
 ```
-10.0.0.5 - - [14/Sep/2026:10:02:11 -0700] "GET /metrics/not-found?url=%2Fdoesnotexist HTTP/1.1" 204 - "https://dev3.ndex.ucsd.edu/doesnotexist" "Mozilla/5.0 ..."
+10.0.0.5 - - [14/Sep/2026:10:02:11 -0700] "GET /metrics/not-found?url=%2Fdoesnotexist HTTP/1.1" 204 - "Mozilla/5.0 ..."
 ```
 
-The `Referer` is the page the visitor was on — for `not-found` that is the same
-bad URL, which makes the line self-corroborating. Count the day's bad URLs with:
+There is deliberately no `Referer` field. It would have held the page the
+visitor was on, which for `not-found` is the same bad URL — but that URL can
+carry `?accesskey=<secret>` on a shared link, and this log is kept. The
+requested path is already in the `url` parameter, with the query string
+stripped, so nothing diagnostic is lost.
+
+Count the day's bad URLs with:
 
 ```bash
 # $7 is the request path in combined format; $9 is the status.
@@ -238,8 +251,12 @@ out/
 To serve the app under a path rather than at the root, set `urlBaseName` in
 `public/config.json` (for example `/ndex3`) and rebuild — the build script
 regenerates `next.config.ts` from it. In the vhost, use an `Alias` to the build
-output instead of `DocumentRoot`, add `RewriteBase /ndex3/` to the `<Directory>`
-block, and give both the metrics rule and the `SetEnvIf` the same prefix.
+output instead of `DocumentRoot` and add `RewriteBase /ndex3/` to the
+`<Directory>` block. Keep the metrics rule as `RewriteRule ^metrics(/|$)` and
+prefix only the `SetEnvIf Request_URI` pattern with `/ndex3`: inside
+`<Directory>`, Apache strips the mapped directory prefix before matching, so a
+prefixed rule would never fire, while `SetEnvIf` still sees the full request
+URI.
 
 ## Testing
 
