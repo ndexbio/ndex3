@@ -22,8 +22,14 @@ export const withBasePath = (path: string, basePath?: string): string => {
     actualBasePath = nextData?.basePath || '';
   }
   
-  // Don't prefix external URLs or already prefixed paths
-  if (path.startsWith('http') || (actualBasePath && path.startsWith(actualBasePath))) {
+  // Don't prefix external URLs or already prefixed paths.
+  // The "already prefixed" test needs a segment boundary: under basePath
+  // "/ndex3", a bare startsWith would treat "/ndex3-other" as already
+  // prefixed and leave it pointing outside the deployment.
+  const isAlreadyPrefixed =
+    !!actualBasePath &&
+    (path === actualBasePath || path.startsWith(`${actualBasePath}/`));
+  if (path.startsWith('http') || isAlreadyPrefixed) {
     return path;
   }
   

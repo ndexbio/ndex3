@@ -157,7 +157,7 @@ src/
 - **Loading & Error Boundaries**: Each route has its own `loading.tsx` and `error.tsx` for a resilient and user-friendly experience, leveraging React Suspense and Error Boundaries automatically.
 - **Static Export**: The application is optimized for static hosting, with `output: 'export'` configured in `next.config.ts`.
 
-See [`ROUTING_REFACTOR_PLAN.md`](./ROUTING_REFACTOR_PLAN.md) for a detailed breakdown of the routing architecture.
+For how this is served and why, see [`docs/APACHE_STATIC_DEPLOYMENT.md`](./docs/APACHE_STATIC_DEPLOYMENT.md); for URLs that match no route, [`docs/not-found-routing.md`](./docs/not-found-routing.md); for the NDEx2 URL rules, [`docs/legacy-redirects.md`](./docs/legacy-redirects.md).
 
 ## Configuration
 
@@ -169,6 +169,13 @@ The main configuration file defines:
 - **keycloakConfig**: Authentication server settings  
 - **uiContent**: Dynamic content configuration
 - **urlBaseName**: Optional URL base path
+- **cytoscapeWebUrl**: Optional Cytoscape Web URL for the "Open in Cytoscape Web" action
+- **maxNetworkElementsThreshold** / **maxEdgeCountThreshold**: Optional size limits above which "Open in Cytoscape Web" is disabled
+- **swaggerBaseName**: Optional path to the server's Swagger UI
+- **metricsUrl**: Optional base URL for client-side metrics events, such as reporting an unrecognized URL (see [docs/not-found-routing.md](./docs/not-found-routing.md))
+
+Every field and its default is documented on the `AppConfig` interface in
+`src/types/entities/AppConfig.ts`.
 
 ### Content Configuration
 
@@ -193,7 +200,7 @@ run `tar czf ndex3.tar.gz -s '/^out/ndex3/' out ` to create a single tarball tha
 
 ### Apache Configuration
 
-For Apache deployments, see [`APACHE_STATIC_DEPLOYMENT.md`](./APACHE_STATIC_DEPLOYMENT.md) for detailed configuration instructions.
+For Apache deployments, see [`docs/APACHE_STATIC_DEPLOYMENT.md`](./docs/APACHE_STATIC_DEPLOYMENT.md) for detailed configuration instructions.
 
 ## Development
 
@@ -231,10 +238,13 @@ In order to enable Google Analytics, export NEXT_PUBLIC_GA_ID=GS-XXXXX (the anal
 
 ## Documentation
 
-- [`CONTENT_SYSTEM_README.md`](./CONTENT_SYSTEM_README.md) - Content system overview
-- [`CONTENT_CONFIGURATION.md`](./CONTENT_CONFIGURATION.md) - Detailed content configuration
-- [`APACHE_STATIC_DEPLOYMENT.md`](./APACHE_STATIC_DEPLOYMENT.md) - Apache deployment guide
-- [`ROUTING_REFACTOR_PLAN.md`](./ROUTING_REFACTOR_PLAN.md) - Application routing documentation
+Start at [`docs/README.md`](./docs/README.md) — the documentation index, which
+lists every feature, decision and deployment document and is kept current.
+
+- [`docs/CONFIG_SYSTEM.md`](./docs/CONFIG_SYSTEM.md) - Configuration system
+- [`docs/APACHE_STATIC_DEPLOYMENT.md`](./docs/APACHE_STATIC_DEPLOYMENT.md) - Apache deployment guide
+- [`docs/CONTENT_SYSTEM_README.md`](./docs/CONTENT_SYSTEM_README.md) - Content system overview
+- [`docs/CONTENT_CONFIGURATION.md`](./docs/CONTENT_CONFIGURATION.md) - Detailed content configuration
 
 ## License
 

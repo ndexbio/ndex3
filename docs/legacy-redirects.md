@@ -48,7 +48,9 @@ This is **not the same URL shape** as Rule 2's `#/networkset/{id}` — this is a
 
 > **Trailing-slash note:** the `networksetMatch`, `folderMatch`, and `userMatch` patterns in `page.tsx` each accept an optional trailing slash (`/…\/?$/`). This matters because the app sets `trailingSlash: true`, so a statically-served deep link arrives as `/networkset/{id}/` (or `/folders/{id}/`). Without the optional slash these client-side matchers would miss and fall through to the home page.
 
-**Tests**: none currently — this path isn't covered by a dedicated unit test (unlike Rules 1 & 2).
+**Tests**: [`page.test.tsx`](../src/app/page.test.tsx) covers this rule — it asserts both the `router.replace` to the canonical `/folders/{id}` form and that the folder view renders immediately.
+
+> **Fall-through note:** an unrecognized pathname no longer reaches the home page. `page.tsx` classifies the path through `classifyClientRoute` and renders a not-found view for anything that matches no route, so a *near-miss* legacy URL — a `networkset` link with a missing or malformed id, say — now surfaces as "Page Not Found" rather than silently landing on the home page. See [`docs/not-found-routing.md`](./not-found-routing.md).
 
 ## Why two mechanisms for the same conceptual migration
 

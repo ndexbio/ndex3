@@ -1,6 +1,6 @@
 {
   "name": "ndex-next",
-  "version": "0.2.0",
+  "version": "3.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
-    "check:docs": "node scripts/check-docs-links.js"
+    "check:docs": "node scripts/check-docs-links.js docs README.md CLAUDE.md"
   },
   "dependencies": {
     "@js4cytoscape/ndex-client": "^0.8.1",
