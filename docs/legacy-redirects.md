@@ -2,14 +2,14 @@
 
 ## Overview
 
-NDEx2 (the previous frontend) used hash-based client-side routing (`#/network/{id}`, `#/networkset/{id}`) and was served from `public.ndexbio.org`. Links to that app — bookmarks, DOIs, external citations — still circulate, so NDEx3 redirects them to the equivalent NDEx3 (or sibling app) URL.
+NDEx2 (the previous frontend) used hash-based client-side routing (`#/network/{id}`, `#/networkset/{id}`, `#/group/{id}`) and was served from `public.ndexbio.org`. Links to that app — bookmarks, DOIs, external citations — still circulate, so NDEx3 redirects them to the equivalent NDEx3 (or sibling app) URL.
 
 There are **three independent redirect rules**, implemented in **two separate places**, because they operate on different parts of the URL:
 
 | # | Rule | Input | Output | Implementation |
 |---|------|-------|--------|-----------------|
 | 1 | Host canonicalization | any URL on `public.ndexbio.org`, or http on either prod host | same URL on `https://www.ndexbio.org` | [`legacyRedirect.ts`](../src/utils/legacyRedirect.ts) → `resolveHostRedirect` |
-| 2 | Hash-fragment rewrite | `#/network/{id}...` or `#/networkset/{id}...` | `/viewer/networks/{id}...` or `/folders/{id}...` | [`legacyRedirect.ts`](../src/utils/legacyRedirect.ts) → `resolveFragmentRedirect` |
+| 2 | Hash-fragment rewrite | `#/network/{id}...`, `#/networkset/{id}...` or `#/group/{id}...` | `/viewer/networks/{id}...` or `/folders/{id}...` | [`legacyRedirect.ts`](../src/utils/legacyRedirect.ts) → `resolveFragmentRedirect` |
 | 3 | Legacy pathname route | `/networkset/{id}` (no hash) | `/folders/{id}` | [`src/app/page.tsx`](../src/app/page.tsx) (`networksetMatch` block) |
 
 Rules 1 and 2 are composed by `resolveLegacyRedirect()` and fire together from one component; rule 3 is a completely separate code path. See "Why two mechanisms" below.
@@ -32,13 +32,23 @@ Rules 1 and 2 are composed by `resolveLegacyRedirect()` and fire together from o
   |---|---|
   | `#/network/{id}` | `/viewer/networks/{id}` — the **NDEx Network Viewer**, a sibling app on the same host, not a route in this Next.js app |
   | `#/networkset/{id}` | `/folders/{id}` — a route inside this app |
+  | `#/group/{id}` | `/folders/{id}` — see "Groups became folders" below |
 - Any trailing query string on the fragment (e.g. `?accesskey=...`) is carried across unchanged. The destination `/folders/{id}?accesskey=...` now honors that access key end-to-end: `FolderViewer` parses it and passes it to the folder API calls as a READ bypass (see [`docs/folder-viewing-feature.md`](./folder-viewing-feature.md)).
 - Returns `null` if the hash doesn't start with `#/` or doesn't match a known prefix — the hash is left alone (host canonicalization from Rule 1 can still apply independently)
+
+#### Groups became folders
+
+NDEx2 had a first-class *group* entity with its own page (`#/group/{id}`, rendered by the AngularJS `groupController` against `GET /group/{groupid}`). NDEx3 has no group entity: the migration turned each group into a **folder that keeps the group's UUID**, so the legacy link needs no id translation — only the prefix swap `/group/` → `/folders/`.
+
+Two things this rule deliberately does *not* cover:
+
+- **`#/access/group/{id}`** — NDEx2's group-permissions management screen. It doesn't start with `/group/`, so it falls through to `null` and the hash is left alone. NDEx3 has no equivalent screen, and silently landing the user on a folder view would misrepresent what they clicked.
+- **A bare `/group/{id}` pathname** (no hash), the way Rule 3 handles `/networkset/{id}`. The NDEx2 app never configured `$locationProvider.html5Mode`, so every group link it ever produced was hash-routed; there is no non-hash legacy form to catch. Add one only if such links turn out to exist in the wild — it would mean touching `client-routes.ts`, `page.tsx`, `public/serve.json` and the Apache rewrite config, exactly as `/networkset/` did.
 
 ### Composition — `resolveLegacyRedirect(href)`
 Combines both rules into a single target URL so `http://public.ndexbio.org/#/network/{id}` redirects in **one hop** (fixed host + rewritten path) instead of two round trips. If neither rule applies, returns `null` and no redirect happens.
 
-**Tests**: [`legacyRedirect.test.ts`](../src/utils/legacyRedirect.test.ts) covers all three functions independently plus their composition (host-only, fragment-only, both, neither, `index.html` paths, unrecognized hashes).
+**Tests**: [`legacyRedirect.test.ts`](../src/utils/legacyRedirect.test.ts) covers all three functions independently plus their composition (host-only, fragment-only, both, neither, `index.html` paths, unrecognized hashes). [`legacy-group-redirect.spec.ts`](../test/playwright/legacy-group-redirect.spec.ts) drives the group hop end to end in a real browser — only the folder API is mocked, so the folder contents can only render if the redirect actually fired.
 
 ## Rule 3: legacy `/networkset/{id}` pathname route
 

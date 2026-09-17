@@ -31,6 +31,18 @@ describe('resolveFragmentRedirect', () => {
     );
   });
 
+  it('#/group/{id} -> /folders/{id} (NDEx2 groups became folders)', () => {
+    expect(resolveFragmentRedirect(new URL('https://www.ndexbio.org/#/group/abc'))).toBe(
+      '/folders/abc'
+    );
+  });
+
+  it('#/group/{id}?accesskey=... carries the access key across', () => {
+    expect(resolveFragmentRedirect(new URL('https://www.ndexbio.org/#/group/abc?accesskey=xyz'))).toBe(
+      '/folders/abc?accesskey=xyz'
+    );
+  });
+
   it('ignores pathname entirely', () => {
     expect(resolveFragmentRedirect(new URL('https://www.ndexbio.org/index.html#/network/abc'))).toBe(
       '/viewer/networks/abc'
@@ -83,6 +95,24 @@ describe('resolveLegacyRedirect', () => {
     ).toBe(
       'https://www.ndexbio.org/folders/224d4de6-e23f-11ea-99da-0ac135e8bacf?accesskey=6b9681c3566e6646d8f8a03e131a2037495f44c071d956776316106f59b03ab9'
     );
+  });
+
+  it('public.ndexbio.org group -> www folders (http->https, one hop)', () => {
+    expect(
+      resolveLegacyRedirect('http://public.ndexbio.org/#/group/6a554a61-a788-11ef-99aa-005056ae3c32')
+    ).toBe('https://www.ndexbio.org/folders/6a554a61-a788-11ef-99aa-005056ae3c32');
+  });
+
+  it('index.html group -> folders (pathname ignored)', () => {
+    expect(
+      resolveLegacyRedirect('https://www.ndexbio.org/index.html#/group/6a554a61-a788-11ef-99aa-005056ae3c32')
+    ).toBe('https://www.ndexbio.org/folders/6a554a61-a788-11ef-99aa-005056ae3c32');
+  });
+
+  it('leaves the legacy group-permissions page alone (#/access/group/{id})', () => {
+    // NDEx3 has no equivalent of the Angular group-access screen, so the hash
+    // must not be mistaken for a group link and sent to a folder view.
+    expect(resolveLegacyRedirect('https://www.ndexbio.org/#/access/group/abc')).toBeNull();
   });
 
   it('returns null for non-legacy and malformed URLs', () => {
