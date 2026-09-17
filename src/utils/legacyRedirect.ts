@@ -1,6 +1,9 @@
 const FRAGMENT_ROUTE_MAP: ReadonlyArray<{ from: string; to: string }> = [
   { from: '/network/', to: '/viewer/networks/' },
   { from: '/networkset/', to: '/folders/' },
+  // NDEx2 groups were migrated to folders keeping their UUID, so a legacy
+  // group link resolves against the folders route unchanged.
+  { from: '/group/', to: '/folders/' },
 ];
 
 const LEGACY_HOST = 'public.ndexbio.org';
@@ -29,8 +32,8 @@ export function resolveHostRedirect(url: URL): string | null {
  *
  * `/network/` targets the NDEx Network Viewer, a sibling app deployed on the
  * same host at `/viewer/networks/{id}` — not a route inside this Next.js app.
- * `/networkset/` targets `/folders/{id}`, which IS a route inside this app
- * (see the separate pathname-based redirect in src/app/page.tsx).
+ * `/networkset/` and `/group/` target `/folders/{id}`, which IS a route inside
+ * this app (see the separate pathname-based redirect in src/app/page.tsx).
  *
  * Returns the new path (+ id and any query string carried across from the
  * fragment), or null if the hash isn't a recognized legacy pattern.
