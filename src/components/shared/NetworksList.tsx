@@ -520,7 +520,7 @@ const ListNetworkItem = ({
             <td className={`${getTdClasses('right')} hidden xl:table-cell`}>
               <div className="flex items-center justify-end w-full text-sm text-muted-foreground">
                 <span className="truncate">
-                  {network.type === NDExFileType.SHORTCUT ? '' : formatCount(network.nodes ?? 0)}
+                  {formatCount(network.nodes ?? 0)}
                 </span>
               </div>
             </td>
@@ -528,7 +528,7 @@ const ListNetworkItem = ({
           <td className={getTdClasses('right')}>
             <div className="flex items-center justify-end w-full text-sm text-muted-foreground">
               <span className="truncate">
-                {network.type === NDExFileType.SHORTCUT ? '' : formatCount(network.edges || 0)}
+                {formatCount(network.edges || 0)}
               </span>
             </div>
           </td>

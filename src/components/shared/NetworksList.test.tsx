@@ -134,6 +134,28 @@ describe('NetworksList count columns', () => {
     expect(screen.getByText('5,678')).toBeInTheDocument()
   })
 
+  it('shows counts for available network shortcuts too', () => {
+    render(
+      <NetworksList
+        items={[
+          {
+            ...network,
+            type: NDExFileType.SHORTCUT,
+            nodes: 12,
+            edges: 34,
+            attributes: { target_status: 'ACTIVE', target_type: NDExFileType.NETWORK },
+          },
+        ]}
+        viewMode="list"
+        readOnly
+        showNodeCountColumn
+      />,
+    )
+
+    expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getByText('34')).toBeInTheDocument()
+  })
+
   it('spans all trailing columns for unavailable shortcuts', () => {
     const { container } = render(
       <NetworksList
