@@ -27,7 +27,7 @@ export function mapFileListItemToFileItemBase(item: FileListItem): FileItemBase 
     visibility: item.visibility,
     updatedBy: item.updatedBy,
     nodes: anyItem.nodes ?? anyItem.nodeCount ?? attributes.nodes ?? attributes.nodeCount,
-    edges: item.edges,
+    edges: anyItem.edges ?? anyItem.edgeCount ?? attributes.edges ?? attributes.edgeCount,
     permission: item.permission,
     // DOI state stays top-level, where network-status.ts reads it. The server
     // returns `doi` top-level everywhere; `isCertified` is top-level on newer

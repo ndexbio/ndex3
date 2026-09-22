@@ -77,4 +77,12 @@ describe('mapFileListItemToFileItemBase — DOI state', () => {
 
     expect(mapped.nodes).toBe(321)
   })
+
+  it('maps edge counts from alternate search payload fields too', () => {
+    const mapped = mapFileListItemToFileItemBase(
+      listItem({ edges: undefined, attributes: { description: 'x', edgeCount: 654 } }),
+    )
+
+    expect(mapped.edges).toBe(654)
+  })
 })
