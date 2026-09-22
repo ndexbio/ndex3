@@ -116,3 +116,65 @@ describe('NetworksList DOI status icons', () => {
     }
   })
 })
+
+describe('NetworksList count columns', () => {
+  it('shows node and edge counts when the node-count column is enabled', () => {
+    render(
+      <NetworksList
+        items={[{ ...network, nodes: 1234, edges: 5678 }]}
+        viewMode="list"
+        readOnly
+        showNodeCountColumn
+      />,
+    )
+
+    expect(screen.getByRole('columnheader', { name: 'Nodes' })).toHaveClass('hidden', 'xl:table-cell')
+    expect(screen.getByRole('columnheader', { name: 'Edges' })).toBeInTheDocument()
+    expect(screen.getByText('1,234')).toBeInTheDocument()
+    expect(screen.getByText('5,678')).toBeInTheDocument()
+  })
+
+  it('shows counts for available network shortcuts too', () => {
+    render(
+      <NetworksList
+        items={[
+          {
+            ...network,
+            type: NDExFileType.SHORTCUT,
+            nodes: 12,
+            edges: 34,
+            attributes: { target_status: 'ACTIVE', target_type: NDExFileType.NETWORK },
+          },
+        ]}
+        viewMode="list"
+        readOnly
+        showNodeCountColumn
+      />,
+    )
+
+    expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getByText('34')).toBeInTheDocument()
+  })
+
+  it('spans all trailing columns for unavailable shortcuts', () => {
+    const { container } = render(
+      <NetworksList
+        items={[
+          {
+            ...network,
+            type: NDExFileType.SHORTCUT,
+            attributes: { target_status: 'IN_TRASH', target_type: NDExFileType.NETWORK },
+          },
+        ]}
+        viewMode="list"
+        readOnly
+        showOwnerColumn
+        showNodeCountColumn
+        onDropdownToggle={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Original moved to trash')).toBeInTheDocument()
+    expect(container.querySelector('td[colspan="6"]')).not.toBeNull()
+  })
+})
