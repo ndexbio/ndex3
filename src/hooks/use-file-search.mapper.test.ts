@@ -69,4 +69,12 @@ describe('mapFileListItemToFileItemBase — DOI state', () => {
     expect(isPreCertified(mapped)).toBe(false)
     expect(isDOIAssigned(mapped)).toBe(false)
   })
+
+  it('maps node counts from the search payload to the shared top-level field', () => {
+    const mapped = mapFileListItemToFileItemBase(
+      listItem({ attributes: { description: 'x', nodeCount: 321 } }),
+    )
+
+    expect(mapped.nodes).toBe(321)
+  })
 })

@@ -56,6 +56,7 @@ interface NetworksListProps {
   /** Access key inherited from the current folder URL. */
   accessKey?: string
   showOwnerColumn?: boolean
+  showNodeCountColumn?: boolean
   showVisibilityColumn?: boolean
   showPermissionColumn?: boolean
   selectedItems?: string[]
@@ -335,6 +336,7 @@ const ListNetworkItem = ({
   onWarningClick,
   onErrorClick,
   showOwnerColumn,
+  showNodeCountColumn,
   showVisibilityColumn,
   showPermissionColumn,
   readOnly,
@@ -361,6 +363,7 @@ const ListNetworkItem = ({
   onWarningClick: (network: FileItemBase) => void
   onErrorClick: (network: FileItemBase) => void
   showOwnerColumn?: boolean
+  showNodeCountColumn?: boolean
   showVisibilityColumn?: boolean
   showPermissionColumn?: boolean
   readOnly?: boolean
@@ -478,9 +481,9 @@ const ListNetworkItem = ({
           />
         </td>
       )}
-{isUnavailable ? (
-        // For unavailable shortcuts (trashed or deleted), span the message across Edges and Last Modified columns
-        <td className={getTdClasses('left')} colSpan={2}>
+      {isUnavailable ? (
+        // For unavailable shortcuts (trashed or deleted), span the count/date columns
+        <td className={getTdClasses('left')} colSpan={showNodeCountColumn ? 3 : 2}>
           <div className="flex items-center justify-start w-full text-sm text-muted-foreground italic">
             <span className="truncate">
               {getUnavailableShortcutMessage(network)}
@@ -489,6 +492,15 @@ const ListNetworkItem = ({
         </td>
       ) : (
         <>
+          {showNodeCountColumn && (
+            <td className={`${getTdClasses('right')} hidden xl:table-cell`}>
+              <div className="flex items-center justify-end w-full text-sm text-muted-foreground">
+                <span className="truncate">
+                  {network.type === NDExFileType.SHORTCUT ? '' : formatCount(network.nodes ?? 0)}
+                </span>
+              </div>
+            </td>
+          )}
           <td className={getTdClasses('right')}>
             <div className="flex items-center justify-end w-full text-sm text-muted-foreground">
               <span className="truncate">
@@ -580,6 +592,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
   readOnly = false,
   accessKey,
   showOwnerColumn = false,
+  showNodeCountColumn = false,
   showVisibilityColumn = true,
   showPermissionColumn = false,
   selectedItems = [],
@@ -823,6 +836,15 @@ const NetworksList: React.FC<NetworksListProps> = ({
                     Owner
                   </th>
                 )}
+                {showNodeCountColumn && (
+                  <th
+                    scope="col"
+                    className={`${getThClasses('right')} hidden xl:table-cell`}
+                    style={{ width: '120px', minWidth: '120px' }}
+                  >
+                    Nodes
+                  </th>
+                )}
                 <th
                   scope="col"
                   className={getThClasses('right')}
@@ -893,6 +915,7 @@ const NetworksList: React.FC<NetworksListProps> = ({
                   onWarningClick={handleWarningClick}
                   onErrorClick={handleErrorClick}
                   showOwnerColumn={showOwnerColumn}
+                  showNodeCountColumn={showNodeCountColumn}
                   showVisibilityColumn={showVisibilityColumn}
                   showPermissionColumn={showPermissionColumn}
                   readOnly={readOnly}

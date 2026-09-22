@@ -116,3 +116,21 @@ describe('NetworksList DOI status icons', () => {
     }
   })
 })
+
+describe('NetworksList count columns', () => {
+  it('shows node and edge counts when the node-count column is enabled', () => {
+    render(
+      <NetworksList
+        items={[{ ...network, nodes: 1234, edges: 5678 }]}
+        viewMode="list"
+        readOnly
+        showNodeCountColumn
+      />,
+    )
+
+    expect(screen.getByRole('columnheader', { name: 'Nodes' })).toHaveClass('hidden', 'xl:table-cell')
+    expect(screen.getByRole('columnheader', { name: 'Edges' })).toBeInTheDocument()
+    expect(screen.getByText('1,234')).toBeInTheDocument()
+    expect(screen.getByText('5,678')).toBeInTheDocument()
+  })
+})

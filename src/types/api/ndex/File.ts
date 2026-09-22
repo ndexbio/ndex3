@@ -13,6 +13,7 @@ export interface FileItemBase {
   ownerUUID?: string
   visibility?: string
   updatedBy?: string
+  nodes?: number
   edges?: number
   permission?: Permission
   // DOI / certification state. Networks only — never present on folders or

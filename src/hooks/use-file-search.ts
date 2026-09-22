@@ -14,24 +14,28 @@ const PUBLIC_PRIVATE_PAGE_SIZE = 500
  * Maps a FileListItem from the API to the internal FileItemBase type.
  */
 export function mapFileListItemToFileItemBase(item: FileListItem): FileItemBase {
+  const attributes = item.attributes || {}
+  const anyItem = item as any
+
   return {
     uuid: item.uuid,
     name: item.name || '',
     type: item.type,
     modificationTime: item.modificationTime,
     owner: item.owner,
-    ownerUUID: item.ownerUUID || (item as any).owner_id,
+    ownerUUID: item.ownerUUID || anyItem.owner_id,
     visibility: item.visibility,
     updatedBy: item.updatedBy,
+    nodes: anyItem.nodes ?? anyItem.nodeCount ?? attributes.nodes ?? attributes.nodeCount,
     edges: item.edges,
     permission: item.permission,
     // DOI state stays top-level, where network-status.ts reads it. The server
     // returns `doi` top-level everywhere; `isCertified` is top-level on newer
     // servers and under `attributes` in search results on older ones.
     doi: item.doi,
-    isCertified: item.isCertified ?? item.attributes?.isCertified,
+    isCertified: item.isCertified ?? attributes.isCertified,
     attributes: {
-      ...item.attributes,
+      ...attributes,
       isReadOnly: item.isReadOnly,
       isValid: item.isValid,
       isCompleted: item.isCompleted,
