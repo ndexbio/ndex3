@@ -133,4 +133,26 @@ describe('NetworksList count columns', () => {
     expect(screen.getByText('1,234')).toBeInTheDocument()
     expect(screen.getByText('5,678')).toBeInTheDocument()
   })
+
+  it('spans all trailing columns for unavailable shortcuts', () => {
+    const { container } = render(
+      <NetworksList
+        items={[
+          {
+            ...network,
+            type: NDExFileType.SHORTCUT,
+            attributes: { target_status: 'IN_TRASH', target_type: NDExFileType.NETWORK },
+          },
+        ]}
+        viewMode="list"
+        readOnly
+        showOwnerColumn
+        showNodeCountColumn
+        onDropdownToggle={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Original moved to trash')).toBeInTheDocument()
+    expect(container.querySelector('td[colspan="5"]')).not.toBeNull()
+  })
 })

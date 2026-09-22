@@ -374,6 +374,12 @@ const ListNetworkItem = ({
   const hasError = hasNetworkError(network)
   const userOwns = isOwner(network, currentUserName)
   const showRemoveButton = isUnavailable && !!onRemoveShortcut && userOwns
+  const unavailableColSpan =
+    2 +
+    (showNodeCountColumn ? 1 : 0) +
+    (showVisibilityColumn ? 1 : 0) +
+    (showPermissionColumn ? 1 : 0) +
+    (onDropdownToggle ? 1 : 0)
 
   // For list view, we need to handle refs differently
   // Same approach as FoldersList - make the entire row draggable
@@ -482,12 +488,29 @@ const ListNetworkItem = ({
         </td>
       )}
       {isUnavailable ? (
-        // For unavailable shortcuts (trashed or deleted), span the count/date columns
-        <td className={getTdClasses('left')} colSpan={showNodeCountColumn ? 3 : 2}>
-          <div className="flex items-center justify-start w-full text-sm text-muted-foreground italic">
-            <span className="truncate">
+        // For unavailable shortcuts (trashed or deleted), span all trailing columns
+        <td className={getTdClasses('left')} colSpan={unavailableColSpan}>
+          <div className="flex items-center justify-between gap-3 w-full text-sm text-muted-foreground italic">
+            <span className="truncate min-w-0">
               {getUnavailableShortcutMessage(network)}
             </span>
+            {showRemoveButton && (
+              <button
+                className="px-3 py-1 text-xs not-italic font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300
+                           border border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700 rounded-md
+                           transition-colors duration-200"
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  try {
+                    await onRemoveShortcut!(network.uuid)
+                  } catch (error) {
+                    console.error('Error removing shortcut:', error)
+                  }
+                }}
+              >
+                Remove shortcut
+              </button>
+            )}
           </div>
         </td>
       ) : (
@@ -517,7 +540,7 @@ const ListNetworkItem = ({
           </td>
         </>
       )}
-      {showVisibilityColumn && (
+      {!isUnavailable && showVisibilityColumn && (
         <td className={getTdClasses('center')}>
           <div className="flex justify-center w-full">
             {showRemoveButton ? (
@@ -536,9 +559,6 @@ const ListNetworkItem = ({
               >
                 Remove shortcut
               </button>
-            ) : isUnavailable ? (
-              // Non-owner viewing a dead shortcut: nothing in the visibility cell
-              null
             ) : (
               <span
                 className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
@@ -555,7 +575,7 @@ const ListNetworkItem = ({
           </div>
         </td>
       )}
-      {showPermissionColumn && (
+      {!isUnavailable && showPermissionColumn && (
         <td className={getTdClasses('center')}>
           <div className="flex justify-center w-full">
             <span className="text-sm text-muted-foreground">
@@ -564,21 +584,19 @@ const ListNetworkItem = ({
           </div>
         </td>
       )}
-      {onDropdownToggle && (
+      {!isUnavailable && onDropdownToggle && (
         <td className={getTdClasses('center')}>
-          {!isUnavailable && (
-            <button
-              className={tableStyles.button.dropdown}
-              onClick={(e) => {
-                e.stopPropagation()
-                onDropdownToggle(e, network.uuid, network.type)
-              }}
-              data-dropdown-trigger
-              data-dropdown-id={network.uuid}
-            >
-              <MoreVertical className="h-4 w-4 text-muted-foreground" />
-            </button>
-          )}
+          <button
+            className={tableStyles.button.dropdown}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDropdownToggle(e, network.uuid, network.type)
+            }}
+            data-dropdown-trigger
+            data-dropdown-id={network.uuid}
+          >
+            <MoreVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
         </td>
       )}
     </tr>
