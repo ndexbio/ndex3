@@ -376,6 +376,7 @@ const ListNetworkItem = ({
   const showRemoveButton = isUnavailable && !!onRemoveShortcut && userOwns
   const unavailableColSpan =
     2 +
+    (showOwnerColumn ? 1 : 0) +
     (showNodeCountColumn ? 1 : 0) +
     (showVisibilityColumn ? 1 : 0) +
     (showPermissionColumn ? 1 : 0) +
@@ -477,7 +478,7 @@ const ListNetworkItem = ({
           </div>
         </div>
       </td>
-      {showOwnerColumn && (
+      {showOwnerColumn && !isUnavailable && (
         <td className={getTdClasses('left')}>
           <OwnerCell
             owner={network.owner}

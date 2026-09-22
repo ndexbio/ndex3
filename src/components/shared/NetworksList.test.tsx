@@ -153,6 +153,6 @@ describe('NetworksList count columns', () => {
     )
 
     expect(screen.getByText('Original moved to trash')).toBeInTheDocument()
-    expect(container.querySelector('td[colspan="5"]')).not.toBeNull()
+    expect(container.querySelector('td[colspan="6"]')).not.toBeNull()
   })
 })
