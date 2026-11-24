@@ -89,6 +89,19 @@ it('tags the commit on origin and publishes the notes from that commit, even fro
   expect(fs.readFileSync(ghNotes, 'utf8')).toBe('### Added\n\n- A feature.\n')
 })
 
+it('tags the release commit even after main has moved past it', () => {
+  const sha = mergeRelease()
+  // Something else reaches main before the release is published, e.g. a hotfix.
+  const later = repo.commit({ 'src/hotfix.ts': 'export {}\n' }, 'Later commit on main')
+  repo.git('push', '--quiet', 'origin', 'main')
+
+  const { code } = publish([sha])
+
+  expect(code).toBe(0)
+  expect(repo.remoteTag('v3.1.0')).toBe(sha)
+  expect(repo.remoteTag('v3.1.0')).not.toBe(later)
+})
+
 it('checks everything on --dry-run but tags and publishes nothing', () => {
   const sha = mergeRelease()
 
