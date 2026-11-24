@@ -44,11 +44,15 @@ tests, CI and doc-only changes don't need one.
   Removed, Fixed or Security.
 - Write for someone running or using NDEx3, not for a code reviewer. Say what
   changed for them, link the issue or PR, and link the feature doc for details.
-- Never edit a released section.
+- Never edit a released section. That includes the merge of `main` back into
+  `development` after a release: Git can merge it cleanly and still file a
+  newer entry under the release's heading. Newer entries belong under
+  `[Unreleased]`.
 - CI enforces this. The `Changelog` workflow fails a PR that changes `src/` or
   `public/` without touching `CHANGELOG.md`; a PR nobody would notice gets the
-  `skip-changelog` label instead. `npm run check:changelog` validates the file
-  and that its newest release matches `version` in `package.json`.
+  `skip-changelog` label instead. `npm run check:changelog` validates the file,
+  checks that its newest release matches `version` in `package.json`, and
+  checks that every tagged release is unchanged since its tag.
 - Releases are cut from `main` only: a `release/X.Y.Z` branch merged into
   `main` with a merge commit, then tagged and published by
   `scripts/publish-release.js`. Never tag by hand. See `docs/releasing.md`

@@ -13,7 +13,7 @@
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
     "check:docs": "node scripts/check-docs-links.js docs README.md CLAUDE.md CHANGELOG.md",
-    "check:changelog": "node scripts/check-changelog.js"
+    "check:changelog": "node scripts/check-changelog.js --tags"
   },
   "dependencies": {
     "@js4cytoscape/ndex-client": "^0.8.1",

@@ -2,12 +2,16 @@
 /**
  * Keeps CHANGELOG.md usable as the release record. Three modes:
  *
- *   node scripts/check-changelog.js
+ *   node scripts/check-changelog.js [--tags]
  *     Validates structure: `## [Unreleased]` comes first; every other `##` is
  *     `## [X.Y.Z] - YYYY-MM-DD`, newest first; `###` headings use Keep a
- *     Changelog's six categories; and the newest release's version text is
- *     exactly `version` in package.json — so a release can't bump one and
- *     forget the other.
+ *     Changelog's six categories and each has entries; every release has
+ *     entries; and the newest release's version text is exactly `version` in
+ *     package.json — so a release can't bump one and forget the other.
+ *     `--tags` also requires every release that has a `vX.Y.Z` tag to be
+ *     identical to its section in CHANGELOG.md at that tag. Released sections
+ *     are frozen, and a clean merge of main back into development can slide a
+ *     later entry into one without any conflict; this catches it.
  *
  *   node scripts/check-changelog.js --pr <base>
  *     Fails when `<base>...HEAD` changes something a user or deployer would
@@ -109,6 +113,28 @@ const sectionsOf = (text) => {
   return sections
 }
 
+/** The version a release heading names, exactly as written, or null. */
+const releaseVersion = (section) => section.heading.match(RELEASE_HEADING)?.[1] ?? null
+
+/** A line that says something: not blank, a heading, a link definition or a comment. */
+const isEntry = ({ text, fenced }) => {
+  const trimmed = text.trim()
+  if (trimmed === '') return false
+  if (fenced) return true
+  return !trimmed.startsWith('#') && !LINK_DEFINITION.test(trimmed) && !trimmed.startsWith('<!--')
+}
+
+/**
+ * A section's notes: its body without the link definitions (`[3.1.0]: https://…`)
+ * that trail the last section, which belong to no release.
+ */
+const notesOf = (section) =>
+  section.body
+    .map((l) => l.text)
+    .filter((l) => !LINK_DEFINITION.test(l))
+    .join('\n')
+    .trim()
+
 const compareVersions = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]
 
 const isRealDate = (iso) => {
@@ -116,9 +142,8 @@ const isRealDate = (iso) => {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(iso)
 }
 
-const structureProblems = (text, packageVersion) => {
+const structureProblems = (sections, packageVersion) => {
   const problems = []
-  const sections = sectionsOf(text)
   const hasUnreleased = sections[0]?.heading === UNRELEASED
   if (!hasUnreleased) problems.push(`the first "##" heading must be "${UNRELEASED}"`)
 
@@ -133,6 +158,9 @@ const structureProblems = (text, packageVersion) => {
     const [, name, major, minor, patch, date] = match
     const version = [major, minor, patch].map(Number)
     if (!isRealDate(date)) problems.push(`line ${section.line}: ${date} is not a real date`)
+    // [Unreleased] may be empty — it is right after a release — but a release
+    // is a promise that something shipped.
+    if (!section.body.some(isEntry)) problems.push(`line ${section.line}: release ${name} has no entries`)
     if (above === null) newest = { name, line: section.line }
     else if (compareVersions(version, above.version) >= 0) {
       problems.push(`line ${section.line}: ${name} must be older than ${above.name}, which is above it`)
@@ -151,12 +179,52 @@ const structureProblems = (text, packageVersion) => {
   }
 
   for (const section of sections) {
-    for (const { text: line, line: n, fenced } of section.body) {
-      if (fenced || !line.startsWith('### ')) continue
-      const category = line.slice(4).trim()
-      if (!CATEGORIES.includes(category)) {
-        problems.push(`line ${n}: "### ${category}" is not one of ${CATEGORIES.join(', ')}`)
+    let category = null
+    const closeCategory = () => {
+      if (category && !category.hasEntry) problems.push(`line ${category.line}: "### ${category.name}" has no entries`)
+    }
+    for (const line of section.body) {
+      if (!line.fenced && line.text.startsWith('### ')) {
+        closeCategory()
+        const name = line.text.slice(4).trim()
+        if (!CATEGORIES.includes(name)) {
+          problems.push(`line ${line.line}: "### ${name}" is not one of ${CATEGORIES.join(', ')}`)
+        }
+        category = { name, line: line.line, hasEntry: false }
+      } else if (category && isEntry(line)) {
+        category.hasEntry = true
       }
+    }
+    closeCategory()
+  }
+  return problems
+}
+
+/**
+ * Every release with a `vX.Y.Z` tag must read exactly as it did at that tag.
+ * Releases without a tag (3.0.1, or one merged to main but not yet published)
+ * are skipped. Without history the tags are invisible and every release would
+ * be skipped silently, so a shallow clone is refused rather than passed.
+ */
+const taggedReleaseProblems = (sections) => {
+  if (git(['rev-parse', '--is-shallow-repository']).trim() === 'true') {
+    fail(['--tags needs full history and tags, but this clone is shallow (in CI, use fetch-depth: 0)'])
+  }
+  const tags = new Set(git(['tag', '--list', 'v*']).split('\n').filter(Boolean))
+  const problems = []
+  for (const section of sections) {
+    const version = releaseVersion(section)
+    const tag = `v${version}`
+    if (version === null || !tags.has(tag)) continue
+    const tagged = sectionsOf(git(['show', `${tag}:CHANGELOG.md`])).find((s) => releaseVersion(s) === version)
+    if (!tagged) {
+      problems.push(`line ${section.line}: ${version} is not in CHANGELOG.md at tag ${tag}`)
+    } else if (section.heading !== tagged.heading || notesOf(section) !== notesOf(tagged)) {
+      problems.push(
+        `line ${section.line}: the ${version} section differs from CHANGELOG.md at tag ${tag}. Released ` +
+          'sections are frozen; if entries reached it after the release (for example a clean merge of main ' +
+          'back into development), move them under [Unreleased].',
+      )
     }
   }
   return problems
@@ -170,11 +238,17 @@ const checkStructure = () => {
     fail([`package.json is not valid JSON: ${error.message}`])
   }
   if (typeof version !== 'string' || version === '') fail(['package.json has no "version"'])
-  const problems = structureProblems(readSource(changelogPath, 'CHANGELOG.md'), version)
+  const sections = sectionsOf(readSource(changelogPath, 'CHANGELOG.md'))
+  const problems = structureProblems(sections, version)
+  const checkTags = args.includes('--tags')
+  if (checkTags) problems.push(...taggedReleaseProblems(sections))
   if (problems.length > 0) {
     fail([`\n${problems.length} CHANGELOG.md problem(s):\n`, ...problems.map((p) => `  ${p}`), ''])
   }
-  console.log(`CHANGELOG.md OK${ref ? ` at ${ref}` : ''} (newest release matches package.json ${version})`)
+  console.log(
+    `CHANGELOG.md OK${ref ? ` at ${ref}` : ''} (newest release matches package.json ${version}` +
+      `${checkTags ? '; tagged releases unchanged' : ''})`,
+  )
 }
 
 const checkPullRequest = (base) => {
@@ -215,12 +289,10 @@ const printNotes = (requested) => {
     (s) => s.heading.match(/^## \[([^\]]+)\]/)?.[1] === wanted,
   )
   if (!section) fail([`CHANGELOG.md has no "## [${wanted}]" section`])
-  // Link definitions (`[3.1.0]: https://…`) trail the last section; they are
-  // not part of any release's notes.
-  const lines = section.body.map((l) => l.text).filter((l) => !LINK_DEFINITION.test(l))
-  const notes = lines.join('\n').trim()
-  if (!notes) fail([`"## [${wanted}]" has no entries`])
-  console.log(notes)
+  // Headings alone are not notes: a release body of just "### Fixed" would
+  // publish an empty release.
+  if (!section.body.some(isEntry)) fail([`"## [${wanted}]" has no entries`])
+  console.log(notesOf(section))
 }
 
 const notesVersion = option('--notes')

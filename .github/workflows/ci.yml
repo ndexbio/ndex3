@@ -38,6 +38,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history brings the vX.Y.Z tags, which check:changelog compares
+          # released sections against. It refuses a shallow clone rather than
+          # silently skipping every tag. The whole repo is ~25 MB.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -49,8 +54,9 @@ jobs:
         run: npm run check:docs
 
       # Same constraint: Node built-ins only. Whether a PR needs an entry is
-      # checked by changelog.yml; this checks the file itself on every push.
-      - name: Check changelog structure
+      # checked by changelog.yml; this checks the file itself on every push,
+      # including that no tagged release has changed since it was tagged.
+      - name: Check changelog
         run: npm run check:changelog
 
   build:

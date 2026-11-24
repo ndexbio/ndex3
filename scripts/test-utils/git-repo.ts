@@ -17,13 +17,21 @@ export const GIT_ENV: NodeJS.ProcessEnv = {
   GIT_COMMITTER_EMAIL: 'test@example.com',
 }
 
+/** The URL `origin` is configured with, as a real clone's would be. */
+export const ORIGIN_URL = 'https://github.com/test-owner/test-repo.git'
+/** The same repository in the `HOST/OWNER/REPO` form gh's --repo takes. */
+export const ORIGIN_REPOSITORY = 'github.com/test-owner/test-repo'
+
 const gitIn = (cwd: string, args: string[]) =>
   execFileSync('git', args, { cwd, env: GIT_ENV, encoding: 'utf8' }).trim()
 
 export type GitRepo = {
   /** The working clone; run scripts with this as their cwd. */
   work: string
-  /** A bare repository standing in for GitHub, configured as `origin`. */
+  /**
+   * A bare repository standing in for GitHub. `origin` is configured as
+   * ORIGIN_URL, and git rewrites that URL to this path for fetch and push.
+   */
   origin: string
   git: (...args: string[]) => string
   /** Writes the files (null deletes one), commits everything, returns the sha. */
@@ -38,7 +46,8 @@ export const createRepo = (root: string): GitRepo => {
   const work = path.join(root, 'work')
   gitIn(root, ['init', '--quiet', '--bare', '-b', 'main', origin])
   gitIn(root, ['init', '--quiet', '-b', 'main', work])
-  gitIn(work, ['remote', 'add', 'origin', origin])
+  gitIn(work, ['remote', 'add', 'origin', ORIGIN_URL])
+  gitIn(work, ['config', `url.${origin}.insteadOf`, ORIGIN_URL])
 
   const git = (...args: string[]) => gitIn(work, args)
   return {

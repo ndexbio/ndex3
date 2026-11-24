@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { spawnSync } from 'child_process'
+import { execFileSync, spawnSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -119,6 +119,24 @@ describe('structure', () => {
     expect(err).toMatch(/"### Improvements" is not one of Added, Changed/)
   })
 
+  it('fails a release whose only content is a category heading', () => {
+    const { code, err } = checkStructure(VALID.replace('### Changed\n\n- A behaviour.\n', '### Changed\n'))
+    expect(code).toBe(1)
+    expect(err).toMatch(/"### Changed" has no entries/)
+    expect(err).toMatch(/release 3\.0\.1 has no entries/)
+  })
+
+  it('fails an empty category even when the rest of the release has entries', () => {
+    const { code, err } = checkStructure(VALID.replace('### Removed\n\n- A config key.\n', '### Removed\n'))
+    expect(code).toBe(1)
+    expect(err).toMatch(/"### Removed" has no entries/)
+    expect(err).not.toMatch(/release 3\.1\.0 has no entries/)
+  })
+
+  it('allows an empty [Unreleased], as right after a release', () => {
+    expect(checkStructure(VALID.replace('### Fixed\n\n- Something not yet released.\n\n', '')).code).toBe(0)
+  })
+
   it('ignores headings inside fenced code blocks', () => {
     const withExample = VALID.replace('- A feature.', '- A feature.\n\n```md\n## not a release\n### Nor a category\n```')
     expect(checkStructure(withExample).code).toBe(0)
@@ -153,6 +171,61 @@ describe('--ref', () => {
     const { code, err } = run(['--ref', 'HEAD', '--changelog', 'CHANGELOG.md'], repo.work)
     expect(code).toBe(2)
     expect(err).toMatch(/cannot be combined/)
+  })
+})
+
+describe('--tags', () => {
+  const pkg = (version: string) => JSON.stringify({ version })
+  const untagged = '## [3.0.1] - 2026-09-14\n\n### Changed\n\n- A behaviour.\n'
+  const unreleased = (entries: string) => `# Changelog\n\n## [Unreleased]\n\n${entries}`
+  const RELEASED_3_1_0 = '## [3.1.0] - 2026-10-01\n\n### Added\n\n- Old entry.\n\n'
+
+  let repo: GitRepo
+  beforeEach(() => {
+    // `main` plays development. Cut release/3.1.0 from it and tag the release
+    // (as publishing would); meanwhile a feature adds an entry on development;
+    // then merge the release back, as step 7 of docs/releasing.md does.
+    repo = createRepo(dir)
+    repo.commit({ 'CHANGELOG.md': unreleased(`### Added\n\n- Old entry.\n\n${untagged}`), 'package.json': pkg('3.0.1') })
+    repo.git('checkout', '--quiet', '-b', 'release/3.1.0')
+    repo.commit({ 'CHANGELOG.md': unreleased(`${RELEASED_3_1_0}${untagged}`), 'package.json': pkg('3.1.0') }, 'Release 3.1.0')
+    repo.git('tag', '-a', 'v3.1.0', '-m', 'Release 3.1.0')
+    repo.git('checkout', '--quiet', 'main')
+    repo.commit({ 'CHANGELOG.md': unreleased(`### Added\n\n- Old entry.\n- New entry.\n\n${untagged}`) }, 'Feature after the cut')
+    repo.git('merge', '--quiet', '--no-ff', '-m', 'Merge main back into development', 'release/3.1.0')
+  })
+
+  const checkTags = (cwd = repo.work) => run(['--ref', 'HEAD', '--tags'], cwd)
+
+  it('catches a clean merge that slides a later entry into a released section', () => {
+    // Git merged without a conflict and filed the new entry under 3.1.0…
+    expect(fs.readFileSync(path.join(repo.work, 'CHANGELOG.md'), 'utf8')).toContain(
+      '## [3.1.0] - 2026-10-01\n\n### Added\n\n- Old entry.\n- New entry.\n',
+    )
+    // …which the structure check alone cannot see.
+    expect(run(['--ref', 'HEAD'], repo.work).code).toBe(0)
+
+    const { code, err } = checkTags()
+    expect(code).toBe(1)
+    expect(err).toMatch(/the 3\.1\.0 section differs from CHANGELOG\.md at tag v3\.1\.0/)
+    expect(err).toMatch(/move them under \[Unreleased\]/)
+  })
+
+  it('passes once the later entry is back under [Unreleased], skipping the untagged 3.0.1', () => {
+    repo.commit({ 'CHANGELOG.md': unreleased(`### Added\n\n- New entry.\n\n${RELEASED_3_1_0}${untagged}`) }, 'Fix the merge')
+
+    const { code, out } = checkTags()
+    expect(code).toBe(0)
+    expect(out).toMatch(/tagged releases unchanged/)
+  })
+
+  it('refuses a shallow clone, where every tag would be skipped silently', () => {
+    const shallow = path.join(dir, 'shallow')
+    execFileSync('git', ['clone', '--quiet', '--depth', '1', `file://${repo.work}`, shallow], { env: GIT_ENV })
+
+    const { code, err } = checkTags(shallow)
+    expect(code).toBe(1)
+    expect(err).toMatch(/clone is shallow/)
   })
 })
 
@@ -243,6 +316,13 @@ describe('--notes', () => {
   it('leaves trailing link definitions out of the last release', () => {
     const { out } = notes('3.0.1')
     expect(out).toBe('### Changed\n\n- A behaviour.\n')
+  })
+
+  it('refuses a release with headings but no entries', () => {
+    fs.writeFileSync(path.join(dir, 'CHANGELOG.md'), VALID.replace('### Changed\n\n- A behaviour.\n', '### Changed\n'))
+    const { code, err } = run(['--notes', '3.0.1', '--changelog', path.join(dir, 'CHANGELOG.md')])
+    expect(code).toBe(1)
+    expect(err).toMatch(/"## \[3\.0\.1\]" has no entries/)
   })
 
   it('fails for a version that is not in the changelog', () => {

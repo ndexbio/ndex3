@@ -26,9 +26,13 @@ Keeps `CHANGELOG.md` usable as the release record; see
 [`docs/releasing.md`](../docs/releasing.md) for the process it supports. It uses
 only Node built-ins, so CI runs it without `npm ci`.
 
-- `npm run check:changelog`: validates the file's structure and that its newest
-  release heading is exactly `version` in `package.json`. Runs in the `Docs` CI
-  job.
+- `npm run check:changelog` (the script with `--tags`): validates the file's
+  structure, that every release and category has entries, and that the newest
+  release heading is exactly `version` in `package.json`. It also checks that
+  every release with a `vX.Y.Z` tag still reads exactly as it did at that tag,
+  which catches a clean merge that slides a newer entry into a released section.
+  It needs full history; it refuses a shallow clone rather than skipping every
+  tag. Runs in the `Docs` CI job.
 - `node scripts/check-changelog.js --pr <base>`: fails when `<base>...HEAD`
   touches `src/` or `public/` (tests excepted) without touching `CHANGELOG.md`.
   It runs the diff itself, without rename detection and with NUL-separated
@@ -45,6 +49,8 @@ only Node built-ins, so CI runs it without `npm ci`.
 `node scripts/publish-release.js <release-merge-commit> [--dry-run]` tags a
 release on `main` and creates its GitHub Release. The version and notes come
 from that commit, never from the checkout, and every check runs before anything
-is created. It is safe to re-run if the GitHub step fails. See
+is created. The tag and the release both go to `origin`'s GitHub repository,
+which is passed to `gh` explicitly. It is safe to re-run if the GitHub step
+fails. See
 [`docs/releasing.md`](../docs/releasing.md) for when to run it and what it
 refuses.

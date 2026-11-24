@@ -21,7 +21,11 @@ What keeps this honest:
 
 - **`CHANGELOG.md` and `package.json` must agree.** `npm run check:changelog`
   (run by CI on every push) fails unless the newest `## [X.Y.Z]` heading is
-  exactly `version`, so a release can't bump one and forget the other.
+  exactly `version`, so a release can't bump one and forget the other. It also
+  fails a release, or a `###` category, with no entries.
+- **Released sections are frozen.** The same check compares every release that
+  has a `vX.Y.Z` tag with its section in `CHANGELOG.md` at that tag, and fails
+  on any difference. This is what catches the trap in step 7 below.
 - **Every user-facing PR carries its own entry.** The `Changelog` workflow fails
   a PR that changes `src/` or `public/` without touching `CHANGELOG.md`, unless
   it has the `skip-changelog` label. Cutting a release is then just renaming
@@ -33,7 +37,9 @@ What keeps this honest:
 - **The tag and notes come from the commit being tagged.**
   `scripts/publish-release.js` reads the version and the notes from the release
   merge commit itself, not from whatever is checked out, and runs every check
-  before it creates anything.
+  before it creates anything. It only accepts a merge commit on `main`'s
+  first-parent line: the release branch's tip is also an ancestor of `main`
+  once merged, but its tree lacks anything integrated at merge time.
 - **Merge commits in both directions.** The release PR into `main` and the
   merge back into `development` both use **Create a merge commit**, never
   squash or rebase. That keeps `main` an ancestor of `development`, so each
@@ -74,16 +80,29 @@ Semantic versioning, judged from the point of view of whoever deploys NDEx3:
    node scripts/publish-release.js <merge-commit>
    ```
 
-   The script refuses a commit that isn't on `origin/main`, a changelog that
+   Run it from a clone whose `origin` is the repository you release in: the
+   tag is pushed there, and the GitHub Release is created in that same
+   repository, named explicitly rather than left to `gh`'s default. The dry run
+   prints it.
+
+   The script refuses a commit that isn't a merge commit on `origin/main`'s
+   first-parent line (so not the release branch's tip), a changelog that
    doesn't match `package.json` at that commit, missing notes, a signed-out
-   `gh`, an existing GitHub Release, or a tag already pointing elsewhere. If it
-   fails after pushing the tag, fix the cause and run it again; it reuses the
-   tag.
+   `gh`, an existing GitHub Release, a tag already pointing elsewhere, and any
+   GitHub error other than "not found" when it checks for an existing release.
+   All of that happens before a tag exists. If it fails after pushing the tag,
+   fix the cause and run it again; it reuses the tag.
 7. Open a PR from `main` into `development` and merge it with **Create a merge
-   commit**, so `development` gets the dated section and the version bump. If
-   `CHANGELOG.md` conflicts because entries landed on `development` in the
-   meantime, keep those entries under `[Unreleased]`, above the new release
-   section.
+   commit**, so `development` gets the dated section and the version bump.
+   Entries that landed on `development` after the cut must stay under
+   `[Unreleased]`, and Git won't always help. If `CHANGELOG.md` conflicts, keep
+   those entries under `[Unreleased]`, above the new release section. Worse, a
+   *clean* merge can file a new entry under the release's dated heading without
+   any conflict, because the rename of `[Unreleased]` and the new entry touch
+   different lines. CI's `npm run check:changelog` on this PR compares the dated
+   section with the tag and fails if it changed. Fix it by moving those entries
+   back under `[Unreleased]`, and run the check locally before pushing the
+   merge.
 8. Build and deploy from the tag.
 
 ## Hotfixes
