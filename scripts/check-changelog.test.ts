@@ -5,6 +5,7 @@ import { spawnSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { createRepo, GIT_ENV, type GitRepo } from './test-utils/git-repo'
 
 // Runs the real script as CI does — exit code and output are the contract.
 const SCRIPT = path.join(__dirname, 'check-changelog.js')
@@ -44,8 +45,8 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true })
 })
 
-const run = (args: string[], input?: string) => {
-  const result = spawnSync('node', [SCRIPT, ...args], { input, encoding: 'utf8' })
+const run = (args: string[], cwd?: string) => {
+  const result = spawnSync(process.execPath, [SCRIPT, ...args], { cwd, env: GIT_ENV, encoding: 'utf8' })
   return { code: result.status, out: result.stdout, err: result.stderr }
 }
 
@@ -55,8 +56,6 @@ const checkStructure = (changelog: string, version = '3.1.0') => {
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ version }))
   return run(['--changelog', path.join(dir, 'CHANGELOG.md'), '--package', path.join(dir, 'package.json')])
 }
-
-const checkPullRequest = (paths: string[]) => run(['--pr'], paths.join('\n') + '\n')
 
 describe('structure', () => {
   it("passes on the repo's own CHANGELOG.md and package.json", () => {
@@ -75,6 +74,18 @@ describe('structure', () => {
     const { code, err } = checkStructure(VALID, '3.2.0')
     expect(code).toBe(1)
     expect(err).toMatch(/newest release is 3\.1\.0 but package\.json says 3\.2\.0/)
+  })
+
+  it('fails when there is no numbered release to match package.json', () => {
+    const { code, err } = checkStructure('# Changelog\n\n## [Unreleased]\n\n### Added\n\n- A feature.\n', '3.0.1')
+    expect(code).toBe(1)
+    expect(err).toMatch(/there is no "## \[X\.Y\.Z\] - YYYY-MM-DD" release; the newest must be package\.json's 3\.0\.1/)
+  })
+
+  it('rejects a leading zero, which --notes could never look up', () => {
+    const { code, err } = checkStructure(VALID.replace('## [3.1.0]', '## [03.1.0]'), '3.1.0')
+    expect(code).toBe(1)
+    expect(err).toMatch(/"## \[03\.1\.0\] - 2026-10-01" is not "## \[X\.Y\.Z\] - YYYY-MM-DD"/)
   })
 
   it('fails when [Unreleased] is missing', () => {
@@ -114,39 +125,106 @@ describe('structure', () => {
   })
 })
 
+describe('--ref', () => {
+  let repo: GitRepo
+  beforeEach(() => {
+    repo = createRepo(dir)
+    repo.commit({ 'CHANGELOG.md': VALID, 'package.json': JSON.stringify({ version: '3.1.0' }) })
+    // A working tree that disagrees with the commit, as a stale checkout would.
+    fs.writeFileSync(path.join(repo.work, 'CHANGELOG.md'), '# Changelog\n\n## [3.1.0] - 2026-10-01\n\n- Stale notes.\n')
+  })
+
+  it('validates the files at that commit, not the working tree', () => {
+    const working = run(['--changelog', path.join(repo.work, 'CHANGELOG.md'), '--package', path.join(repo.work, 'package.json')])
+    expect(working.code).toBe(1)
+
+    const atCommit = run(['--ref', 'HEAD'], repo.work)
+    expect(atCommit.code).toBe(0)
+    expect(atCommit.out).toMatch(/OK at HEAD/)
+  })
+
+  it('prints notes from that commit, not the working tree', () => {
+    const { code, out } = run(['--ref', 'HEAD', '--notes', '3.1.0'], repo.work)
+    expect(code).toBe(0)
+    expect(out).toBe('### Added\n\n- A feature.\n\n### Removed\n\n- A config key.\n')
+  })
+
+  it('refuses to be combined with --changelog', () => {
+    const { code, err } = run(['--ref', 'HEAD', '--changelog', 'CHANGELOG.md'], repo.work)
+    expect(code).toBe(2)
+    expect(err).toMatch(/cannot be combined/)
+  })
+})
+
 describe('--pr', () => {
+  let repo: GitRepo
+  beforeEach(() => {
+    repo = createRepo(dir)
+    repo.commit({
+      'CHANGELOG.md': VALID,
+      'src/utils/legacyRedirect.ts': 'export {}\n',
+      'public/help.html': '<p>help</p>\n',
+      'docs/legacy-redirects.md': '# Redirects\n',
+    })
+    repo.git('checkout', '--quiet', '-b', 'feature')
+  })
+
+  const checkPullRequest = () => run(['--pr', 'main'], repo.work)
+
   it('fails a user-facing change without a CHANGELOG entry, naming the file', () => {
-    const { code, err } = checkPullRequest(['src/utils/legacyRedirect.ts', 'docs/legacy-redirects.md'])
+    repo.commit({ 'src/utils/legacyRedirect.ts': 'export const x = 1\n', 'docs/legacy-redirects.md': '# Changed\n' })
+    const { code, err } = checkPullRequest()
     expect(code).toBe(1)
     expect(err).toMatch(/src\/utils\/legacyRedirect\.ts/)
+    expect(err).not.toMatch(/docs\/legacy-redirects\.md/)
     expect(err).toMatch(/skip-changelog/)
   })
 
   it('passes the same change once CHANGELOG.md is part of it', () => {
-    const { code } = checkPullRequest(['src/utils/legacyRedirect.ts', 'CHANGELOG.md'])
-    expect(code).toBe(0)
+    repo.commit({ 'src/utils/legacyRedirect.ts': 'export const x = 1\n', 'CHANGELOG.md': `${VALID}\n` })
+    expect(checkPullRequest().code).toBe(0)
   })
 
-  it('treats files served with the app as user-facing', () => {
-    expect(checkPullRequest(['public/config.json']).code).toBe(1)
+  it('counts moving a file out of public/ as a change to public/', () => {
+    // Git's rename detection would report only docs/help.html.
+    repo.commit({ 'public/help.html': null, 'docs/help.html': '<p>help</p>\n' })
+    const { code, err } = checkPullRequest()
+    expect(code).toBe(1)
+    expect(err).toMatch(/public\/help\.html/)
+  })
+
+  it('reads non-ASCII paths verbatim rather than git-quoted', () => {
+    repo.commit({ 'public/café.svg': '<svg/>\n' })
+    const { code, err } = checkPullRequest()
+    expect(code).toBe(1)
+    expect(err).toContain('  public/café.svg')
   })
 
   it('needs no entry for tests, docs and CI alone', () => {
-    const { code, out } = checkPullRequest([
-      'src/utils/legacyRedirect.test.ts',
-      'src/components/__tests__/Thing.tsx',
-      'test/playwright/not-found.spec.ts',
-      'docs/legacy-redirects.md',
-      '.github/workflows/ci.yml',
-    ])
+    repo.commit({
+      'src/utils/legacyRedirect.test.ts': 'test\n',
+      'src/components/__tests__/Thing.tsx': 'test\n',
+      'test/playwright/not-found.spec.ts': 'test\n',
+      'docs/legacy-redirects.md': '# Changed\n',
+      '.github/workflows/ci.yml': 'name: CI\n',
+    })
+    const { code, out } = checkPullRequest()
     expect(code).toBe(0)
     expect(out).toMatch(/no CHANGELOG entry needed/)
   })
 
-  it('refuses an empty path list rather than passing silently', () => {
-    const { code, err } = run(['--pr'], '')
-    expect(code).toBe(2)
-    expect(err).toMatch(/no changed paths/)
+  it("ignores changes on the base branch that the PR doesn't contain", () => {
+    repo.git('checkout', '--quiet', 'main')
+    repo.commit({ 'src/utils/legacyRedirect.ts': 'export const onMain = 1\n' })
+    repo.git('checkout', '--quiet', 'feature')
+    repo.commit({ 'docs/legacy-redirects.md': '# Changed\n' })
+    expect(checkPullRequest().code).toBe(0)
+  })
+
+  it('fails, rather than passing, when the diff itself fails', () => {
+    const { code, err } = run(['--pr', 'no-such-branch'], repo.work)
+    expect(code).toBe(1)
+    expect(err).toMatch(/git diff .* failed/)
   })
 })
 

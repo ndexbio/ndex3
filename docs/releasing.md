@@ -17,20 +17,27 @@ cut, so it always equals the latest release. Every release is a merge commit on
 `main` with a `vX.Y.Z` tag, and production is built from that tag, never from
 `development`.
 
-Three things keep this honest:
+What keeps this honest:
 
 - **`CHANGELOG.md` and `package.json` must agree.** `npm run check:changelog`
-  (run by CI on every push) fails if the newest `## [X.Y.Z]` section and
-  `version` differ, so a release can't bump one and forget the other.
+  (run by CI on every push) fails unless the newest `## [X.Y.Z]` heading is
+  exactly `version`, so a release can't bump one and forget the other.
 - **Every user-facing PR carries its own entry.** The `Changelog` workflow fails
   a PR that changes `src/` or `public/` without touching `CHANGELOG.md`, unless
   it has the `skip-changelog` label. Cutting a release is then just renaming
   `[Unreleased]`, not reconstructing history from commit messages.
-- **Release PRs into `main` use a merge commit,** never squash or rebase. A
-  squash creates a commit on `main` that `development` doesn't have, so the next
-  release PR re-lists every old commit and can conflict with itself. With merge
-  commits `main` stays an ancestor of `development` and each release PR shows
-  exactly what's new.
+- **A release ships a fixed set of commits.** The release PR comes from a
+  `release/X.Y.Z` branch, not from `development`. Opened from `development`, a
+  feature merged while the PR was open would ship under `vX.Y.Z` with its entry
+  still sitting under `[Unreleased]`.
+- **The tag and notes come from the commit being tagged.**
+  `scripts/publish-release.js` reads the version and the notes from the release
+  merge commit itself, not from whatever is checked out, and runs every check
+  before it creates anything.
+- **Merge commits in both directions.** The release PR into `main` and the
+  merge back into `development` both use **Create a merge commit**, never
+  squash or rebase. That keeps `main` an ancestor of `development`, so each
+  release PR shows exactly what's new instead of re-listing old commits.
 
 ## Choosing the version
 
@@ -44,7 +51,9 @@ Semantic versioning, judged from the point of view of whoever deploys NDEx3:
 
 ## Cutting a release
 
-1. From an up-to-date `development`, create `release/X.Y.Z`.
+1. From an up-to-date `development`, create `release/X.Y.Z`. This branch fixes
+   what ships; anything merged to `development` afterwards waits for the next
+   release.
 2. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`
    (the day it will merge to `main`) and add a fresh, empty `## [Unreleased]`
    above it. Update the compare links at the bottom of the file — the first
@@ -53,33 +62,36 @@ Semantic versioning, judged from the point of view of whoever deploys NDEx3:
    `package-lock.json` together; there is no tag yet because the tag belongs on
    `main`.
 4. Run `npm run check:changelog` to confirm the two agree.
-5. Open a PR from `release/X.Y.Z` into `development` and merge it.
-6. Open a PR from `development` into `main` titled "Release X.Y.Z" and merge it
-   with **Create a merge commit**.
-7. Tag that merge commit and publish the GitHub Release, using the changelog
-   section as its notes:
+5. Open a PR from `release/X.Y.Z` into `main` titled "Release X.Y.Z" and merge
+   it with **Create a merge commit**.
+6. Publish from that merge commit. Its sha is on the PR page, or from
+   `gh pr view <number> --json mergeCommit --jq .mergeCommit.oid`. Do a dry run
+   first; it runs every check and prints the tag and notes without creating
+   anything:
 
    ```bash
-   git fetch origin
-   git tag -a vX.Y.Z origin/main -m "Release X.Y.Z"
-   git push origin vX.Y.Z
-   gh release create vX.Y.Z --verify-tag --title "X.Y.Z" \
-     --notes "$(node scripts/check-changelog.js --notes X.Y.Z)"
+   node scripts/publish-release.js <merge-commit> --dry-run
+   node scripts/publish-release.js <merge-commit>
    ```
 
+   The script refuses a commit that isn't on `origin/main`, a changelog that
+   doesn't match `package.json` at that commit, missing notes, a signed-out
+   `gh`, an existing GitHub Release, or a tag already pointing elsewhere. If it
+   fails after pushing the tag, fix the cause and run it again; it reuses the
+   tag.
+7. Open a PR from `main` into `development` and merge it with **Create a merge
+   commit**, so `development` gets the dated section and the version bump. If
+   `CHANGELOG.md` conflicts because entries landed on `development` in the
+   meantime, keep those entries under `[Unreleased]`, above the new release
+   section.
 8. Build and deploy from the tag.
 
 ## Hotfixes
 
-A fix that can't wait for `development` branches from `main` instead:
-
-1. Create `hotfix/X.Y.Z` from `main`, make the fix, and add its entry directly
-   under a new `## [X.Y.Z] - YYYY-MM-DD` section, with the matching
-   `npm version` bump.
-2. PR into `main` with a merge commit, then tag and publish as in step 7 above.
-3. PR `main` back into `development` so the fix and its changelog section aren't
-   lost. If `CHANGELOG.md` conflicts, keep `development`'s `[Unreleased]`
-   entries above the new release section.
+The same steps, except the branch is `hotfix/X.Y.Z` cut from `main` instead of
+`release/X.Y.Z` from `development`, and the fix is made on it alongside the
+changelog section and version bump. Step 7 then brings the fix back to
+`development`.
 
 ## Why 3.0.1 has no tag
 

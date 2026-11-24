@@ -49,8 +49,10 @@ tests, CI and doc-only changes don't need one.
   `public/` without touching `CHANGELOG.md`; a PR nobody would notice gets the
   `skip-changelog` label instead. `npm run check:changelog` validates the file
   and that its newest release matches `version` in `package.json`.
-- Releases are cut from `main` only, with a merge commit and a `vX.Y.Z` tag.
-  See `docs/releasing.md` before touching versions, tags or release PRs.
+- Releases are cut from `main` only: a `release/X.Y.Z` branch merged into
+  `main` with a merge commit, then tagged and published by
+  `scripts/publish-release.js`. Never tag by hand. See `docs/releasing.md`
+  before touching versions, tags or release PRs.
 
 ## Architecture Overview
 

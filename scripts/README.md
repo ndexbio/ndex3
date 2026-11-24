@@ -27,10 +27,24 @@ Keeps `CHANGELOG.md` usable as the release record; see
 only Node built-ins, so CI runs it without `npm ci`.
 
 - `npm run check:changelog`: validates the file's structure and that its newest
-  release matches `version` in `package.json`. Runs in the `Docs` CI job.
-- `git diff --name-only BASE HEAD | node scripts/check-changelog.js --pr`: fails
-  when the diff touches `src/` or `public/` (tests excepted) without touching
-  `CHANGELOG.md`. Runs in `.github/workflows/changelog.yml`, which skips it for
-  PRs labelled `skip-changelog`.
-- `node scripts/check-changelog.js --notes X.Y.Z`: prints one release's entries,
-  for the GitHub Release notes.
+  release heading is exactly `version` in `package.json`. Runs in the `Docs` CI
+  job.
+- `node scripts/check-changelog.js --pr <base>`: fails when `<base>...HEAD`
+  touches `src/` or `public/` (tests excepted) without touching `CHANGELOG.md`.
+  It runs the diff itself, without rename detection and with NUL-separated
+  paths, so moving a file out of `public/` or adding a non-ASCII filename still
+  counts. Runs in `.github/workflows/changelog.yml`, which skips it for PRs
+  labelled `skip-changelog`. Locally, `--pr origin/development` checks your
+  branch.
+- `node scripts/check-changelog.js --notes X.Y.Z`: prints one release's entries.
+- `--ref <commit>` makes the structure check and `--notes` read both files from
+  that commit instead of the working tree.
+
+## publish-release.js
+
+`node scripts/publish-release.js <release-merge-commit> [--dry-run]` tags a
+release on `main` and creates its GitHub Release. The version and notes come
+from that commit, never from the checkout, and every check runs before anything
+is created. It is safe to re-run if the GitHub step fails. See
+[`docs/releasing.md`](../docs/releasing.md) for when to run it and what it
+refuses.
