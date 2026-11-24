@@ -48,6 +48,11 @@ jobs:
       - name: Check documentation links
         run: npm run check:docs
 
+      # Same constraint: Node built-ins only. Whether a PR needs an entry is
+      # checked by changelog.yml; this checks the file itself on every push.
+      - name: Check changelog structure
+        run: npm run check:changelog
+
   build:
     name: Build
     runs-on: ubuntu-latest

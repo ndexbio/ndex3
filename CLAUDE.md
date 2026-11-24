@@ -32,6 +32,26 @@ Feature docs explain *why*; they do not restate code. Do not paste code excerpts
 or line numbers into them — `npm run check:docs` warns about line references and
 fails CI on paths that no longer exist.
 
+### Changelog
+
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+**Any change a user or deployer would notice gets an entry under
+`## [Unreleased]` in the same PR.** That means behaviour, UI, URLs and redirects,
+`public/config.json` keys, and Apache or deployment requirements. Refactors,
+tests, CI and doc-only changes don't need one.
+
+- File the entry under the matching heading: Added, Changed, Deprecated,
+  Removed, Fixed or Security.
+- Write for someone running or using NDEx3, not for a code reviewer. Say what
+  changed for them, link the issue or PR, and link the feature doc for details.
+- Never edit a released section.
+- CI enforces this. The `Changelog` workflow fails a PR that changes `src/` or
+  `public/` without touching `CHANGELOG.md`; a PR nobody would notice gets the
+  `skip-changelog` label instead. `npm run check:changelog` validates the file
+  and that its newest release matches `version` in `package.json`.
+- Releases are cut from `main` only, with a merge commit and a `vX.Y.Z` tag.
+  See `docs/releasing.md` before touching versions, tags or release PRs.
+
 ## Architecture Overview
 
 ### Routing Strategy (Hybrid Approach)

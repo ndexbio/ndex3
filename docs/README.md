@@ -42,6 +42,7 @@ anything. Link to a file or a symbol name instead.
 | [CONTENT_SYSTEM_README.md](./CONTENT_SYSTEM_README.md) | Dynamic home-page content |
 | [CONTENT_CONFIGURATION.md](./CONTENT_CONFIGURATION.md) | Configuring content sources |
 | [APACHE_STATIC_DEPLOYMENT.md](./APACHE_STATIC_DEPLOYMENT.md) | Serving the static export behind Apache |
+| [releasing.md](./releasing.md) | Cutting a release from `main`: changelog, version, tag, hotfixes |
 
 ## Other
 

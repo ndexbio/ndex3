@@ -221,6 +221,8 @@ For Apache deployments, see [`docs/APACHE_STATIC_DEPLOYMENT.md`](./docs/APACHE_S
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
 - `npm run type-check` - Run TypeScript checks
+- `npm run check:docs` - Check documentation links
+- `npm run check:changelog` - Check `CHANGELOG.md` structure and that it matches `package.json`
 
 ## Authentication
 
@@ -231,10 +233,14 @@ In order to enable Google Analytics, export NEXT_PUBLIC_GA_ID=GS-XXXXX (the anal
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+2. Create a feature branch from `development` (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+4. If users or deployers would notice the change, add an entry under
+   `## [Unreleased]` in [`CHANGELOG.md`](./CHANGELOG.md)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request against `development`
+
+Releases are cut from `main` only; see [`docs/releasing.md`](./docs/releasing.md).
 
 ## Documentation
 

@@ -1,0 +1,46 @@
+name: Changelog
+
+# Kept out of ci.yml on purpose. The skip-changelog label only works if this
+# check re-runs when labels change; adding labeled/unlabeled to ci.yml would
+# rebuild and re-run the Playwright matrix on every label edit.
+on:
+  pull_request:
+    branches: [main, development]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: changelog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  entry:
+    name: Changelog entry
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The checkout is the PR's merge commit. Depth 2 brings in its first
+          # parent, the base branch tip, so HEAD^1..HEAD is exactly what the PR
+          # would change.
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # `shell: bash` turns on pipefail, so a failing `git diff` fails the step
+      # instead of feeding the checker an empty list.
+      - name: Require a CHANGELOG entry for user-facing changes
+        shell: bash
+        env:
+          SKIP: ${{ contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}
+        run: |
+          if [ "$SKIP" = "true" ]; then
+            echo "The skip-changelog label is set, so no entry is required."
+            exit 0
+          fi
+          git diff --name-only HEAD^1 HEAD | node scripts/check-changelog.js --pr

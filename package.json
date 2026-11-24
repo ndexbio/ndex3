@@ -12,7 +12,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
-    "check:docs": "node scripts/check-docs-links.js docs README.md CLAUDE.md"
+    "check:docs": "node scripts/check-docs-links.js docs README.md CLAUDE.md CHANGELOG.md",
+    "check:changelog": "node scripts/check-changelog.js"
   },
   "dependencies": {
     "@js4cytoscape/ndex-client": "^0.8.1",
