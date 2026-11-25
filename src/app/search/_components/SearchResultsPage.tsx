@@ -729,6 +729,7 @@ function SearchResultsPageContent() {
               viewMode="list"
               readOnly={true}
               showOwnerColumn={true}
+              showNodeCountColumn={true}
               showVisibilityColumn={true}
               sortable={true}
               defaultSort={{ field: null, direction: null }}
