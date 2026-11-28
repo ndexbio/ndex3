@@ -54,8 +54,7 @@ export const useSearchStore = create<SearchStore>()(
     {
       name: 'ndex-search-storage', // name for the persisted store in localStorage
       partialize: (state) => ({
-        // Only persist these fields
-        query: state.query,
+        // Only persist search history — query is derived from URL
         previousQueries: state.previousQueries,
       }),
     },

@@ -1,0 +1,920 @@
+'use client'
+
+import React, { useState, useCallback, useEffect } from 'react'
+import {
+  MoreVertical,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Trophy,
+  Lock,
+  BadgeAlert,
+} from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { ItemIcon } from '@/components/ui/ItemIcon'
+import { useDrag } from 'react-dnd'
+import { FileItemBase } from '@/types/api/ndex/File'
+import { useConfig } from '@/lib/contexts/ConfigContext'
+import { ItemTypes } from '@/types/dnd/DndTypes'
+import { MyAccountTabType } from '@/types/ui/myAccount'
+import { NDExFileType, Permission } from '@js4cytoscape/ndex-client'
+import { useAuth } from '@/lib/contexts/KeycloakContext'
+import { tableStyles, getRowClasses, getGridItemClasses, getThClasses, getTdClasses } from '@/components/shared/table-styles'
+import { formatDate, formatCount, getDisplayName } from '@/components/shared/table-utils'
+import { NetworkStatusDialog } from '@/components/dialogs/NetworkStatusDialog'
+import {
+  hasNetworkError,
+  isDOILocked,
+  isDOIPending,
+  isNetworkCertified,
+  isPreCertified,
+} from '@/lib/utils/network-status'
+import { OwnerCell } from '@/components/shared/OwnerCell'
+import { withAccessKey } from '@/lib/utils/access-key'
+
+// Helper function to format permission display text
+const formatPermission = (permission?: Permission): string => {
+  if (!permission) return 'READ'
+  return permission === Permission.WRITE ? 'EDIT' : permission
+}
+
+// Sort direction type (also accepts null for "unsorted" defaults)
+type SortField = 'name' | 'modificationTime' | null
+type SortDirection = 'asc' | 'desc' | null
+
+// Props for the component
+interface NetworksListProps {
+  items: FileItemBase[]
+  tabState?: MyAccountTabType
+  viewMode: 'grid' | 'list'
+  readOnly?: boolean
+  /** Access key inherited from the current folder URL. */
+  accessKey?: string
+  showOwnerColumn?: boolean
+  showVisibilityColumn?: boolean
+  showPermissionColumn?: boolean
+  selectedItems?: string[]
+  onSelect?: (
+    event: React.MouseEvent,
+    id: string,
+    index: number,
+    type: NDExFileType,
+    sortedItems: FileItemBase[],
+  ) => void
+  onDropdownToggle?: (
+    event: React.MouseEvent,
+    id: string,
+    type: NDExFileType,
+  ) => void
+  onRemoveShortcut?: (shortcutId: string) => Promise<void>
+  defaultSort?: {
+    field: SortField
+    direction: SortDirection
+  }
+  sortable?: boolean
+  onSortChange?: (field: SortField) => void
+}
+
+
+// Extended network item with additional properties we might have
+type NetworkItem = FileItemBase
+
+// Helper function to check if a shortcut's target is unavailable (in trash or deleted)
+const isUnavailableShortcut = (item: FileItemBase): boolean => {
+  return item.type === NDExFileType.SHORTCUT &&
+         (item.attributes?.target_status === 'IN_TRASH' || item.attributes?.target_status === 'DELETED')
+}
+
+// Helper function to get the appropriate message for unavailable shortcuts
+const getUnavailableShortcutMessage = (item: FileItemBase): string => {
+  if (item.type !== NDExFileType.SHORTCUT) return ''
+
+  if (item.attributes?.target_status === 'IN_TRASH') {
+    return 'Original moved to trash'
+  } else if (item.attributes?.target_status === 'DELETED') {
+    return 'Original item deleted'
+  }
+
+  return ''
+}
+
+// Helper function to get text styling for unavailable shortcuts
+const getUnavailableTextClass = (isUnavailable: boolean) =>
+  isUnavailable ? "text-muted-foreground opacity-60" : "text-foreground"
+
+// Helper function to check if the current user owns this item.
+// Mirrors the pattern used in SearchResultsPage:
+//   const isMine = currentUserName && item.owner === currentUserName
+const isOwner = (item: FileItemBase, currentUserName: string | null): boolean => {
+  if (!currentUserName) return false
+  return item.owner === currentUserName
+}
+
+// Helper function to check if network is read-only
+const isReadOnlyNetwork = (network: FileItemBase): boolean => {
+  return Boolean((network as any).isReadOnly)
+}
+
+// Helper function to check if network is shared
+const isSharedNetwork = (network: FileItemBase): boolean => {
+  return Boolean((network as any).isShared)
+}
+
+// Helper function to check if network is valid
+const isNetworkValid = (network: FileItemBase): boolean => {
+  // Default to true if isValid attribute is not present
+  const isValid = (network as any).isValid
+  return isValid !== false
+}
+
+// Helper function to check if network has warnings
+const hasNetworkWarnings = (network: FileItemBase): boolean => {
+  const warnings = (network as any).warnings
+  return warnings && Array.isArray(warnings) && warnings.length > 0
+}
+
+// Use shared network status utilities
+
+// Single network grid item component
+const GridNetworkItem = ({
+  network,
+  index,
+  selectedItems,
+  onSelect,
+  onDoubleClick,
+  onDropdownToggle,
+  onRemoveShortcut,
+  onWarningClick,
+  onErrorClick,
+  readOnly,
+  currentUserName,
+}: {
+  network: NetworkItem
+  index: number
+  selectedItems: string[]
+  onSelect: (
+    event: React.MouseEvent,
+    id: string,
+    index: number,
+    type: NDExFileType,
+    sortedItems: FileItemBase[],
+  ) => void
+  onDoubleClick: (event: React.MouseEvent, id: string) => void
+  onDropdownToggle?: (
+    event: React.MouseEvent,
+    id: string,
+    type: NDExFileType,
+  ) => void
+  onRemoveShortcut?: (shortcutId: string) => Promise<void>
+  onWarningClick: (network: FileItemBase) => void
+  onErrorClick: (network: FileItemBase) => void
+  readOnly?: boolean
+  currentUserName: string | null
+}) => {
+  const isSelected = selectedItems.includes(network.uuid)
+  const isUnavailable = isUnavailableShortcut(network)
+  const hasError = hasNetworkError(network)
+  const userOwns = isOwner(network, currentUserName)
+  const showRemoveButton = isUnavailable && !!onRemoveShortcut && userOwns
+
+  // Create drag source for network items (only if not read-only and not invalid)
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemTypes.DRIVE_ITEM,
+    item: readOnly || hasError ? null : () => ({
+      ids: selectedItems.includes(network.uuid)
+        ? selectedItems
+        : [network.uuid],
+      type: network.type,
+    }),
+    collect: (monitor) => ({ isDragging: !readOnly && !hasError && monitor.isDragging() }),
+    canDrag: !readOnly && !hasError,
+  })
+
+  // Create a ref function for drag
+  const dragRef = useCallback((element: HTMLDivElement | null) => {
+    if (!readOnly && !hasError) {
+      drag(element)
+    }
+  }, [drag, readOnly, hasError])
+
+  return (
+    <div
+      key={network.uuid}
+      data-item={network.uuid}
+      ref={dragRef}
+      className={getGridItemClasses(isSelected, isDragging, readOnly || false, hasError)}
+      onClick={(e) => {
+        if (hasError) return
+        onSelect?.(e, network.uuid, index, network.type, [])
+      }}
+      onDoubleClick={(e) => {
+        if (hasError) return
+        onDoubleClick(e, network.uuid)
+      }}
+    >
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center">
+          <div className="flex-shrink-0 mr-3 cursor-pointer pointer-events-auto relative z-10">
+            <ItemIcon
+              type={network.type === NDExFileType.SHORTCUT ? NDExFileType.NETWORK : network.type}
+              isShortcut={network.type === NDExFileType.SHORTCUT}
+              isShared={isSharedNetwork(network)}
+              isValid={isNetworkValid(network)}
+              hasWarnings={hasNetworkWarnings(network)}
+              hasError={hasError}
+              onWarningClick={() => onWarningClick(network)}
+              onErrorClick={() => onErrorClick(network)}
+              className="h-5 w-5"
+            />
+          </div>
+          {!readOnly && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => {}}
+              onClick={(e) => {
+                if (hasError) return
+                e.stopPropagation()
+              }}
+              disabled={hasError}
+              className={tableStyles.checkbox}
+            />
+          )}
+        </div>
+        {showRemoveButton ? (
+          <button
+            className="px-2 py-1 text-xs font-medium text-destructive hover:text-destructive/80
+                       border border-destructive/20 hover:border-destructive/40 rounded-md
+                       transition-colors duration-200"
+            onClick={async (e) => {
+              e.stopPropagation()
+              try {
+                await onRemoveShortcut!(network.uuid)
+              } catch (error) {
+                console.error('Error removing shortcut:', error)
+              }
+            }}
+          >
+            Remove
+          </button>
+        ) : (
+          onDropdownToggle && !isUnavailable && (
+            <button
+              className={tableStyles.button.dropdown}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDropdownToggle(e, network.uuid, network.type)
+              }}
+              data-dropdown-trigger
+              data-dropdown-id={network.uuid}
+            >
+              <MoreVertical className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )
+        )}
+      </div>
+      <div className="space-y-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <h3 className={`${tableStyles.text.name} ${getUnavailableTextClass(isUnavailable)} flex items-center gap-2`}>
+                <span className="truncate">{getDisplayName(network, 'Untitled Network')}</span>
+                {/* Amber marks anything DOI-related; the shape carries the state.
+                    The two locks differ only in colour, which is why every icon here
+                    needs its title — see docs/decisions/0006. */}
+                {network.type === NDExFileType.NETWORK && isNetworkCertified(network) && (
+                  <div title="Published network with DOI">
+                    <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                  </div>
+                )}
+                {network.type === NDExFileType.NETWORK && isPreCertified(network) && (
+                  <div title="Locked — DOI requested, reference not yet added">
+                    <Lock className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                  </div>
+                )}
+                {network.type === NDExFileType.NETWORK && isDOIPending(network) && (
+                  <div title="DOI request failed — cancel the request and try again">
+                    <BadgeAlert className="h-4 w-4 text-destructive flex-shrink-0" />
+                  </div>
+                )}
+                {/* Plain read-only: locked by choice, not by a DOI. */}
+                {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !isDOILocked(network) && (
+                  <div title="Read-only network">
+                    <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  </div>
+                )}
+              </h3>
+            </TooltipTrigger>
+            {hasError && (
+              <TooltipContent>
+                <p>This network is invalid. Click the red icon to find out why.</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    </div>
+  )
+}
+
+// Single network list item component
+const ListNetworkItem = ({
+  network,
+  tabState: _tabState,
+  index,
+  selectedItems,
+  onSelect,
+  onDoubleClick,
+  onDropdownToggle,
+  onRemoveShortcut,
+  onWarningClick,
+  onErrorClick,
+  showOwnerColumn,
+  showVisibilityColumn,
+  showPermissionColumn,
+  readOnly,
+  currentUserName,
+}: {
+  network: NetworkItem
+  tabState?: MyAccountTabType
+  index: number
+  selectedItems: string[]
+  onSelect: (
+    event: React.MouseEvent,
+    id: string,
+    index: number,
+    type: NDExFileType,
+    sortedItems: FileItemBase[],
+  ) => void
+  onDoubleClick: (event: React.MouseEvent, id: string) => void
+  onDropdownToggle?: (
+    event: React.MouseEvent,
+    id: string,
+    type: NDExFileType,
+  ) => void
+  onRemoveShortcut?: (shortcutId: string) => Promise<void>
+  onWarningClick: (network: FileItemBase) => void
+  onErrorClick: (network: FileItemBase) => void
+  showOwnerColumn?: boolean
+  showVisibilityColumn?: boolean
+  showPermissionColumn?: boolean
+  readOnly?: boolean
+  currentUserName: string | null
+}) => {
+  const isSelected = selectedItems.includes(network.uuid)
+  const isUnavailable = isUnavailableShortcut(network)
+  const hasError = hasNetworkError(network)
+  const userOwns = isOwner(network, currentUserName)
+  const showRemoveButton = isUnavailable && !!onRemoveShortcut && userOwns
+
+  // For list view, we need to handle refs differently
+  // Same approach as FoldersList - make the entire row draggable
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemTypes.DRIVE_ITEM,
+    item: readOnly || hasError ? null : () => ({
+      ids: selectedItems.includes(network.uuid)
+        ? selectedItems
+        : [network.uuid],
+      type: network.type,
+    }),
+    collect: (monitor) => ({ isDragging: !readOnly && !hasError && monitor.isDragging() }),
+    canDrag: !readOnly && !hasError,
+  })
+
+  // Create a ref function for drag using useCallback
+  const dragRef = useCallback(
+    (element: HTMLTableRowElement | null) => {
+      if (!readOnly && !hasError) {
+        drag(element)
+      }
+    },
+    [drag, readOnly, hasError],
+  )
+
+  return (
+    <tr
+      key={network.uuid}
+      data-item={network.uuid}
+      ref={dragRef}
+      className={getRowClasses(isSelected, isDragging, readOnly || false, hasError)}
+      onClick={(e) => {
+        if (hasError) return
+        onSelect?.(e, network.uuid, index, network.type, [])
+      }}
+      onDoubleClick={(e) => {
+        if (hasError) return
+        onDoubleClick(e, network.uuid)
+      }}
+    >
+      <td className={getTdClasses('left')}>
+        <div className="flex items-center w-full">
+          <div className="flex-shrink-0 mr-3 cursor-pointer pointer-events-auto relative z-10">
+            <ItemIcon
+              type={network.type === NDExFileType.SHORTCUT ? NDExFileType.NETWORK : network.type}
+              isShortcut={network.type === NDExFileType.SHORTCUT}
+              isShared={isSharedNetwork(network)}
+              isValid={isNetworkValid(network)}
+              hasWarnings={hasNetworkWarnings(network)}
+              hasError={hasError}
+              onWarningClick={() => onWarningClick(network)}
+              onErrorClick={() => onErrorClick(network)}
+              className="h-5 w-5"
+            />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={`text-sm font-medium truncate ${getUnavailableTextClass(isUnavailable)} flex items-center gap-2`}>
+                    <span className="truncate">{getDisplayName(network, 'Untitled Network')}</span>
+                    {/* Amber marks anything DOI-related; the shape carries the state.
+                        The two locks differ only in colour, which is why every icon here
+                        needs its title — see docs/decisions/0006. */}
+                    {network.type === NDExFileType.NETWORK && isNetworkCertified(network) && (
+                      <div title="Published network with DOI">
+                        <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                      </div>
+                    )}
+                    {network.type === NDExFileType.NETWORK && isPreCertified(network) && (
+                      <div title="Locked — DOI requested, reference not yet added">
+                        <Lock className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                      </div>
+                    )}
+                    {network.type === NDExFileType.NETWORK && isDOIPending(network) && (
+                      <div title="DOI request failed — cancel the request and try again">
+                        <BadgeAlert className="h-4 w-4 text-destructive flex-shrink-0" />
+                      </div>
+                    )}
+                    {/* Plain read-only: locked by choice, not by a DOI. */}
+                    {network.type === NDExFileType.NETWORK && isReadOnlyNetwork(network) && !isDOILocked(network) && (
+                      <div title="Read-only network">
+                        <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      </div>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                {hasError && (
+                  <TooltipContent>
+                    <p>This network is invalid. Click the red icon to find out why.</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      </td>
+      {showOwnerColumn && (
+        <td className={getTdClasses('left')}>
+          <OwnerCell
+            owner={network.owner}
+            ownerUUID={network.ownerUUID}
+            currentUserName={currentUserName}
+            readOnly={readOnly}
+          />
+        </td>
+      )}
+{isUnavailable ? (
+        // For unavailable shortcuts (trashed or deleted), span the message across Edges and Last Modified columns
+        <td className={getTdClasses('left')} colSpan={2}>
+          <div className="flex items-center justify-start w-full text-sm text-muted-foreground italic">
+            <span className="truncate">
+              {getUnavailableShortcutMessage(network)}
+            </span>
+          </div>
+        </td>
+      ) : (
+        <>
+          <td className={getTdClasses('right')}>
+            <div className="flex items-center justify-end w-full text-sm text-muted-foreground">
+              <span className="truncate">
+                {network.type === NDExFileType.SHORTCUT ? '' : formatCount(network.edges || 0)}
+              </span>
+            </div>
+          </td>
+          <td className={getTdClasses('left')}>
+            <div className="flex items-center justify-start w-full text-sm text-muted-foreground">
+              <span className="truncate">
+                {formatDate(network.modificationTime)}
+              </span>
+            </div>
+          </td>
+        </>
+      )}
+      {showVisibilityColumn && (
+        <td className={getTdClasses('center')}>
+          <div className="flex justify-center w-full">
+            {showRemoveButton ? (
+              <button
+                className="px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300
+                           border border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700 rounded-md
+                           transition-colors duration-200"
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  try {
+                    await onRemoveShortcut!(network.uuid)
+                  } catch (error) {
+                    console.error('Error removing shortcut:', error)
+                  }
+                }}
+              >
+                Remove shortcut
+              </button>
+            ) : isUnavailable ? (
+              // Non-owner viewing a dead shortcut: nothing in the visibility cell
+              null
+            ) : (
+              <span
+                className={`inline-flex px-2 py-1 text-xs font-medium rounded-full text-foreground ${
+                  network.visibility === 'PUBLIC'
+                    ? 'bg-green-200 dark:bg-green-700/80'
+                    : network.visibility === 'UNLISTED'
+                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                    : 'bg-blue-300 dark:bg-blue-700/70'
+                }`}
+              >
+                {network.visibility || 'PRIVATE'}
+              </span>
+            )}
+          </div>
+        </td>
+      )}
+      {showPermissionColumn && (
+        <td className={getTdClasses('center')}>
+          <div className="flex justify-center w-full">
+            <span className="text-sm text-muted-foreground">
+              {formatPermission(network.permission)}
+            </span>
+          </div>
+        </td>
+      )}
+      {onDropdownToggle && (
+        <td className={getTdClasses('center')}>
+          {!isUnavailable && (
+            <button
+              className={tableStyles.button.dropdown}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDropdownToggle(e, network.uuid, network.type)
+              }}
+              data-dropdown-trigger
+              data-dropdown-id={network.uuid}
+            >
+              <MoreVertical className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
+        </td>
+      )}
+    </tr>
+  )
+}
+
+const NetworksList: React.FC<NetworksListProps> = ({
+  items,
+  tabState,
+  viewMode,
+  readOnly = false,
+  accessKey,
+  showOwnerColumn = false,
+  showVisibilityColumn = true,
+  showPermissionColumn = false,
+  selectedItems = [],
+  onSelect,
+  onDropdownToggle,
+  onRemoveShortcut,
+  defaultSort = { field: 'modificationTime', direction: 'desc' },
+  sortable = true,
+  onSortChange,
+}) => {
+  const config = useConfig()
+  const { user } = useAuth()
+  const currentUserName = user?.userName || null
+  const [sortField, setSortField] = useState<SortField>(defaultSort.field)
+  const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSort.direction)
+
+  // Notify parent when active sort field changes (e.g. for "Reset" button visibility in search)
+  useEffect(() => {
+    onSortChange?.(sortField)
+  }, [sortField, onSortChange])
+
+  // Dialog state for warnings and errors
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean
+    type: 'warning' | 'error'
+    title: string
+    content: string[]
+  }>({
+    isOpen: false,
+    type: 'warning',
+    title: '',
+    content: []
+  })
+
+  // Handle double click on network to open it
+  const handleNetworkDoubleClick = useCallback(
+    (event: React.MouseEvent, networkId: string) => {
+      event.preventDefault()
+      event.stopPropagation()
+
+      const networkItem = items.find((item) => item.uuid === networkId)
+
+      // Don't open dead shortcuts (target trashed or deleted)
+      if (networkItem && isUnavailableShortcut(networkItem)) {
+        return
+      }
+
+      if (!readOnly && tabState === MyAccountTabType.TRASH) return
+
+      // A list item already carries the target of a network shortcut. Keep
+      // this synchronous so the browser treats window.open as part of the
+      // double-click gesture rather than blocking it as a popup.
+      const targetId =
+        networkItem?.type === NDExFileType.SHORTCUT
+          ? networkItem.attributes?.target
+          : networkId
+      if (!targetId) return
+
+      const baseUrl = config.ndexBaseUrl.startsWith('http')
+        ? config.ndexBaseUrl
+        : `https://${config.ndexBaseUrl}`
+      const targetAccessKey =
+        (networkItem?.attributes?.accessKey as string | undefined) ?? accessKey
+      const viewerUrl = withAccessKey(
+        `${baseUrl.replace(/\/$/, '')}/viewer/networks/${targetId}`,
+        targetAccessKey,
+      )
+
+      window.open(viewerUrl, '_blank')
+    },
+    [items, config.ndexBaseUrl, readOnly, tabState, accessKey],
+  )
+
+  // Handle warning icon click
+  const handleWarningClick = useCallback((network: FileItemBase) => {
+    const warnings = (network as any).warnings
+    if (warnings && Array.isArray(warnings)) {
+      setDialogState({
+        isOpen: true,
+        type: 'warning',
+        title: 'Network Data Warnings',
+        content: warnings
+      })
+    }
+  }, [])
+
+  // Handle error icon click
+  const handleErrorClick = useCallback((network: FileItemBase) => {
+    const errorMessage = (network as any).errorMessage
+    if (errorMessage) {
+      setDialogState({
+        isOpen: true,
+        type: 'error',
+        title: 'Network Data Error',
+        content: [errorMessage]
+      })
+    }
+  }, [])
+
+  // Handle dialog close
+  const handleDialogClose = useCallback(() => {
+    setDialogState(prev => ({ ...prev, isOpen: false }))
+  }, [])
+
+  // Handle sort column click
+  const handleSortClick = (field: 'name' | 'modificationTime') => {
+    // If clicking on the same field, toggle direction
+    if (sortField === field) {
+      const nextDirection: SortDirection =
+        sortDirection === 'asc'
+          ? 'desc'
+          : sortDirection === 'desc'
+          ? null
+          : 'asc'
+      setSortDirection(nextDirection)
+      if (sortDirection === 'desc') {
+        setSortField(null)
+      }
+    } else {
+      // If clicking on a new field, set to ascending
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  // Sort networks if needed
+  const sortedNetworkItems = [...items]
+
+  if (sortField && sortDirection) {
+    sortedNetworkItems.sort((a, b) => {
+      let valueA: any
+      let valueB: any
+
+      if (sortField === 'name') {
+        valueA = getDisplayName(a, 'Untitled Network').toLowerCase()
+        valueB = getDisplayName(b, 'Untitled Network').toLowerCase()
+      } else if (sortField === 'modificationTime') {
+        valueA = a.modificationTime ? new Date(a.modificationTime).getTime() : 0
+        valueB = b.modificationTime ? new Date(b.modificationTime).getTime() : 0
+      } else {
+        return 0
+      }
+
+      const direction = sortDirection === 'asc' ? 1 : -1
+
+      if (valueA < valueB) return -1 * direction
+      if (valueA > valueB) return 1 * direction
+
+      // If primary sort values are equal, sort by name alphabetically
+      if (valueA === valueB) {
+        const nameA = getDisplayName(a, 'Untitled Network').toLowerCase()
+        const nameB = getDisplayName(b, 'Untitled Network').toLowerCase()
+        if (nameA < nameB) return -1
+        if (nameA > nameB) return 1
+      }
+
+      return 0
+    })
+  }
+
+  // Renders sort icon based on field and current state
+  const renderSortIcon = (field: 'name' | 'modificationTime') => {
+    // If this field is being sorted
+    if (sortField === field) {
+      // Show prominent icon based on direction
+      if (sortDirection === 'asc') {
+        return <ArrowUp className="h-3 w-3 ml-1 inline-block text-foreground" />
+      } else if (sortDirection === 'desc') {
+        return <ArrowDown className="h-3 w-3 ml-1 inline-block text-foreground" />
+      }
+    }
+
+    // Show a subtle icon by default (not actively sorted)
+    return <ArrowUpDown className="h-3 w-3 ml-1 inline-block text-muted-foreground" />
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="mb-4">
+        <h2 className={tableStyles.text.title}>Networks</h2>
+        <p className={tableStyles.empty}>No networks found</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mb-4">
+      <h2 className={tableStyles.text.title}>Networks</h2>
+
+      {viewMode === 'grid' ? (
+        // Grid View
+        <div className={tableStyles.grid.container}>
+          {sortedNetworkItems.map((network, index) => (
+            <GridNetworkItem
+              key={network.uuid}
+              network={network}
+              index={index}
+              selectedItems={selectedItems}
+              onSelect={(e, id, idx, type) =>
+                onSelect?.(e, id, idx, type, sortedNetworkItems)
+              }
+              onDoubleClick={handleNetworkDoubleClick}
+              onDropdownToggle={onDropdownToggle}
+              onRemoveShortcut={onRemoveShortcut}
+              onWarningClick={handleWarningClick}
+              onErrorClick={handleErrorClick}
+              readOnly={readOnly}
+              currentUserName={currentUserName}
+            />
+          ))}
+        </div>
+      ) : (
+        // List View - Enhanced with table layout
+        <div className={tableStyles.container}>
+          <table className="min-w-full divide-y divide-border" style={{ tableLayout: 'fixed', width: '100%' }}>
+            <thead className={tableStyles.thead}>
+              <tr>
+                <th
+                  scope="col"
+                  className={getThClasses('left')}
+                  style={{ minWidth: '200px' }}
+                >
+                  {sortable ? (
+                    <button
+                      className={tableStyles.button.sort}
+                      onClick={() => handleSortClick('name')}
+                    >
+                      Name
+                      {renderSortIcon('name')}
+                    </button>
+                  ) : (
+                    <span>Name</span>
+                  )}
+                </th>
+                {showOwnerColumn && (
+                  <th
+                    scope="col"
+                    className={getThClasses('left')}
+                    style={{ width: '160px', minWidth: '160px' }}
+                  >
+                    Owner
+                  </th>
+                )}
+                <th
+                  scope="col"
+                  className={getThClasses('right')}
+                  style={{ width: '120px', minWidth: '120px' }}
+                >
+                  Edges
+                </th>
+                <th
+                  scope="col"
+                  className={getThClasses('left')}
+                  style={{ width: '170px', minWidth: '170px' }}
+                >
+                  {sortable ? (
+                    <button
+                      className="flex items-center justify-start focus:outline-none"
+                      onClick={() => handleSortClick('modificationTime')}
+                    >
+                      Last Modified
+                      {renderSortIcon('modificationTime')}
+                    </button>
+                  ) : (
+                    <span>Last Modified</span>
+                  )}
+                </th>
+                {showVisibilityColumn && (
+                  <th
+                    scope="col"
+                    className={getThClasses('center')}
+                    style={{ width: '100px', minWidth: '100px' }}
+                  >
+                    Visibility
+                  </th>
+                )}
+                {showPermissionColumn && (
+                  <th
+                    scope="col"
+                    className={getThClasses('center')}
+                    style={{ width: '100px', minWidth: '100px' }}
+                  >
+                    Permission
+                  </th>
+                )}
+                {onDropdownToggle && (
+                  <th
+                    scope="col"
+                    className={getThClasses('center')}
+                    style={{ width: '80px', minWidth: '80px' }}
+                  >
+                    Actions
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody className={tableStyles.tbody}>
+              {sortedNetworkItems.map((network, index) => (
+                <ListNetworkItem
+                  key={network.uuid}
+                  tabState={tabState}
+                  network={network}
+                  index={index}
+                  selectedItems={selectedItems}
+                  onSelect={(e, id, idx, type) =>
+                    onSelect?.(e, id, idx, type, sortedNetworkItems)
+                  }
+                  onDoubleClick={handleNetworkDoubleClick}
+                  onDropdownToggle={onDropdownToggle}
+                  onRemoveShortcut={onRemoveShortcut}
+                  onWarningClick={handleWarningClick}
+                  onErrorClick={handleErrorClick}
+                  showOwnerColumn={showOwnerColumn}
+                  showVisibilityColumn={showVisibilityColumn}
+                  showPermissionColumn={showPermissionColumn}
+                  readOnly={readOnly}
+                  currentUserName={currentUserName}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Dialog for warnings and errors */}
+      <NetworkStatusDialog
+        isOpen={dialogState.isOpen}
+        onClose={handleDialogClose}
+        type={dialogState.type}
+        title={dialogState.title}
+        content={dialogState.content}
+      />
+    </div>
+  )
+}
+
+export default NetworksList
+export { formatDate } from '@/components/shared/table-utils'

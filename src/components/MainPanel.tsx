@@ -1,5 +1,4 @@
 'use client'
-import React from 'react'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { AppSidebar } from './top-page/AppSidebar'
 
@@ -11,7 +10,7 @@ export function MainPanel({ children }: MainPanelProps) {
   return (
     <SidebarProvider defaultOpen={false}>
       <AppSidebar />
-      <main className="w-full p-2">{children}</main>
+      <main className="w-full h-[calc(100vh-56px)]">{children}</main>
     </SidebarProvider>
   )
 }

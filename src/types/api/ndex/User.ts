@@ -1,3 +1,32 @@
+import { NDExUser } from '@js4cytoscape/ndex-client'
+
+/**
+ * Maps an NDExUser (from the API client) to the local User type.
+ */
+export function mapNDExUserToUser(ndexUser: NDExUser): User {
+  const firstName = ndexUser.firstName ?? ''
+  const lastName = ndexUser.lastName ?? ''
+  return {
+    externalId: ndexUser.externalId,
+    userName: ndexUser.userName,
+    firstName,
+    lastName,
+    displayName: [firstName, lastName].filter(Boolean).join(' ') || ndexUser.userName,
+    emailAddress: ndexUser.emailAddress ?? '',
+    description: ndexUser.description ?? '',
+    image: ndexUser.image ?? '',
+    website: ndexUser.website ?? '',
+    isIndividual: ndexUser.isIndividual ?? true,
+    isVerified: ndexUser.isVerified ?? false,
+    creationTime: ndexUser.creationTime != null ? new Date(ndexUser.creationTime).toISOString() : '',
+    modificationTime: ndexUser.modificationTime != null ? new Date(ndexUser.modificationTime).toISOString() : '',
+    diskUsed: 0,
+    diskQuota: 0,
+    isDeleted: false,
+    password: undefined,
+  }
+}
+
 /**
  * Represents a user in the NDEx system
  */

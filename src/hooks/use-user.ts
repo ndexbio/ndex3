@@ -1,21 +1,16 @@
 import useSWR from 'swr'
 import { useConfig } from '@/lib/contexts/ConfigContext'
-import { User } from '@/types/api/ndex/User'
+import { NDExUser } from '@js4cytoscape/ndex-client'
+import { getNdexClient } from '../lib/api/ndex-client-manager'
 
-const fetcher = async (url: string) => {
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch user: ${response.statusText}`)
-  }
-  return response.json()
-}
-
-export function useUserProfile(uuid: string | undefined) {
+export function useUser(uuid: string) {
   const config = useConfig()
+  const { ndexBaseUrl } = config
+  const ndexClient = getNdexClient(ndexBaseUrl)
 
-  const { data, error, isLoading } = useSWR<User>(
-    uuid ? `${config.ndexBaseUrl}/user/${uuid}` : null,
-    fetcher,
+  // Use uuid as the key and ndexClient.user.getUser as fetcher.
+  const { data, error, isLoading } = useSWR<NDExUser>(uuid, () =>
+    ndexClient.user.getUser(uuid),
   )
 
   return {

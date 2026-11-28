@@ -1,86 +1,261 @@
-# ndex-next: Modernized frontend for NDEx v3
+# NDEx3: New Frontend for NDEx (Version 3)
 
-(TBD)
+A new Next.js-based frontend for the Network Data Exchange (NDEx) platform, providing a user-friendly interface for network biology data management, sharing, and visualization.
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Overview
+
+NDEx3 is a complete rewrite of the NDEx frontend using web technologies including Next.js, TypeScript, and Tailwind CSS. It is the frontend for **managing and organizing networks** — uploading, browsing, searching, sharing, and folder-organizing biological network data.
+
+This app does not implement network visualization itself. For certain functions it redirects users to sibling applications, which may be deployed on the same host or a different one, entirely driven by `public/config.json`:
+
+- **Cytoscape Web** — "Open in Cytoscape Web" opens the selected network's UUID in the Cytoscape Web application at `<cytoscapeWebUrl>/0/networks/<uuid>`. The base URL comes from the `cytoscapeWebUrl` config value (falls back to `https://web.cytoscape.org` if unset); in this repo's dev config it points at a same-host sibling app (`https://dev3.ndex.ucsd.edu/cytoscape`). See [`ActionDropdown.tsx`](./src/app/my-account/_components/ActionDropdown.tsx).
+- **NDEx Network Viewer** — legacy hash-router network-viewing links (e.g. `#/network/<uuid>`, `#/networkset/<uuid>`) are redirected client-side to the NDEx Network Viewer, a sibling app deployed on the same host at the `/viewer/networks/<uuid>` route. The legacy `public.ndexbio.org` host is also canonicalized to `www.ndexbio.org`, unconditionally and independent of whether the link matches a known legacy pattern. See [`src/utils/legacyRedirect.ts`](./src/utils/legacyRedirect.ts).
+
+Feature and deployment documentation lives in [docs/](./docs/) — start at [docs/README.md](./docs/README.md) for the index, and [docs/decisions/](./docs/decisions/) for the architecture decision records.
+
+This app also redirects a few legacy URL shapes from the previous NDEx2 frontend to their NDEx3 equivalents (host canonicalization, hash-fragment rewriting, and a legacy bare-pathname route) — see [docs/legacy-redirects.md](./docs/legacy-redirects.md) for the full set of rules and why they're split across two implementations.
+
+## Key Features
+
+- 🔐 **Keycloak Authentication** - Secure user authentication and authorization
+- 🌐 **Network Management** - Upload, organize, and manage biological networks
+- 📁 **Folder Organization** - Hierarchical organization of networks and data
+- 🔍 **Advanced Search** - Search networks and users across the platform  
+- 🎨 **Modern UI** - Responsive design with dark/light theme support
+- 📊 **Dynamic Content** - Configurable home page content from external sources
+- 🚀 **Performance Optimized** - Built with Next.js App Router for optimal performance
+
+## Content System
+
+NDEx3 features a dynamic content configuration system that allows updating home page content without code deployments:
+
+- **Remote Configuration**: Content fetched from external JSON files
+- **Direct Browser Fetching**: No server-side proxies needed
+- **Four Content Types**: Featured content carousel, featured networks, blog content, and logo carousel
+- **Error Handling**: Comprehensive fallback states for content loading failures
+
+See [`CONTENT_SYSTEM_README.md`](./docs/CONTENT_SYSTEM_README.md) and [`CONTENT_CONFIGURATION.md`](./docs/CONTENT_CONFIGURATION.md) for detailed documentation.
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+ 
+- npm, yarn, pnpm, or bun
+
+### Development
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/ndexbio/ndex3.git
+   cd ndex3
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure the application**
+   
+   Copy and customize the configuration:
+   ```bash
+   cp public/config-example-root.json public/config.json
+   ```
+   
+   Edit `public/config.json` with your settings:
+   ```json
+   {
+     "ndexBaseUrl": "your-ndex-server.com",
+     "keycloakConfig": {
+       "url": "https://your-keycloak-server/auth",
+       "clientId": "your-client-id", 
+       "realm": "your-realm"
+     },
+     "uiContent": {
+       "contentRootPath": "https://your-content-server.com/content/v1",
+       "featuredContent": "featured_content.json",
+       "featuredNetwork": "featured_networks.json",
+       "mainContent": "main.json",
+       "logos": "logos.json"
+     }
+   }
+   ```
+
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Open your browser**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## Architecture
+
+NDEx3 follows a modern Next.js App Router architecture with a focus on **feature-based colocation**, **server components**, and **static export compatibility**.
+
+### Project Structure
+
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-# Project Structure
-
-```
-public/                  # Directory for config and resource files
-├── config.json          # Basic application config
-└── contents             # Directory for contents for thetop page
+public/                      # Static assets and configuration
+├── config.json              # Application configuration
+└── config-example-root.json # Configuration template
 
 src/
-├── app/                     # Core application directory for App Router
-│   ├── layout.tsx           # Root layout definition
-│   ├── page.tsx             # Home page component
-│   └── providers.tsx        # Global providers (SWR Config, etc.)
+├── app/                     # Next.js App Router
+│   ├── layout.tsx           # Root layout with providers
+│   ├── page.tsx             # Root page (home + client-side routing)
+│   ├── loading.tsx          # Global loading UI
+│   ├── error.tsx            # Global error boundary
+│   │
+│   ├── _components/         # Home page components (feature-based)
+│   │
+│   ├── search/              # Search feature
+│   │   ├── page.tsx
+│   │   ├── loading.tsx
+│   │   ├── error.tsx
+│   │   └── _components/     # Search-specific components
+│   │
+│   ├── my-account/          # Account management feature
+│   │   ├── page.tsx
+│   │   ├── loading.tsx
+│   │   ├── error.tsx
+│   │   └── _components/     # Account-specific components
+│   │
+│   ├── folders/[uuid]/      # Dynamic folder feature
+│   │   ├── page.tsx
+│   │   ├── loading.tsx
+│   │   └── error.tsx
+│   │
+│   └── (other features...)
 │
-├── components/              # Reusable component library
-│   ├── ui/                  # Basic UI components
-│   │   ├── button.tsx       # Atomic button component
-│   │   └── input.tsx        # Form input elements
-│   └── features/            # Feature-specific components
-│       └── auth/            # Authentication related components
-│           ├── login-form.tsx
-│           └── register-form.tsx
+├── components/              # Shared React components
+│   ├── ui/                  # Base UI components (shadcn/ui)
+│   ├── SearchBox.tsx        # Example shared component
+│   └── UserAvatar.tsx       # Example shared component
 │
-├── hooks/                   # Custom React hooks
-│   ├── use-auth.ts          # Authentication hooks
-│   └── use-form.ts          # Form handling hooks
+├── hooks/                   # Custom React hooks (e.g., use-network-search)
 │
-├── lib/                    # Utility functions and configurations
-│   ├── api/               # API client setup
-│   │   └── client.ts      # Axios/fetch instance configuration
-│   └── utils/             # Utility functions
-│       └── format.ts      # Date formatting, string manipulation, etc.
+├── lib/                     # Utilities, API clients, and contexts
+│   ├── api/                 # API clients (NDEx, content service)
+│   ├── contexts/            # React contexts (Config, Keycloak)
+│   └── utils/               # Utility functions
 │
-├── services/              # Business logic and API calls
-│   ├── auth.ts           # Authentication service
-│   └── user.ts           # User management service
+├── stores/                  # State management (Zustand)
 │
-└── types/                # TypeScript type definitions
-    ├── api/              # API-related types
-    │   ├── requests.ts   # Request type definitions
-    │   └── responses.ts  # Response type definitions
-    ├── entities/         # Domain entity types
-    │   ├── user.ts      # User entity definition
-    │   └── post.ts      # Post entity definition
-    └── index.ts         # Common type definitions and exports
+└── types/                   # TypeScript type definitions
 ```
+
+### Key Architectural Concepts
+
+- **Feature-Based Colocation**: Components are located with the features that use them (`src/app/[feature]/_components/`), improving maintainability.
+- **Shared Components**: Truly shared components reside in `src/components/`.
+- **Hybrid Routing**: Due to `output: 'export'` for static deployment, the app uses a hybrid routing strategy:
+  - **File-System Routing**: For all static routes (`/search`, `/my-account`).
+  - **Client-Side Routing**: The root `page.tsx` handles dynamic routes with unlimited UUIDs (`/folders/[uuid]`) that cannot be pre-generated.
+- **Loading & Error Boundaries**: Each route has its own `loading.tsx` and `error.tsx` for a resilient and user-friendly experience, leveraging React Suspense and Error Boundaries automatically.
+- **Static Export**: The application is optimized for static hosting, with `output: 'export'` configured in `next.config.ts`.
+
+For how this is served and why, see [`docs/APACHE_STATIC_DEPLOYMENT.md`](./docs/APACHE_STATIC_DEPLOYMENT.md); for URLs that match no route, [`docs/not-found-routing.md`](./docs/not-found-routing.md); for the NDEx2 URL rules, [`docs/legacy-redirects.md`](./docs/legacy-redirects.md).
+
+## Configuration
+
+### Application Config (`public/config.json`)
+
+The main configuration file defines:
+
+- **ndexBaseUrl**: NDEx server URL
+- **keycloakConfig**: Authentication server settings  
+- **uiContent**: Dynamic content configuration
+- **urlBaseName**: Optional URL base path
+- **cytoscapeWebUrl**: Optional Cytoscape Web URL for the "Open in Cytoscape Web" action
+- **maxNetworkElementsThreshold** / **maxEdgeCountThreshold**: Optional size limits above which "Open in Cytoscape Web" is disabled
+- **swaggerBaseName**: Optional path to the server's Swagger UI
+- **metricsUrl**: Optional base URL for client-side metrics events, such as reporting an unrecognized URL (see [docs/not-found-routing.md](./docs/not-found-routing.md))
+
+Every field and its default is documented on the `AppConfig` interface in
+`src/types/entities/AppConfig.ts`.
+
+### Content Configuration
+
+Content is fetched from external JSON files defined in the `uiContent` configuration:
+
+- **contentRootPath**: Base URL for all content files
+- Content files: `featured_content.json`, `featured_networks.json`, `main.json`, `logos.json`
+
+## Deployment
+
+### Static Export
+
+Build and export the application for static hosting:
+
+```bash
+npm run build
+```
+
+The exported files will be in the `out/` directory.
+
+run `tar czf ndex3.tar.gz -s '/^out/ndex3/' out ` to create a single tarball that can be uncompressed on deployment server from the parent directory that should contain the entire 'ndex3' webapp distro.
+
+### Apache Configuration
+
+For Apache deployments, see [`docs/APACHE_STATIC_DEPLOYMENT.md`](./docs/APACHE_STATIC_DEPLOYMENT.md) for detailed configuration instructions.
+
+## Development
+
+### Key Technologies
+
+- **Next.js 15** - React framework with App Router
+- **TypeScript** - Type-safe development
+- **Tailwind CSS** - Utility-first CSS framework  
+- **shadcn/ui** - Modern UI component library
+- **SWR** - Data fetching with caching
+- **Keycloak** - Authentication and authorization
+- **Zustand** - Lightweight state management
+
+### Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production  
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run type-check` - Run TypeScript checks
+- `npm run check:docs` - Check documentation links
+- `npm run check:changelog` - Check `CHANGELOG.md` structure and that it matches `package.json`
+
+## Authentication
+
+NDEx3 uses Keycloak for authentication. Configure your Keycloak server details in the `keycloakConfig` section of `public/config.json`.
+
+### Google Analytics
+In order to enable Google Analytics, export NEXT_PUBLIC_GA_ID=GS-XXXXX (the analytics ID) prior to running the build.
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch from `development` (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. If users or deployers would notice the change, add an entry under
+   `## [Unreleased]` in [`CHANGELOG.md`](./CHANGELOG.md)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request against `development`
+
+Releases are cut from `main` only; see [`docs/releasing.md`](./docs/releasing.md).
+
+## Documentation
+
+Start at [`docs/README.md`](./docs/README.md) — the documentation index, which
+lists every feature, decision and deployment document and is kept current.
+
+- [`docs/CONFIG_SYSTEM.md`](./docs/CONFIG_SYSTEM.md) - Configuration system
+- [`docs/APACHE_STATIC_DEPLOYMENT.md`](./docs/APACHE_STATIC_DEPLOYMENT.md) - Apache deployment guide
+- [`docs/CONTENT_SYSTEM_README.md`](./docs/CONTENT_SYSTEM_README.md) - Content system overview
+- [`docs/CONTENT_CONFIGURATION.md`](./docs/CONTENT_CONFIGURATION.md) - Detailed content configuration
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support and questions, please contact the NDEx team or create an issue in the GitHub repository.

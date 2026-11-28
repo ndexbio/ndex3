@@ -1,7 +1,11 @@
 'use client'
 
-import { TabsPanel } from '@/components/search/TabsPanel'
+import { SearchResultsPage } from './_components/SearchResultsPage'
 
 export default function SearchPage() {
-  return <TabsPanel />
+  return (
+    <div className="h-full overflow-hidden">
+      <SearchResultsPage />
+    </div>
+  )
 }

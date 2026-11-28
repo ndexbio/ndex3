@@ -5,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { SearchBox } from '../search/SearchBox'
+import { SearchBox } from '@/components/SearchBox'
 
 export const SearchCard = () => {
   return (

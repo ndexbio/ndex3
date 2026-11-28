@@ -1,29 +1,42 @@
-import { Suspense } from 'react'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
-import UserProfile from '@/components/user/UserProfile'
+import UserPublicPage from '../_components/UserPublicPage'
+import type { Metadata } from 'next'
 
-export default function UserPage({ params }: { params: { uuid: string } }) {
-  return (
-    <div className="container mx-auto p-4">
-      <Suspense fallback={<LoadingSkeleton />}>
-        <UserProfile uuid={params.uuid} />
-      </Suspense>
-    </div>
-  )
+// Generate static params for build-time generation
+export async function generateStaticParams() {
+  // Return a placeholder that will trigger client-side routing for actual UUIDs
+  return [{ uuid: 'placeholder' }]
 }
 
-function LoadingSkeleton() {
-  return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-8 w-1/3" />
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-2/3" />
-      </CardContent>
-    </Card>
-  )
+// Generate metadata for the page
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ uuid: string }>
+}): Promise<Metadata> {
+  const { uuid } = await params
+  
+  if (uuid === 'placeholder') {
+    return {
+      title: 'User Profile - NDEx3',
+      description: 'View user profile and public content on NDEx3'
+    }
+  }
+
+  // For actual UUIDs, we would need to fetch user data here for SEO
+  // But since we're using static export, we'll handle this client-side
+  return {
+    title: 'User Profile - NDEx3',
+    description: 'View user profile and public content on NDEx3'
+  }
+}
+
+export default async function UserPage({ params }: { params: Promise<{ uuid: string }> }) {
+  const { uuid } = await params
+  
+  // If it's the placeholder, don't render anything (client-side routing will handle it)
+  if (uuid === 'placeholder') {
+    return null
+  }
+
+  return <UserPublicPage uuid={uuid} />
 }

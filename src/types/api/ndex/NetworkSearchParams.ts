@@ -1,4 +1,4 @@
-import { Permission } from '../common/Permission'
+import { Permission } from '@js4cytoscape/ndex-client'
 
 export interface NetworkSearchParams {
   searchString: string
