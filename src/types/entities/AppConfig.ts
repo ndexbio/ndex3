@@ -50,7 +50,7 @@ interface MainContent {
 interface LogoConfig {
   /**
    * Direct URL to the logo image
-   * Example: "https://home.ndexbio.org/landing_page_content/v2_4_2/logos/ucsd_logo_alt.png"
+   * Example: "https://www.ndexbio.org/contentrootpath/logos/ucsd_logo_alt.png"
    */
   src: string
   /**
@@ -67,21 +67,21 @@ interface LogoConfig {
 interface UIContent {
   /**
    * Base path for all content files (new config structure)
-   * Example: "https://home.ndexbio.org/landing_page_content/v2_4_2"
+   * Example: "https://www.ndexbio.org/contentrootpath"
    */
   contentRootPath?: string
 
   /**
    * Featured content configuration file path or direct URL
    * New: "featured_content.json" (combined with contentRootPath)
-   * Legacy: "https://home.ndexbio.org/landing_page_content/v2_4_2/featured_content.json"
+   * Legacy: "https://www.ndexbio.org/contentrootpath/featured_content.json"
    */
   featuredContent: string
 
   /**
    * Featured networks configuration file path or direct URL
    * New: "featured_networks.json" (combined with contentRootPath)
-   * Legacy: "https://home.ndexbio.org/landing_page_content/v2_4_2/featured_networks.json"
+   * Legacy: "https://www.ndexbio.org/contentrootpath/featured_networks.json"
    */
   featuredNetwork: string
 
@@ -100,7 +100,7 @@ interface UIContent {
 
   /**
    * Array of direct URLs to blog/news HTML files (legacy structure)
-   * Example: ["https://home.ndexbio.org/landing_page_content/v2_4_2/doc4rudi.html"]
+   * Example: ["https://www.ndexbio.org/contentrootpath/doc4rudi.html"]
    */
   blog?: string[]
 

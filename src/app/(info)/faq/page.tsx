@@ -90,11 +90,11 @@ const faqItems: FAQItem[] = [
     answer: (
       <>
         Just use the <strong>Search</strong> bar at the top of the page! You can
-        search for networks, users, and groups all at once. For more details,
-        see the{' '}
-        <a href="https://home.ndexbio.org/finding-and-querying-networks/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+        search for networks, folders and shortcuts all at once. For more
+        details, see the{' '}
+        <Link href="/docs/finding-and-querying" className="text-primary hover:underline">
           Finding and Querying manual
-        </a>
+        </Link>
         .
       </>
     ),
@@ -110,9 +110,9 @@ const faqItems: FAQItem[] = [
         and click the &ldquo;Login&rdquo; button. If you have a Google account,
         you can sign up with Google and your account will be created in seconds.
         For a step-by-step guide, see{' '}
-        <a href="https://home.ndexbio.org/create-an-ndex-account/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+        <Link href="/docs/create-an-ndex-account" className="text-primary hover:underline">
           Creating an Account
-        </a>
+        </Link>
         .
       </>
     ),
@@ -125,9 +125,9 @@ const faqItems: FAQItem[] = [
         open your network in Cytoscape, you can save it to NDEx), using a custom
         program/script via the API, or through the web UI if your networks are
         in CX format. See the{' '}
-        <a href="https://home.ndexbio.org/sharing-and-accessing-networks/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+        <Link href="/docs/sharing-and-accessing" className="text-primary hover:underline">
           Uploading and Sharing guide
-        </a>{' '}
+        </Link>{' '}
         for details.
       </>
     ),
@@ -140,7 +140,7 @@ const faqItems: FAQItem[] = [
         by Amazon Web Services (AWS), and the database is backed up daily. You
         always control who has access to your networks by setting their privacy
         level (Public or Private) and by managing access permissions (read, edit,
-        or admin) for other NDEx users and groups.
+        or admin) for other NDEx users.
       </>
     ),
   },
@@ -148,26 +148,13 @@ const faqItems: FAQItem[] = [
     question: 'Can I share my networks with collaborators?',
     answer: (
       <>
-        Yes! You can share networks internally (with other NDEx users and
-        groups) or externally by using a network&apos;s <strong>Shareable URL</strong>,
+        Yes! You can share networks internally (with other NDEx users) or
+        externally by using a network&apos;s <strong>Shareable URL</strong>,
         similar to Dropbox or Google Drive. See the{' '}
-        <a href="https://home.ndexbio.org/sharing-and-accessing-networks/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+        <Link href="/docs/sharing-and-accessing" className="text-primary hover:underline">
           Sharing guide
-        </a>{' '}
+        </Link>{' '}
         for details.
-      </>
-    ),
-  },
-  {
-    question: 'Can I create my own workgroups?',
-    answer: (
-      <>
-        Yes, you can create as many workgroups as you want and invite other NDEx
-        users to join for collaboration. See{' '}
-        <a href="https://home.ndexbio.org/creating-and-using-groups/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-          Creating and Using Groups
-        </a>
-        .
       </>
     ),
   },
@@ -191,9 +178,9 @@ const faqItems: FAQItem[] = [
       <>
         Yes. You can create an account and access it programmatically from your
         scripts and applications using our client libraries. Visit the{' '}
-        <a href="https://home.ndexbio.org/readme-developers-best-practices/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+        <Link href="/docs/developers-best-practices" className="text-primary hover:underline">
           Developer&apos;s README
-        </a>{' '}
+        </Link>{' '}
         for more information.
       </>
     ),
@@ -220,9 +207,9 @@ const faqItems: FAQItem[] = [
         Yes! You can request Digital Object Identifiers (DOIs) for your networks
         to use in peer-reviewed publications, grant proposals, and
         presentations. Requesting a DOI is 100% free. See the{' '}
-        <a href="https://home.ndexbio.org/publishing-in-ndex/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+        <Link href="/docs/publishing" className="text-primary hover:underline">
           Publishing in NDEx guide
-        </a>
+        </Link>
         .
       </>
     ),

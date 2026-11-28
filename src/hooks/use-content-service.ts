@@ -15,7 +15,7 @@ import { useConfig } from '@/lib/contexts/ConfigContext'
  * - Logo Carousel: Partner/organization logos with links
  * 
  * Configuration URLs are built as: {contentRootPath}/{filename}
- * Example: https://home.ndexbio.org/landing_page_content/v2_4_2/featured_content.json
+ * Example: https://www.ndexbio.org/contentrootpath/featured_content.json
  */
 
 /**

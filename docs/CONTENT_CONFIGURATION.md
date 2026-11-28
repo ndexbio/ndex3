@@ -15,7 +15,7 @@ The main application configuration file contains the `uiContent` object that def
 ```json
 {
   "uiContent": {
-    "contentRootPath": "https://home.ndexbio.org/landing_page_content/v2_4_2",
+    "contentRootPath": "https://www.ndexbio.org/contentrootpath",
     "featuredContent": "featured_content.json",
     "featuredNetwork": "featured_networks.json", 
     "mainContent": "main.json",
@@ -37,7 +37,7 @@ The main application configuration file contains the `uiContent` object that def
 ### 1. Featured Content
 
 **File**: `{contentRootPath}/{featuredContent}`  
-**Example URL**: `https://home.ndexbio.org/landing_page_content/v2_4_2/featured_content.json`
+**Example URL**: `https://www.ndexbio.org/contentrootpath/featured_content.json`
 
 **Purpose**: Defines carousel items for the home page hero section.
 
@@ -68,7 +68,7 @@ The main application configuration file contains the `uiContent` object that def
 ### 2. Featured Networks
 
 **File**: `{contentRootPath}/{featuredNetwork}`  
-**Example URL**: `https://home.ndexbio.org/landing_page_content/v2_4_2/featured_networks.json`
+**Example URL**: `https://www.ndexbio.org/contentrootpath/featured_networks.json`
 
 **Purpose**: Defines highlighted network data from NDEx.
 
@@ -93,7 +93,7 @@ The main application configuration file contains the `uiContent` object that def
 ### 3. Main Content (Blog/News)
 
 **File**: `{contentRootPath}/{mainContent}`  
-**Example URL**: `https://home.ndexbio.org/landing_page_content/v2_4_2/main.json`
+**Example URL**: `https://www.ndexbio.org/contentrootpath/main.json`
 
 **Purpose**: Defines HTML content files to be displayed in content boxes.
 
@@ -125,7 +125,7 @@ The main application configuration file contains the `uiContent` object that def
 ### 4. Logo Carousel
 
 **File**: `{contentRootPath}/{logos}`  
-**Example URL**: `https://home.ndexbio.org/landing_page_content/v2_4_2/logos.json`
+**Example URL**: `https://www.ndexbio.org/contentrootpath/logos.json`
 
 **Purpose**: Defines partner/organization logos for the carousel.
 
@@ -159,8 +159,11 @@ The main application configuration file contains the `uiContent` object that def
 ### Content Fetching
 
 **Both Development and Production:**
-- Direct browser calls to external content URLs (`{contentRootPath}/{filename}`)
-- CORS handled by external content server (home.ndexbio.org)  
+- Direct browser calls to content URLs (`{contentRootPath}/{filename}`)
+- The content servers send no CORS headers, so the app must be served from the
+  same origin as `contentRootPath`, as it is in production. From `localhost` or
+  any other origin the browser blocks the content; see
+  [APACHE_STATIC_DEPLOYMENT.md](./APACHE_STATIC_DEPLOYMENT.md#content-fetching)
 - No application-specific proxy servers or API routes needed
 - Error handling displays appropriate fallback messages for any content loading failures
 - Simplified architecture with direct external fetching
@@ -207,23 +210,26 @@ function MyComponent() {
 Given the configuration:
 ```json
 {
-  "contentRootPath": "https://home.ndexbio.org/landing_page_content/v2_4_2",
+  "contentRootPath": "https://www.ndexbio.org/contentrootpath",
   "logos": "logos.json"
 }
 ```
 
 The logos will be fetched from:
-`https://home.ndexbio.org/landing_page_content/v2_4_2/logos.json`
+`https://www.ndexbio.org/contentrootpath/logos.json`
 
 And logo images will be loaded from:
-`https://home.ndexbio.org/landing_page_content/v2_4_2/logos/ucsd_logo_alt.png`
+`https://www.ndexbio.org/contentrootpath/logos/ucsd_logo_alt.png`
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Content Loading Issues**:
-   - Verify external content server (home.ndexbio.org) is accessible
+   - Verify the server at `contentRootPath` is reachable
+   - If the app is served from a different origin than `contentRootPath`
+     (for example `localhost`), the browser blocks the content for lack of CORS
+     headers
    - Check browser network tab for failed requests to contentRootPath URLs
    - Ensure content files exist at the specified URLs
 

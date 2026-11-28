@@ -19,6 +19,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   link, `#/access/group/{uuid}`, is not redirected because NDEx3 has no
   equivalent screen. See [docs/legacy-redirects.md](./docs/legacy-redirects.md).
 
+### Changed
+
+- The footer's "License, Terms & Privacy Policy" link now opens
+  <https://ndexbio.github.io/legal/>. It used to open
+  `home.ndexbio.org/disclaimer-license/`, which is being retired.
+- FAQ links to the user guides now open the guides inside NDEx3 (under
+  `/docs/`) instead of pages on `home.ndexbio.org`. The FAQ also no longer
+  mentions groups, and now says search finds networks, folders and shortcuts.
+
+### Removed
+
+- The FAQ's "Can I create my own workgroups?" question. NDEx3 has no groups:
+  the migration turned each group into a folder. See
+  [docs/legacy-redirects.md](./docs/legacy-redirects.md).
+
 ## [3.0.1] - 2026-09-14
 
 ### Added
