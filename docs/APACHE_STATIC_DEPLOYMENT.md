@@ -88,8 +88,9 @@ section. Everything else is the existing static-file setup.
 **Omitted from the excerpt**, because this app neither affects nor depends on
 them: the TLS directives, the `*:80` vhost that redirects to HTTPS, the
 `ProxyPass` rules for `/rest/`, `/v2/`, `/v3/`, `/auth2/`, `/integratedsearch/`
-and `/edgefilter/`, and the `Alias`es for `/viewer`, `/iquery`, `/cytoscape` and
-`/contentrootpath`.
+and `/edgefilter/`, and the `Alias`es for `/viewer`, `/iquery` and `/cytoscape`.
+The `Alias /contentrootpath` is omitted too, but the app does depend on it for
+its home-page content; see [Content Fetching](#content-fetching).
 
 Those last two groups matter for one reason worth knowing: Apache resolves
 proxies and aliases **before** `DocumentRoot`, so those paths never reach the
@@ -224,11 +225,18 @@ client-side.
 ## Content Fetching
 
 The app fetches home-page content from whatever `uiContent.contentRootPath` in
-`config.json` points at. Today that is an external host
-(`home.ndexbio.org/landing_page_content/...`), which serves the files with
-permissive CORS, so no proxy configuration is needed. The vhost also carries an
-`Alias /contentrootpath` for serving that content locally instead — switching to
-it is purely a `config.json` change.
+`config.json` points at. In production that is
+`https://www.ndexbio.org/contentrootpath`, which the vhost's
+`Alias /contentrootpath` serves from the same host as the app. The requests are
+same-origin, so no CORS headers or proxy are needed.
+
+The content servers send no CORS headers, so an app served from any other
+origin cannot load their content. That includes `npm run dev` on `localhost`,
+whose committed `public/config.json` points at
+`https://dev1.ndexbio.org/contentrootpath`. The browser blocks the requests and
+the home page renders with its content areas empty. To see the content there,
+point `contentRootPath` at a copy served from the same origin, or have the
+content server send an `Access-Control-Allow-Origin` header for that origin.
 
 ## File Structure
 

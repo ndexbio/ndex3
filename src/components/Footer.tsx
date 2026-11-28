@@ -22,7 +22,7 @@ export function Footer() {
           <p className="leading-5 mt-2 text-foreground">
             NDEx{' '}
             <Link
-              href="https://home.ndexbio.org/disclaimer-license/"
+              href="https://ndexbio.github.io/legal/"
               className="text-primary hover:underline"
             >
               License, Terms &amp; Privacy Policy

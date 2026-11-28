@@ -9,7 +9,7 @@ The home page content is configured through remote JSON files hosted under a com
 ```json
 {
   "uiContent": {
-    "contentRootPath": "https://home.ndexbio.org/landing_page_content/v2_4_2",
+    "contentRootPath": "https://www.ndexbio.org/contentrootpath",
     "featuredContent": "featured_content.json",
     "featuredNetwork": "featured_networks.json",
     "mainContent": "main.json", 
@@ -71,9 +71,12 @@ The home page content is configured through remote JSON files hosted under a com
 
 ## Content Fetching
 
-**Both Development and Production**: Direct browser-to-external-server fetching
+**Both Development and Production**: Direct browser-to-content-server fetching
 - Content is fetched directly from `{contentRootPath}/{filename}` URLs
-- CORS is handled by the external content server (home.ndexbio.org)
+- The content servers send no CORS headers, so the app must be served from the
+  same origin as `contentRootPath`, as it is in production. From `localhost` the
+  browser blocks the content; see
+  [APACHE_STATIC_DEPLOYMENT.md](./APACHE_STATIC_DEPLOYMENT.md#content-fetching)
 - No application-specific proxy servers or API routes needed
 - Error handling displays appropriate fallback messages for any content loading failures
 - Simplified architecture with direct external fetching
